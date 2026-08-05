@@ -1,0 +1,22 @@
+# EIGER Backend — Task List
+
+- [x] **Tahap 1** — Install Laravel 11 & konfigurasi SQLite
+- [x] **Tahap 2** — Buat Migration (5 tabel)
+- [x] **Tahap 3** — Buat Model & Relationship
+- [x] **Tahap 4** — Buat Factory
+- [x] **Tahap 5** — Buat Seeder
+- [x] **Tahap 6** — Jalankan Migration & Seeder
+- [x] **Tahap 7** — Buat Form Request Validation
+- [x] **Tahap 8** — Buat API Resources
+- [x] **Tahap 9** — Buat API Controllers
+- [x] **Tahap 10** — Buat API Routes
+- [x] **Tahap 11** — Buat Blade Admin Layout
+- [x] **Tahap 12** — Buat Dashboard
+- [x] **Tahap 13** — Buat CRUD Products (Admin)
+- [x] **Tahap 14** — Buat CRUD Zones (Admin)
+- [x] **Tahap 15** — Buat CRUD RFID Tags (Admin)
+- [x] **Tahap 16** — Buat Edit Print Rules (Admin)
+- [x] **Tahap 17** — Buat Sync Logs (Admin, Read-Only)
+- [x] **Tahap 18** — Buat CareSyncService
+- [x] **Tahap 19** — Buat Artisan Command care:sync
+- [x] **Tahap 20** — Testing semua endpoint
