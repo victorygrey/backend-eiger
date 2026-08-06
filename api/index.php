@@ -15,4 +15,11 @@ foreach ($tmpDirs as $dir) {
     }
 }
 
+foreach ($_SERVER as $key => $value) {
+    if (is_string($value) && getenv($key) === false) {
+        putenv("{$key}={$value}");
+        $_ENV[$key] = $value;
+    }
+}
+
 require __DIR__ . '/../public/index.php';
