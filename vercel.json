@@ -30,12 +30,6 @@
         "VIEW_COMPILED_PATH": "/tmp/storage/framework/views",
         "CACHE_STORE": "array",
         "LOG_CHANNEL": "stderr",
-        "SESSION_DRIVER": "cookie",
-        "DB_CONNECTION": "pgsql",
-        "DB_HOST": "db.eorjlfwwaflwaffimyjb.supabase.co",
-        "DB_PORT": "5432",
-        "DB_DATABASE": "postgres",
-        "DB_USERNAME": "postgres",
-        "DB_SSLMODE": "require"
+        "SESSION_DRIVER": "cookie"
     }
 }

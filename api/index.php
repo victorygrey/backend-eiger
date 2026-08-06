@@ -1,6 +1,5 @@
 <?php
 
-// Forward Vercel requests to public index.php after preparing /tmp storage directories
 $tmpDirs = [
     '/tmp/storage/framework/views',
     '/tmp/storage/framework/sessions',
@@ -27,6 +26,25 @@ foreach ($_SERVER as $key => $value) {
         putenv("{$key}={$value}");
         $_ENV[$key] = $value;
     }
+}
+
+if ($databaseUrl = getenv('DATABASE_URL')) {
+    $url = parse_url($databaseUrl);
+    putenv('DB_CONNECTION=pgsql');
+    putenv('DB_HOST=' . ($url['host'] ?? ''));
+    putenv('DB_PORT=' . ($url['port'] ?? '5432'));
+    putenv('DB_DATABASE=' . trim($url['path'] ?? '', '/'));
+    putenv('DB_USERNAME=' . ($url['user'] ?? ''));
+    putenv('DB_PASSWORD=' . ($url['pass'] ?? ''));
+    putenv('DB_SSLMODE=require');
+    
+    $_ENV['DB_CONNECTION'] = 'pgsql';
+    $_ENV['DB_HOST'] = $url['host'] ?? '';
+    $_ENV['DB_PORT'] = $url['port'] ?? '5432';
+    $_ENV['DB_DATABASE'] = trim($url['path'] ?? '', '/');
+    $_ENV['DB_USERNAME'] = $url['user'] ?? '';
+    $_ENV['DB_PASSWORD'] = $url['pass'] ?? '';
+    $_ENV['DB_SSLMODE'] = 'require';
 }
 
 require __DIR__ . '/../public/index.php';
