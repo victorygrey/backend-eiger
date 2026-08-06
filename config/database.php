@@ -2,6 +2,18 @@
 
 use Illuminate\Support\Str;
 
+$databaseUrl = env('DATABASE_URL');
+if ($databaseUrl) {
+    $url = parse_url($databaseUrl);
+    $_SERVER['DB_CONNECTION'] = 'pgsql';
+    $_SERVER['DB_HOST'] = $url['host'] ?? '';
+    $_SERVER['DB_PORT'] = $url['port'] ?? '5432';
+    $_SERVER['DB_DATABASE'] = trim($url['path'] ?? '', '/');
+    $_SERVER['DB_USERNAME'] = $url['user'] ?? '';
+    $_SERVER['DB_PASSWORD'] = $url['pass'] ?? '';
+    $_SERVER['DB_SSLMODE'] = 'require';
+}
+
 return [
 
     /*
@@ -16,7 +28,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'pgsql'),
 
     /*
     |--------------------------------------------------------------------------

@@ -22,30 +22,36 @@ $_ENV['APP_PACKAGES_CACHE'] = '/tmp/storage/bootstrap/cache/packages.php';
 $_ENV['APP_SERVICES_CACHE'] = '/tmp/storage/bootstrap/cache/services.php';
 
 foreach ($_SERVER as $key => $value) {
-    if (is_string($value) && getenv($key) === false) {
+    if (is_string($value)) {
         putenv("{$key}={$value}");
         $_ENV[$key] = $value;
     }
 }
 
-putenv('DB_CONNECTION=pgsql');
-putenv('DB_SSLMODE=require');
+$databaseUrl = $_SERVER['DATABASE_URL'] ?? getenv('DATABASE_URL') ?: false;
 
-if ($databaseUrl = getenv('DATABASE_URL')) {
+if ($databaseUrl) {
     $url = parse_url($databaseUrl);
     if ($url && isset($url['host'])) {
-        putenv('DB_HOST=' . $url['host']);
-        putenv('DB_PORT=' . ($url['port'] ?? '5432'));
-        putenv('DB_DATABASE=' . trim($url['path'] ?? '', '/'));
-        putenv('DB_USERNAME=' . ($url['user'] ?? ''));
-        putenv('DB_PASSWORD=' . ($url['pass'] ?? ''));
-        
-        $_ENV['DB_HOST'] = $url['host'];
-        $_ENV['DB_PORT'] = $url['port'] ?? '5432';
-        $_ENV['DB_DATABASE'] = trim($url['path'] ?? '', '/');
-        $_ENV['DB_USERNAME'] = $url['user'] ?? '';
-        $_ENV['DB_PASSWORD'] = $url['pass'] ?? '';
+        $dbVars = [
+            'DB_CONNECTION' => 'pgsql',
+            'DB_HOST' => $url['host'],
+            'DB_PORT' => $url['port'] ?? '5432',
+            'DB_DATABASE' => trim($url['path'] ?? '', '/'),
+            'DB_USERNAME' => $url['user'] ?? '',
+            'DB_PASSWORD' => $url['pass'] ?? '',
+            'DB_SSLMODE' => 'require',
+        ];
+        foreach ($dbVars as $key => $value) {
+            putenv("{$key}={$value}");
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
     }
+} elseif (!getenv('DB_HOST')) {
+    putenv('DB_CONNECTION=pgsql');
+    $_ENV['DB_CONNECTION'] = 'pgsql';
+    $_SERVER['DB_CONNECTION'] = 'pgsql';
 }
 
 require __DIR__ . '/../public/index.php';
