@@ -15,6 +15,13 @@ foreach ($tmpDirs as $dir) {
     }
 }
 
+putenv('VIEW_COMPILED_PATH=/tmp/storage/framework/views');
+putenv('APP_PACKAGES_CACHE=/tmp/storage/bootstrap/cache/packages.php');
+putenv('APP_SERVICES_CACHE=/tmp/storage/bootstrap/cache/services.php');
+$_ENV['VIEW_COMPILED_PATH'] = '/tmp/storage/framework/views';
+$_ENV['APP_PACKAGES_CACHE'] = '/tmp/storage/bootstrap/cache/packages.php';
+$_ENV['APP_SERVICES_CACHE'] = '/tmp/storage/bootstrap/cache/services.php';
+
 foreach ($_SERVER as $key => $value) {
     if (is_string($value) && getenv($key) === false) {
         putenv("{$key}={$value}");
