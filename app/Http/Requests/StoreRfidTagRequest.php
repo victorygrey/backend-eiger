@@ -17,8 +17,20 @@ class StoreRfidTagRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'uid'        => ['required', 'string', 'max:100', 'unique:rfid_tags,uid'],
-            'product_id' => ['required', 'integer', 'exists:products,id', 'unique:rfid_tags,product_id'],
+            'uid'        => ['required', 'string', 'max:100', 'regex:/\A[0-9A-Fa-f]+\z/', 'unique:rfid_tags,uid'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id', 'unique:rfid_tags,product_id'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('uid')) {
+            $this->merge(['uid' => $this->canonicalUid($this->input('uid'))]);
+        }
+    }
+
+    private function canonicalUid(mixed $uid): string
+    {
+        return strtoupper(str_replace(['-', ':', ' '], '', trim((string) $uid)));
     }
 }

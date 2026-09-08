@@ -63,7 +63,13 @@
                                     <code class="fw-semibold">{{ $tag->uid }}</code>
                                 </div>
                             </td>
-                            <td class="fw-semibold">{{ $tag->product->name ?? '—' }}</td>
+                            <td class="fw-semibold">
+                                @if($tag->product)
+                                    {{ $tag->product->name }}
+                                @else
+                                    <span class="badge bg-warning text-dark">Belum dipetakan</span>
+                                @endif
+                            </td>
                             <td><span class="badge-soft badge-gray-soft">{{ $tag->product->sku ?? '—' }}</span></td>
                             <td class="text-muted small"><i class="bi bi-calendar3 me-1"></i>{{ $tag->created_at->format('d M Y') }}</td>
                             <td class="pe-3 text-end">

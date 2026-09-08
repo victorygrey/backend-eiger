@@ -32,9 +32,9 @@
                     @error('uid') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Produk <span class="text-danger">*</span></label>
-                    <select name="product_id" class="form-select @error('product_id') is-invalid @enderror" required>
-                        <option value="">-- Pilih Produk --</option>
+                    <label class="form-label">Produk <span class="text-muted">(opsional)</span></label>
+                    <select name="product_id" class="form-select @error('product_id') is-invalid @enderror">
+                        <option value="">-- Belum dipetakan --</option>
                         @foreach($products as $product)
                             <option value="{{ $product->id }}" {{ old('product_id', $rfidTag->product_id) == $product->id ? 'selected' : '' }}>
                                 {{ $product->sku }} — {{ $product->name }}

@@ -24,6 +24,8 @@ Route::apiResource('products', ProductController::class);
 Route::apiResource('zones', ZoneController::class);
 
 // RFID Tags
+Route::post('rfid-tags/resolve', [RfidTagController::class, 'resolve']);
+Route::post('rfid-tags/batch', [RfidTagController::class, 'batchStore']);
 Route::apiResource('rfid-tags', RfidTagController::class);
 
 // Print Rules (index + update only — no create/delete)

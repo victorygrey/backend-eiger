@@ -56,9 +56,11 @@ Content-Type: application/json
 | 13 | `GET` | `/api/rfid-tags/{id}` | RFID Tags |
 | 14 | `PUT` | `/api/rfid-tags/{id}` | RFID Tags |
 | 15 | `DELETE` | `/api/rfid-tags/{id}` | RFID Tags |
-| 16 | `GET` | `/api/print-rules` | Print Rules |
-| 17 | `PUT` | `/api/print-rules/{id}` | Print Rules |
-| 18 | `POST` | `/api/sync/care` | Sync CARE |
+| 16 | `POST` | `/api/rfid-tags/resolve` | Resolve RFID Tags |
+| 17 | `POST` | `/api/rfid-tags/batch` | Batch-register RFID Tags |
+| 18 | `GET` | `/api/print-rules` | Print Rules |
+| 19 | `PUT` | `/api/print-rules/{id}` | Print Rules |
+| 20 | `POST` | `/api/sync/care` | Sync CARE |
 
 ---
 
@@ -219,7 +221,7 @@ curl -X GET "http://127.0.0.1:8000/api/products/1" \
     "is_featured": true,
     "is_discontinued": false,
     "zone": { "id": 1, "name": "Zona Tas & Aksesoris" },
-    "rfid_tag": { "id": 1, "uid": "E280-1170-AF2B-0B00" }
+        "rfid_tag": { "id": 1, "uid": "E2801170AF2B0B00" }
   }
 }
 ```
@@ -383,7 +385,7 @@ curl -X GET "http://127.0.0.1:8000/api/rfid-tags?page=2" \
   "data": [
     {
       "id": 1,
-      "uid": "E280-1170-AF2B-0B00",
+      "uid": "E2801170AF2B0B00",
       "product": {
         "id": 1,
         "sku": "EGR-9473",
@@ -403,14 +405,14 @@ curl -X GET "http://127.0.0.1:8000/api/rfid-tags?page=2" \
 | Field | Tipe | Wajib | Validasi |
 |---|---|---|---|
 | `uid` | string | ✅ | required, max 100, **unique** di tabel `rfid_tags` |
-| `product_id` | integer | ✅ | required, harus ada di tabel `products`, **unique** (1 produk hanya 1 tag) |
+| `product_id` | integer | ❌ | nullable, jika diisi harus ada di tabel `products`, **unique** (1 produk hanya 1 tag) |
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/rfid-tags" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{
-    "uid": "E280-1170-AF2B-0B01",
+    "uid": "E2801170AF2B0B01",
     "product_id": 1
   }'
 ```
@@ -433,7 +435,7 @@ curl -X PUT "http://127.0.0.1:8000/api/rfid-tags/1" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{
-    "uid": "E280-1170-AF2B-0B99",
+    "uid": "E2801170AF2B0B99",
     "product_id": 2
   }'
 ```
@@ -446,6 +448,30 @@ curl -X PUT "http://127.0.0.1:8000/api/rfid-tags/1" \
 curl -X DELETE "http://127.0.0.1:8000/api/rfid-tags/1" \
   -H "Accept: application/json"
 ```
+
+### 3.6 `POST /api/rfid-tags/resolve`
+
+Memeriksa beberapa UID tanpa membuat data. Dipakai aplikasi RFID pada Read mode dan saat memeriksa tag baru.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/rfid-tags/resolve" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  -d '{"uids":["E20047103510602111380111","E200000000000002"]}'
+```
+
+Setiap elemen respons berisi `exists` dan `tag`; `tag.product` bernilai `null` jika tag sudah terdaftar tetapi belum dipetakan.
+
+### 3.7 `POST /api/rfid-tags/batch`
+
+Mendaftarkan UID yang belum ada sebagai tag tanpa produk. Aman dipanggil ulang: tag yang sudah ada tidak diubah dan mapping produknya tetap dipertahankan.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/rfid-tags/batch" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  -d '{"uids":["E20047103510602111380111","E200000000000002"]}'
+```
+
+Respons berisi `created_count`, `existing_count`, `created`, dan `existing`.
 
 ---
 
@@ -615,7 +641,7 @@ curl -X POST "http://127.0.0.1:8000/api/products" \
 # 2) Attach RFID tag ke produk tersebut
 curl -X POST "http://127.0.0.1:8000/api/rfid-tags" \
   -H "Accept: application/json" -H "Content-Type: application/json" \
-  -d '{"uid":"UID-TEST-001","product_id":<ID>}'
+  -d '{"uid":"E20047103510602111380111","product_id":<ID>}'
 
 # 3) Lihat produk → field rfid_tag harus muncul
 curl -X GET "http://127.0.0.1:8000/api/products/<ID>" \
