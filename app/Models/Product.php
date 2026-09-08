@@ -27,6 +27,7 @@ class Product extends Model
         'description',
         'is_featured',
         'is_discontinued',
+        'pim_media',
     ];
 
     /**
@@ -35,6 +36,7 @@ class Product extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'pim_media'       => 'array',
         'price'           => 'decimal:2',
         'stock'           => 'integer',
         'is_featured'     => 'boolean',

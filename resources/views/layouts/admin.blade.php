@@ -545,6 +545,9 @@
             </a>
 
             <div class="nav-section-title">Sistem</div>
+            <a href="{{ route('admin.pim.index') }}" class="nav-link {{ request()->routeIs('admin.pim.*') ? 'active' : '' }}">
+                <i class="bi bi-cloud-arrow-down"></i> PIM Integration
+            </a>
             <a href="{{ route('admin.sync-logs.index') }}"
                class="nav-link {{ request()->routeIs('admin.sync-logs.*') ? 'active' : '' }}">
                 <i class="bi bi-arrow-repeat"></i>

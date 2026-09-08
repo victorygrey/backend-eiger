@@ -14,6 +14,10 @@ Route::get('/', function () {
 
 // ====== Admin Console ======
 Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/pim', [\App\Http\Controllers\Admin\PimController::class, 'index'])->name('pim.index');
+    Route::post('/pim/scan', [\App\Http\Controllers\Admin\PimController::class, 'scan'])->name('pim.scan');
+    Route::get('/pim/qa', [\App\Http\Controllers\Admin\PimController::class, 'qa'])->name('pim.qa');
+    Route::match(['get', 'post'], '/pim/{endpoint}', [\App\Http\Controllers\Admin\PimController::class, 'proxy'])->name('pim.proxy');
     Route::get('/', fn () => redirect()->route('admin.dashboard'));
 
     // Dashboard

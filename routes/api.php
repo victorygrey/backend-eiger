@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Products
+Route::get('pim-media/{filename}', [\App\Http\Controllers\Api\PimMediaController::class, 'show']);
+Route::post('integrations/pim/product', [\App\Http\Controllers\Api\PimProductController::class, 'store']);
 Route::apiResource('products', ProductController::class);
 
 // Zones

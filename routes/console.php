@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote')->hourly();
 
 Schedule::command('care:sync --source=scheduler')->everyThirtyMinutes();
+Schedule::command('pim:scan')->everyMinute()->withoutOverlapping()->when(fn () => config('pim.scan_enabled'));
