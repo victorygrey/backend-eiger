@@ -107,10 +107,14 @@ class TabletController extends Controller
         }
 
         DB::transaction(function () use ($tablet, $featured, $recommendationIds) {
+            // Update the featured product
             $tablet->forceFill([
                 'featured_product_id' => $featured->id,
-                'config_version' => $tablet->config_version + 1,
             ])->save();
+            // Increment config_version atomically
+            $tablet->increment('config_version');
+            // Refresh the model to have the latest config_version value
+            $tablet->refresh();
             $this->syncRecommendations($tablet, $recommendationIds);
             $this->createVersionSnapshot($tablet);
         });
