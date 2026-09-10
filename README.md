@@ -19,6 +19,17 @@ Laravel is a web application framework with expressive, elegant syntax. We belie
 - [Robust background job processing](https://laravel.com/docs/queues).
 - [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
 
+## Interactive tablet configuration
+
+Run the migrations, then open `/admin/tablets` to create a tablet, choose one featured product, order its recommendations, and set its one-time activation code.
+
+```sh
+php artisan migrate
+php artisan db:seed --class=TabletSeeder
+```
+
+The display app consumes the public device endpoints under `/api/tablets`. Product data and PIM media continue to come from the existing `products` table; tablet configuration only stores references to those products. Every update creates an immutable configuration snapshot, and an earlier snapshot can be restored from the tablet edit page.
+
 Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
 ## Learning Laravel

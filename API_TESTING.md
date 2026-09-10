@@ -61,6 +61,30 @@ Content-Type: application/json
 | 18 | `GET` | `/api/print-rules` | Print Rules |
 | 19 | `PUT` | `/api/print-rules/{id}` | Print Rules |
 | 20 | `POST` | `/api/sync/care` | Sync CARE |
+| 21 | `POST` | `/api/tablets/activate` | Tablet Display |
+| 22 | `GET` | `/api/tablets/{slug}/display` | Tablet Display |
+| 23 | `POST` | `/api/tablets/{slug}/heartbeat` | Tablet Display |
+
+## Interactive Tablet Display
+
+Konfigurasi tablet dikelola dari `/admin/tablets`. Setiap perangkat memiliki satu featured product dan recommendation terurut yang merujuk ke tabel `products` yang sama.
+
+```bash
+# Aktivasi satu kali pada perangkat
+curl -X POST "http://127.0.0.1:8000/api/tablets/activate" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  -d '{"slug":"lobby-01","activation_code":"LOBBY-01"}'
+
+# Ambil konfigurasi (ganti TOKEN dari respons aktivasi)
+curl "http://127.0.0.1:8000/api/tablets/lobby-01/display" \
+  -H "Accept: application/json" -H "Authorization: Bearer TOKEN"
+
+# Laporkan health perangkat
+curl -X POST "http://127.0.0.1:8000/api/tablets/lobby-01/heartbeat" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"version":1,"media_status":"ready"}'
+```
 
 ---
 
