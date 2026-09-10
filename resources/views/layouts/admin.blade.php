@@ -538,6 +538,11 @@
             </a>
 
             <div class="nav-section-title">Konfigurasi</div>
+            <a href="{{ route('admin.tablets.index') }}"
+               class="nav-link {{ request()->routeIs('admin.tablets.*') ? 'active' : '' }}">
+                <i class="bi bi-tablet-landscape-fill"></i>
+                <span>Interactive Tablets</span>
+            </a>
             <a href="{{ route('admin.print-rules.index') }}"
                class="nav-link {{ request()->routeIs('admin.print-rules.*') ? 'active' : '' }}">
                 <i class="bi bi-printer-fill"></i>

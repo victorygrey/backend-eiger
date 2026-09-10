@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RfidTagController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\Api\ZoneController;
+use App\Http\Controllers\Api\TabletDisplayController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -21,6 +22,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('pim-media/{filename}', [\App\Http\Controllers\Api\PimMediaController::class, 'show']);
 Route::post('integrations/pim/product', [\App\Http\Controllers\Api\PimProductController::class, 'store']);
 Route::apiResource('products', ProductController::class);
+
+// Interactive tablet devices
+Route::post('tablets/activate', [TabletDisplayController::class, 'activate']);
+Route::get('tablets/{tablet:slug}/display', [TabletDisplayController::class, 'show']);
+Route::post('tablets/{tablet:slug}/heartbeat', [TabletDisplayController::class, 'heartbeat']);
 
 // Zones
 Route::apiResource('zones', ZoneController::class);

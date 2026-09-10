@@ -1,7 +1,7 @@
 # Database Documentation — EIGER Digital Store Backend
 
 Skema database (relasional, MySQL-compatible) untuk backend EIGER Digital Store.
-Berisi 8 tabel bisnis + tabel bawaan framework Laravel.
+Termasuk konfigurasi display untuk setiap interactive tablet.
 
 ## ER Diagram
 
@@ -9,6 +9,10 @@ Berisi 8 tabel bisnis + tabel bawaan framework Laravel.
 erDiagram
     ZONES ||--o{ PRODUCTS : "memiliki"
     PRODUCTS ||--o{ RFID_TAGS : "ditautkan ke"
+    PRODUCTS ||--o{ TABLETS : "featured pada"
+    TABLETS ||--o{ TABLET_RECOMMENDATIONS : "memiliki"
+    TABLETS ||--o{ TABLET_CONFIG_VERSIONS : "merekam"
+    PRODUCTS ||--o{ TABLET_RECOMMENDATIONS : "direkomendasikan"
     USERS ||--o{ SESSIONS : "sesi login"
     PRODUCTS {
         bigint id PK
@@ -88,6 +92,38 @@ erDiagram
         longText payload
         integer last_activity
     }
+    TABLETS {
+        bigint id PK
+        string slug UK
+        string name
+        string location
+        bigint featured_product_id FK
+        string activation_code_hash
+        string device_token_hash
+        bigint config_version
+        timestamp last_seen_at
+        string media_status
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+    TABLET_RECOMMENDATIONS {
+        bigint id PK
+        bigint tablet_id FK
+        bigint product_id FK
+        integer sort_order
+        timestamp created_at
+        timestamp updated_at
+    }
+    TABLET_CONFIG_VERSIONS {
+        bigint id PK
+        bigint tablet_id FK
+        bigint version_number
+        bigint featured_product_id FK
+        json recommendation_product_ids
+        timestamp created_at
+        timestamp updated_at
+    }
 ```
 
 ## Ringkasan Tabel
@@ -102,6 +138,9 @@ erDiagram
 | `print_rules` | Aturan/kondisi fitur Print Photo | `id`, `minimum_transaction`, `require_membership`, `enabled` |
 | `sync_logs` | Riwayat sinkronisasi dari sistem eksternal (CARE, PIM, Loyalty/EAC) | `id`, `source`, `status`, `message`, `synced_at` |
 | `pim_imports` | Log batch import dari PIM | `id`, `batch_id` (unik), `checksum`, `status`, `message`, `attempts` |
+| `tablets` | Konfigurasi dan status setiap interactive tablet | `slug`, `featured_product_id`, `config_version`, `last_seen_at`, `is_active` |
+| `tablet_recommendations` | Daftar rekomendasi berurutan per tablet | `tablet_id`, `product_id`, `sort_order` |
+| `tablet_config_versions` | Snapshot konfigurasi untuk audit dan rollback | `tablet_id`, `version_number`, `featured_product_id`, `recommendation_product_ids` |
 
 ### Relasi
 
@@ -109,6 +148,9 @@ erDiagram
 |--------|------------|
 | `zones` 1 — N `products` | Satu zone memiliki banyak produk. `products.zone_id` nullable, `nullOnDelete` (produk tetap ada jika zone dihapus). |
 | `products` 1 — N `rfid_tags` | Satu produk memiliki banyak tag RFID. `rfid_tags.product_id` nullable, `nullOnDelete` (tag tetap ada jika produk dihapus). |
+| `products` 1 — N `tablets` | Satu produk dapat menjadi featured item pada beberapa tablet. |
+| `tablets` N — N `products` | Setiap tablet mempunyai rekomendasi berurutan melalui `tablet_recommendations`. |
+| `tablets` 1 — N `tablet_config_versions` | Setiap publikasi/rollback menyimpan snapshot konfigurasi yang immutable. |
 | `users` 1 — N `sessions` | Satu user memiliki banyak sesi login. |
 
 ### Tabel Bawaan Laravel
@@ -138,3 +180,4 @@ erDiagram
 9. `2026_09_08_000001_make_product_id_nullable_on_rfid_tags_table`
 10. `2026_09_08_190000_add_pim_folder_imports` (pim_imports + kolom PIM produk)
 11. `2026_09_09_120000_add_pim_payload_to_products`
+12. `2026_09_10_000000_create_tablets_table` (tablets + tablet_recommendations)

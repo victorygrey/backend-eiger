@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\RfidTagController;
 use App\Http\Controllers\Admin\SyncLogController;
 use App\Http\Controllers\Admin\ZoneController;
+use App\Http\Controllers\Admin\TabletController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -30,6 +31,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
     Route::put('/products/{product}',      [ProductController::class, 'update'])->name('products.update');
     Route::delete('/products/{product}',   [ProductController::class, 'destroy'])->name('products.destroy');
+
+    // Interactive Tablets
+    Route::get('/tablets',                  [TabletController::class, 'index'])->name('tablets.index');
+    Route::get('/tablets/create',           [TabletController::class, 'create'])->name('tablets.create');
+    Route::post('/tablets',                 [TabletController::class, 'store'])->name('tablets.store');
+    Route::get('/tablets/{tablet}/edit',    [TabletController::class, 'edit'])->name('tablets.edit');
+    Route::put('/tablets/{tablet}',         [TabletController::class, 'update'])->name('tablets.update');
+    Route::post('/tablets/{tablet}/versions/{version}/rollback', [TabletController::class, 'rollback'])->name('tablets.rollback');
+    Route::delete('/tablets/{tablet}',      [TabletController::class, 'destroy'])->name('tablets.destroy');
 
     // Zones
     Route::get('/zones',                [ZoneController::class, 'index'])->name('zones.index');

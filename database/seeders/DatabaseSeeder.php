@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             RfidTagSeeder::class,
             PrintRuleSeeder::class,
             SyncLogSeeder::class,
+            TabletSeeder::class,
         ]);
     }
 }
