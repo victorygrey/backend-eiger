@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Product extends Model
 {
@@ -61,5 +62,12 @@ class Product extends Model
     public function rfidTag(): HasOne
     {
         return $this->hasOne(RfidTag::class);
+    }
+
+    public function recommendedOnTablets(): BelongsToMany
+    {
+        return $this->belongsToMany(Tablet::class, 'tablet_recommendations')
+            ->withPivot('sort_order')
+            ->withTimestamps();
     }
 }
