@@ -28,7 +28,7 @@
                     </div>
                     <div class="col-12">
                         <label class="form-label">Featured Product</label>
-                        <select name="featured_product_id" class="form-select @error('featured_product_id') is-invalid @enderror" required>
+                        <select id="featured-product" name="featured_product_id" class="form-select @error('featured_product_id') is-invalid @enderror" required>
                             <option value="">-- Pilih produk utama --</option>
                             @foreach($products as $product)
                                 <option value="{{ $product->id }}" @selected((int) old('featured_product_id', $tablet->featured_product_id ?? 0) === $product->id)>
@@ -98,6 +98,21 @@
 @push('scripts')
 <script>
     const recommendationSelect = document.getElementById('recommendations');
+    const featuredProductSelect = document.getElementById('featured-product');
+
+    const excludeFeaturedProduct = () => {
+        const featuredProductId = featuredProductSelect.value;
+        Array.from(recommendationSelect.options).forEach((option) => {
+            const isFeatured = featuredProductId !== '' && option.value === featuredProductId;
+            if (isFeatured) option.selected = false;
+            option.disabled = isFeatured;
+            option.hidden = isFeatured;
+        });
+    };
+
+    featuredProductSelect.addEventListener('change', excludeFeaturedProduct);
+    excludeFeaturedProduct();
+
     document.querySelectorAll('[data-move]').forEach((button) => {
         button.addEventListener('click', () => {
             const selected = Array.from(recommendationSelect.selectedOptions);
