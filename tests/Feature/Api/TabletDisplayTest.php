@@ -104,4 +104,29 @@ class TabletDisplayTest extends TestCase
             'version_number' => 3,
         ]);
     }
+
+    public function test_admin_can_save_valid_product_ids_from_the_tablet_form(): void
+    {
+        $featured = Product::factory()->create(['is_discontinued' => false]);
+        $recommendation = Product::factory()->create(['is_discontinued' => false]);
+
+        $this->post(route('admin.tablets.store'), [
+            'name' => 'Lobby Tablet 01',
+            'slug' => 'lobby-01',
+            'location' => 'Main Lobby',
+            'featured_product_id' => (string) $featured->id,
+            'recommendation_ids' => [(string) $recommendation->id],
+            'activation_code' => 'LOBBY-01',
+            'is_active' => '1',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('tablets', [
+            'slug' => 'lobby-01',
+            'featured_product_id' => $featured->id,
+        ]);
+        $this->assertDatabaseHas('tablet_recommendations', [
+            'product_id' => $recommendation->id,
+            'sort_order' => 0,
+        ]);
+    }
 }
