@@ -25,6 +25,8 @@ class ProductResource extends JsonResource
             'image'           => str_starts_with($this->image ?? '', '/api/pim-media/') ? url($this->image) : $this->image,
             'pim_media'       => collect($this->pim_media ?? [])->map(fn ($media) => array_merge($media, ['url' => url($media['url'])]))->all(),
             'material'        => $this->material,
+            'pim_payload'     => $this->pim_payload,
+            'pim_image_payload' => $this->pim_image_payload,
             'description'     => $this->description,
             'is_featured'     => $this->is_featured,
             'is_discontinued' => $this->is_discontinued,

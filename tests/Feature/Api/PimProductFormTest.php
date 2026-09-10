@@ -1,0 +1,25 @@
+<?php
+namespace Tests\Feature\Api;
+use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use App\Models\Product;
+class PimProductFormTest extends TestCase
+{
+    use RefreshDatabase;
+    private function payload(): array { return ['generic'=>'P1','name'=>'Bag','mainImage'=>'http://pim.test/media/main.jpg','weight'=>120,'variant'=>[['sku'=>'P1','name'=>'Bag','color'=>'BLACK','size'=>'22L','moq'=>'1','ecmsku'=>'P1','customAttributes'=>[]]],'customAtributes'=>[['attributeCode'=>'gender','value'=>'Pria']],'media'=>[],'technology'=>[],'activity'=>[],'specification'=>[]]; }
+    public function test_lookup_reads_both_payloads_without_creating_products(): void {
+        config(['pim.url'=>'http://pim.test']);
+        Http::fake(['*/product-payload'=>Http::response($this->payload()),'*/image-payload'=>Http::response(['generic'=>[],'variant'=>[]])]);
+        $this->getJson('/admin/products/pim-lookup?code=P1')->assertOk()->assertJsonPath('product.generic','P1');
+        $this->assertDatabaseCount('products',0);Http::assertSentCount(2);
+    }
+    public function test_form_persists_complete_payload_and_rejects_foreign_sku(): void {
+        config(['pim.copy_http_media'=>false]);
+        $data=['sku'=>'P1','name'=>'Bag','price'=>99,'pim_payload_json'=>json_encode($this->payload()),'pim_image_payload_json'=>json_encode(['generic'=>[],'variant'=>[]])];
+        $this->post('/admin/products',$data)->assertRedirect('/admin/products');
+        $p=Product::first();$this->assertSame('P1',$p->pim_payload['generic']);$this->assertSame('Pria',$p->pim_payload['customAtributes'][0]['value']);
+        $data['sku']='WRONG';$this->postJson('/admin/products',$data)->assertUnprocessable()->assertJsonValidationErrors('sku');
+        $this->assertDatabaseCount('products',1);
+    }
+}

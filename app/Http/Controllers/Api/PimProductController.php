@@ -1,55 +1,43 @@
 <?php
-
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\SyncLog;
+use App\Services\PimPayload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PimProductController extends Controller
 {
-    public function store(Request $request)
+    public function store(Request $request, PimPayload $service)
     {
         abort_unless(config('pim.legacy_http_enabled'), 404);
         $token = config('pim.inbound_token');
         abort_unless(is_string($token) && $token !== '' && hash_equals($token, $request->bearerToken() ?? ''), 401);
-        $data = $request->validate([
-            'product' => 'required|array',
-            'product.generic' => 'required|string|max:255',
-            'product.name' => 'required|string|max:255',
-            'product.mainImage' => 'nullable|url|max:255',
-            'product.customAttributes' => 'sometimes|array',
-            'product.customAttributes.*.attributeCode' => 'required|string',
-            'product.customAttributes.*.value' => 'nullable|string',
-            'product.variant' => 'required|array|min:1',
-            'product.variant.*.sku' => 'required|string|max:255|distinct',
-            'product.variant.*.name' => 'required|string|max:255',
-            'image' => 'required|array',
-            'image.variant' => 'sometimes|array',
-            'image.variant.*.sku' => 'required|string',
-            'image.variant.*.image' => 'required|array',
-            'image.variant.*.image.*.type' => 'required|string',
-            'image.variant.*.image.*.url' => 'required|url|max:255',
-        ]);
+        $data = $service->validate($request->only('product', 'image'));
         if ($request->header('X-Simulate-Atom-Failure') === 'true') {
             return response()->json(['status' => false, 'message' => 'Simulated CMS integration failure'], 500);
         }
-        $count = DB::transaction(function () use ($data) {
+        // Finish all downloads before the transaction; a failed image never partially updates the catalog.
+        $media = [];
+        foreach ($data['product']['variant'] as $variant) {
+            $media[$variant['sku']] = $service->mediaValues($data['product'], $data['image'], $variant['sku']);
+        }
+        $count = DB::transaction(function () use ($data, $media) {
             $detail = $data['product'];
-            $attributes = collect($detail['customAttributes'] ?? [])->pluck('value', 'attributeCode');
-            $images = collect($data['image']['variant'] ?? [])->keyBy('sku');
+            $attributes = collect($detail['customAtributes'])->pluck('value', 'attributeCode');
             foreach ($detail['variant'] as $variant) {
-                $values = ['name' => $variant['name']];
-                $image = collect($images->get($variant['sku'])['image'] ?? [])->firstWhere('type', 'main_image');
-                if ($image || array_key_exists('mainImage', $detail)) {
-                    $values['image'] = $image['url'] ?? $detail['mainImage'];
-                }
+                $values = array_merge($media[$variant['sku']], [
+                    'name' => $variant['name'],
+                    'pim_payload' => $detail,
+                    'pim_image_payload' => $data['image'],
+                ]);
                 if ($attributes->has('long_description') || $attributes->has('short_description')) {
                     $values['description'] = $attributes->get('long_description') ?: $attributes->get('short_description');
                 }
-                // SKU variants are sellable products. CARE retains price/stock ownership.
+                if ($attributes->has('material')) $values['material'] = $attributes->get('material');
+                // CARE retains price, stock, zone and RFID ownership.
                 Product::updateOrCreate(['sku' => $variant['sku']], $values);
             }
             SyncLog::create([

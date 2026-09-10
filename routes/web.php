@@ -24,6 +24,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Products
+    Route::get('/products/pim-lookup', [ProductController::class, 'pimLookup'])->name('products.pim-lookup');
     Route::get('/products',                [ProductController::class, 'index'])->name('products.index');
     Route::get('/products/create',         [ProductController::class, 'create'])->name('products.create');
     Route::post('/products',               [ProductController::class, 'store'])->name('products.store');

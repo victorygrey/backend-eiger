@@ -1,6 +1,25 @@
-# Integrasi PIM melalui shared folder NAS
+# Integrasi PIM TrueNAS dan CMS
 
-Alur utama: **PIM simulator → file-drop NAS → PIM folder scanner → database CMS → Core API**. Tidak ada API call CMS ke PIM maupun callback PIM ke CMS dalam alur ini. PIM simulator dan shared folder boleh berjalan pada NAS yang sama.
+Konfigurasi aktif pada 10 September 2026 memakai **HTTP**: PIM TrueNAS `http://192.168.18.31:8001` memublikasikan `{product, image}` ke CMS `/api/integrations/pim/product`. Form CMS membaca `/api/articles/{code}/product-payload` dan `/image-payload` tanpa memicu publish. Shared folder di bagian berikut adalah pilihan alternatif, bukan pengiriman aktif TrueNAS.
+
+## Kontrak HTTP
+
+- `PIM_SIMULATOR_URL=http://192.168.18.31:8001`, `PIM_LEGACY_HTTP_ENABLED=true`, `PIM_COPY_HTTP_MEDIA=true`. Flag legacy masih menjadi sakelar endpoint penerima dan halaman QA.
+- Penerima memerlukan Bearer token yang sama dengan `PIM_INBOUND_TOKEN`; PIM menyimpannya sebagai `EIGER_ATOM_TOKEN`. Jangan menaruh token di dokumentasi.
+- Publish dan form memakai validasi yang sama. `customAtributes` mengikuti ejaan dokumen; input lama `customAttributes` dinormalisasi. Atribut varian tetap bernama `customAttributes`.
+- Setiap SKU menyimpan `pim_payload` dan `pim_image_payload` lengkap, termasuk berat, varian, media, teknologi, aktivitas dan spesifikasi. Core Product API mengembalikan kedua field ini. Nilai yang belum tersedia dari sumber tetap kosong atau nol, bukan contoh fiktif.
+- Harga, stok, zone, RFID dan flag CMS tidak diubah oleh publish. Form tetap mendukung pengeditan field CMS.
+- Gambar varian disalin ke `storage/app/pim-media`. Jika gambar utama varian tidak ada, gunakan gambar utama generic yang cocok, lalu `mainImage`. `image` dan `pim_media` menunjuk salinan lokal; kedua payload mempertahankan URL sumber.
+- URL hingga 8192 karakter diterima. Unduhan hanya dari direktori hash PIM atau host HTTPS persis yang terdaftar di `PIM_MEDIA_HOSTS`. Default mencakup `storage.eigeradventure.com` dan bucket S3 pada dokumen PIM. Redirect tidak diikuti; MIME, ukuran 10 MiB, dan checksum nama hash PIM diverifikasi. Media HTTP ini mendukung JPG/PNG/WebP; video file-drop tetap memakai scanner.
+- `media` tambahan seperti size chart dan gambar teknologi tersimpan di payload sumber, belum disalin oleh pengimpor galeri. URL bertanda tangan yang telah kedaluwarsa perlu payload baru dari PIM.
+- Semua unduhan selesai sebelum transaksi produk. Kegagalan salah satu media tidak memperbarui sebagian SKU.
+- HTML 404 pada endpoint lookup ditampilkan sebagai deployment PIM yang belum mendukung endpoint; JSON 404 berarti artikel tidak ditemukan.
+
+Tes: `php artisan test`. Tes kontrak mencakup payload lengkap, URL bertanda tangan, generic fallback, SKU tidak cocok, host tidak diizinkan, redirect, checksum dan kegagalan unduh.
+
+## Alternatif shared folder
+
+Alur alternatif: **PIM simulator → file-drop NAS → PIM folder scanner → database CMS → Core API**. Tidak ada HTTP call pada scanner. Bagian di bawah menjelaskan mode alternatif dan contoh setup sebelumnya.
 
 ## Yang sudah terpasang
 

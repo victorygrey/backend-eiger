@@ -31,7 +31,7 @@ class UpdateProductRequest extends FormRequest
             'price'           => ['nullable', 'numeric', 'min:0'],
             'stock'           => ['nullable', 'integer', 'min:0'],
             'zone_id'         => ['nullable', 'integer', 'exists:zones,id'],
-            'image'           => ['nullable', 'string', 'max:500'],
+            'image'           => ['nullable', 'string', 'max:8192'],
             'material'        => ['nullable', 'string', 'max:100'],
             'description'     => ['nullable', 'string'],
             'is_featured'     => ['nullable', 'boolean'],

@@ -24,6 +24,7 @@
     <div class="card-body">
         <form action="{{ route('admin.products.store') }}" method="POST">
             @csrf
+            @include('admin.products._pim')
 
             <div class="row g-3">
                 <div class="col-md-6">

@@ -14,7 +14,7 @@ class PimIntegrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['pim.legacy_http_enabled' => true]);
+        config(['pim.legacy_http_enabled' => true, 'pim.copy_http_media' => false]);
     }
 
     private function payload(): array
@@ -92,5 +92,56 @@ class PimIntegrationTest extends TestCase
         Http::fake(['*' => Http::response('<html>Error</html>', 500)]);
         $this->getJson('/admin/pim/channel-list')->assertStatus(502);
         $this->get('/admin/pim')->assertOk()->assertSee('PIM Integration');
+    }
+
+    public function test_cms_accepts_long_s3_urls_and_custom_atributes(): void
+    {
+        config(['pim.inbound_token' => 'test-secret']);
+        $longUrl = 'https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-3.amazonaws.com/media/1787559064_14_910005551.BLK.36.JPG?X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-southeast-3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-Expires=86400&X-Amz-Signature=f35173e23bb94650b3093c0ef64c0303c247fdd318ac34c94be60e98ba45138d';
+
+        $payload = [
+            'product' => [
+                'generic' => '910012408',
+                'name' => 'ACROSS 1.6 WINDPROOF V3',
+                'mainImage' => $longUrl,
+                'customAtributes' => [
+                    ['attributeCode' => 'short_description', 'value' => 'Short desc'],
+                    ['attributeCode' => 'long_description', 'value' => 'Long windproof jacket desc'],
+                ],
+                'variant' => [
+                    ['sku' => '910012408001', 'name' => 'ACROSS 1.6 WINDPROOF V3 - BLK - M'],
+                ],
+            ],
+            'image' => [
+                'generic' => [
+                    [
+                        'sku' => '910012408',
+                        'image' => [
+                            ['id' => 'abc', 'type' => 'main_image', 'url' => $longUrl, 'source' => 'PIM'],
+                        ],
+                    ],
+                ],
+                'variant' => [
+                    [
+                        'sku' => '910012408001',
+                        'image' => [
+                            ['id' => 'def', 'type' => 'main_image', 'url' => $longUrl, 'source' => 'PIM'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->withToken('test-secret')
+            ->postJson('/api/integrations/pim/product', $payload)
+            ->assertOk()
+            ->assertJsonPath('data.synced', 1);
+
+        $this->assertDatabaseHas('products', [
+            'sku' => '910012408001',
+            'name' => 'ACROSS 1.6 WINDPROOF V3 - BLK - M',
+            'description' => 'Long windproof jacket desc',
+            'image' => $longUrl,
+        ]);
     }
 }

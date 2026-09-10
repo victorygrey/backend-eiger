@@ -19,7 +19,7 @@ return new class extends Migration
             $table->decimal('price', 15, 2)->default(0);
             $table->integer('stock')->default(0);
             $table->foreignId('zone_id')->nullable()->constrained('zones')->nullOnDelete();
-            $table->string('image')->nullable();
+            $table->text('image')->nullable();
             $table->string('material')->nullable();
             $table->text('description')->nullable();
             $table->boolean('is_featured')->default(false);

@@ -36,6 +36,14 @@ class ProductController extends Controller
     /**
      * Show the form for creating a new product.
      */
+    public function pimLookup(Request $request)
+    {
+        $data = $request->validate(['code' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z0-9_-]+$/']]);
+        try { return response()->json(app(\App\Services\PimProductLookup::class)->get($data['code'])); }
+        catch (\Illuminate\Validation\ValidationException $e) { throw $e; }
+        catch (\Throwable $e) { return response()->json(['message' => 'PIM tidak dapat dihubungi atau payload belum tersedia.'], 502); }
+    }
+
     public function create()
     {
         $zones = Zone::all();
@@ -47,7 +55,7 @@ class ProductController extends Controller
      */
     public function store(StoreProductRequest $request)
     {
-        $data = $request->validated();
+        $data = app(\App\Services\PimFormData::class)->apply($request->validated(), $request);
         $data['is_featured'] = $request->has('is_featured');
         $data['is_discontinued'] = $request->has('is_discontinued');
 
@@ -71,7 +79,7 @@ class ProductController extends Controller
      */
     public function update(UpdateProductRequest $request, Product $product)
     {
-        $data = $request->validated();
+        $data = app(\App\Services\PimFormData::class)->apply($request->validated(), $request);
         $data['is_featured'] = $request->has('is_featured');
         $data['is_discontinued'] = $request->has('is_discontinued');
 

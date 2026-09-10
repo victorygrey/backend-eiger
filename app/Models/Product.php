@@ -28,6 +28,8 @@ class Product extends Model
         'is_featured',
         'is_discontinued',
         'pim_media',
+        'pim_payload',
+        'pim_image_payload',
     ];
 
     /**
@@ -37,6 +39,8 @@ class Product extends Model
      */
     protected $casts = [
         'pim_media'       => 'array',
+        'pim_payload' => 'array',
+        'pim_image_payload' => 'array',
         'price'           => 'decimal:2',
         'stock'           => 'integer',
         'is_featured'     => 'boolean',
