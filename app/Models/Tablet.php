@@ -12,6 +12,10 @@ class Tablet extends Model
 {
     use HasFactory;
 
+    protected $attributes = [
+        'config_version' => 1,
+    ];
+
     protected $fillable = [
         'slug',
         'name',

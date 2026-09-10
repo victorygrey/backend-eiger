@@ -128,5 +128,9 @@ class TabletDisplayTest extends TestCase
             'product_id' => $recommendation->id,
             'sort_order' => 0,
         ]);
+        $this->assertDatabaseHas('tablet_config_versions', [
+            'version_number' => 1,
+            'featured_product_id' => $featured->id,
+        ]);
     }
 }
