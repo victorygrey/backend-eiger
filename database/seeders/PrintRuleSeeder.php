@@ -9,10 +9,17 @@ class PrintRuleSeeder extends Seeder
 {
     /**
      * Run the database seeds.
-     * Creates a single default print rule configuration.
+     * Creates a single default print rule configuration without Faker dependency.
      */
     public function run(): void
     {
-        PrintRule::factory()->create();
+        PrintRule::firstOrCreate(
+            ['id' => 1],
+            [
+                'minimum_transaction' => 500000,
+                'require_membership'  => false,
+                'enabled'             => true,
+            ]
+        );
     }
 }

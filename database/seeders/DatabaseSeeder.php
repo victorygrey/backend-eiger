@@ -9,20 +9,23 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      *
-     * Order matters here:
-     * 1. Zones must exist before Products (FK: zone_id)
-     * 2. Products must exist before RfidTags (FK: product_id)
-     * 3. PrintRules and SyncLogs are independent
+     * In production, only essential store structures (Zones and PrintRules) are seeded.
+     * Dummy products and test records requiring Faker are restricted to local/testing environments.
      */
     public function run(): void
     {
         $this->call([
             ZoneSeeder::class,
-            ProductSeeder::class,
-            RfidTagSeeder::class,
             PrintRuleSeeder::class,
-            SyncLogSeeder::class,
-            TabletSeeder::class,
         ]);
+
+        if (app()->environment('local', 'testing') && class_exists(\Faker\Factory::class)) {
+            $this->call([
+                ProductSeeder::class,
+                RfidTagSeeder::class,
+                SyncLogSeeder::class,
+                TabletSeeder::class,
+            ]);
+        }
     }
 }

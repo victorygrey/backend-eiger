@@ -76,9 +76,9 @@ class TabletDisplayTest extends TestCase
 
     public function test_admin_can_rollback_to_an_older_configuration_as_a_new_version(): void
     {
-        $oldFeatured = Product::factory()->create();
-        $newFeatured = Product::factory()->create();
-        $recommendation = Product::factory()->create();
+        $oldFeatured = Product::factory()->create(['is_discontinued' => false]);
+        $newFeatured = Product::factory()->create(['is_discontinued' => false]);
+        $recommendation = Product::factory()->create(['is_discontinued' => false]);
         $tablet = Tablet::create([
             'slug' => 'lobby-01',
             'name' => 'Lobby Tablet 01',
