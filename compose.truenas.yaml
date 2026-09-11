@@ -1,0 +1,26 @@
+# Build the image on TrueNAS before installing through Apps.
+services:
+  app:
+    image: eiger-backend:20260911-1
+    pull_policy: never
+    restart: unless-stopped
+    ports:
+      - "192.168.18.31:8000:80"
+    env_file:
+      - /mnt/Tank/eiger-backend/config/runtime.env
+    volumes:
+      - type: bind
+        source: /mnt/Tank/eiger-backend/data
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/Tank/eiger-backend/storage
+        target: /var/www/html/storage
+        bind:
+          create_host_path: false
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

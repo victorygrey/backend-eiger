@@ -1,0 +1,12 @@
+# Standalone Docker Compose only. For TrueNAS Apps use compose.truenas.yaml.
+services:
+  app:
+    image: eiger-backend:local
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./runtime/data:/data
+      - ./runtime/storage:/var/www/html/storage
+    env_file: .env.docker
