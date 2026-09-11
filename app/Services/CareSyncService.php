@@ -119,7 +119,7 @@ class CareSyncService
                 if (! $product) {
                     Product::create([
                         'sku'   => $sku,
-                        'name'  => $name ?? ('SKU ' . $sku),
+                        'name'  => $name ?: ('SKU ' . $sku),
                         'price' => $price,
                         'stock' => $stock ?? 0,
                     ]);
@@ -128,8 +128,8 @@ class CareSyncService
                     $hasChanges = false;
                     $updateData = [];
 
-                    // Only update name if product has no name yet and item provides one
-                    if ($name !== null && (empty($product->name) || str_starts_with($product->name, 'SKU '))) {
+                    // Always update name if item provides a real name
+                    if (! empty($name) && $product->name !== $name) {
                         $updateData['name'] = $name;
                         $hasChanges = true;
                     }
@@ -275,6 +275,72 @@ class CareSyncService
                     $itemsMap[$sku]['stock'] = isset($s['stock']) ? (int) $s['stock'] : 0;
                 }
             }
+
+            // 3. Fetch Master Product Catalog from CARE /api/products for Names and fallback Stocks
+            $catalogNames = [];
+            $catalogStocks = [];
+            try {
+                $productsUrl = rtrim($baseUrl, '/') . '/api/products';
+                $prodResp = Http::timeout($timeout)->acceptJson()->get($productsUrl);
+                if ($prodResp->successful()) {
+                    $prodData = $prodResp->json('data') ?? [];
+                    foreach ($prodData as $pr) {
+                        $pSku = $pr['sku'] ?? null;
+                        if (! $pSku) {
+                            continue;
+                        }
+                        if (! empty($pr['name'])) {
+                            $catalogNames[(string) $pSku] = (string) $pr['name'];
+                        }
+                        if (isset($pr['stock'])) {
+                            $catalogStocks[(string) $pSku] = (int) $pr['stock'];
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('CareSyncService: failed to fetch /api/products catalog', ['error' => $e->getMessage()]);
+            }
+
+            // Secondary fallback: local scrap-eiger products.json if available
+            $scrapJsonPath = 'd:/LAPTOP FAIZAL/_Project/scrap-eiger/data/products.json';
+            if (file_exists($scrapJsonPath)) {
+                try {
+                    $rawScraped = json_decode(file_get_contents($scrapJsonPath), true) ?: [];
+                    foreach ($rawScraped as $scraped) {
+                        $sSku9 = (string) ($scraped['product_code'] ?? $scraped['sku'] ?? '');
+                        if (strlen($sSku9) === 9 && ! empty($scraped['product_name'])) {
+                            if (! isset($catalogNames[$sSku9])) {
+                                $catalogNames[$sSku9] = (string) $scraped['product_name'];
+                            }
+                            $colors = ! empty($scraped['available_colors']) ? $scraped['available_colors'] : ['STD'];
+                            $sizes = ! empty($scraped['available_sizes']) ? $scraped['available_sizes'] : ['ALL'];
+                            $vSeq = 1;
+                            foreach ($colors as $c) {
+                                foreach ($sizes as $sz) {
+                                    $vSku12 = sprintf('%s%03d', $sSku9, $vSeq);
+                                    if (! isset($catalogNames[$vSku12])) {
+                                        $catalogNames[$vSku12] = sprintf('%s - %s - %s', $scraped['product_name'], $c, $sz);
+                                    }
+                                    $vSeq++;
+                                }
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+            }
+
+            // Assign catalog names and stocks to itemsMap
+            foreach ($itemsMap as $sku => &$item) {
+                if (isset($catalogNames[$sku])) {
+                    $item['name'] = $catalogNames[$sku];
+                }
+                if ($item['stock'] === 0 && isset($catalogStocks[$sku]) && $catalogStocks[$sku] > 0) {
+                    $item['stock'] = $catalogStocks[$sku];
+                }
+            }
+            unset($item);
 
             return array_values($itemsMap);
         } catch (\Throwable $e) {
