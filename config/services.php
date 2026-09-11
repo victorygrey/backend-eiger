@@ -32,7 +32,10 @@ return [
     ],
 
     'care' => [
-        'url' => env('CARE_SIMULATOR_URL', 'http://127.0.0.1:8001'),
+        'url' => env('CARE_SIMULATOR_URL', 'http://127.0.0.1:8002'),
+        'server_key' => env('CARE_SERVER_KEY', '$2y$10$1HIh4X/8NlSCknqwxkTog.990d3glvP2QoYahSVRJOs/uie7ph/fC'),
+        'store_code' => env('CARE_STORE_CODE', '2022'),
+        'timeout' => env('CARE_TIMEOUT', 10),
     ],
 
 ];

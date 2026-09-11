@@ -12,11 +12,72 @@ use Illuminate\Support\Facades\Log;
 class CareSyncService
 {
     /**
+     * Test connection to CARE API.
+     *
+     * @return array{online: bool, status_code: ?int, message: string, url: string, store_code: string}
+     */
+    public function testConnection(): array
+    {
+        $baseUrl = config('services.care.url', 'http://127.0.0.1:8002');
+        $storeCode = config('services.care.store_code', '2022');
+        $serverKey = config('services.care.server_key');
+        $timeout = (int) config('services.care.timeout', 5);
+
+        try {
+            // First check health
+            $healthUrl = rtrim($baseUrl, '/') . '/api/health';
+            $healthResp = Http::timeout($timeout)->acceptJson()->get($healthUrl);
+
+            if ($healthResp->successful()) {
+                return [
+                    'online' => true,
+                    'status_code' => $healthResp->status(),
+                    'message' => 'CARE Server connected successfully.',
+                    'url' => $baseUrl,
+                    'store_code' => $storeCode,
+                ];
+            }
+
+            // If no health route, test pricing details with server key
+            $pricingUrl = rtrim($baseUrl, '/') . '/api/server/pricing_details';
+            $headers = $serverKey ? ['x-server-key' => $serverKey] : [];
+            $pricingResp = Http::timeout($timeout)->withHeaders($headers)->acceptJson()->get($pricingUrl);
+
+            if ($pricingResp->successful()) {
+                return [
+                    'online' => true,
+                    'status_code' => $pricingResp->status(),
+                    'message' => 'CARE Server connected successfully.',
+                    'url' => $baseUrl,
+                    'store_code' => $storeCode,
+                ];
+            }
+
+            return [
+                'online' => false,
+                'status_code' => $pricingResp->status(),
+                'message' => 'CARE Server responded with HTTP ' . $pricingResp->status(),
+                'url' => $baseUrl,
+                'store_code' => $storeCode,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'online' => false,
+                'status_code' => null,
+                'message' => 'Connection failed: ' . $e->getMessage(),
+                'url' => $baseUrl,
+                'store_code' => $storeCode,
+            ];
+        }
+    }
+
+    /**
      * Synchronize products from CARE Simulator API.
      *
-     * Only updates products if their data (name, price, stock) has changed.
+     * Supports both modern CARE OMNI endpoints (September 2026 spec)
+     * and fallback to legacy dummy endpoints.
      *
-     * @param  string  $source  e.g. 'api' | 'console' | 'scheduler'
+     * @param  string  $source  e.g. 'api' | 'console' | 'scheduler' | 'web'
      * @return array{success: bool, message: string, source: string, status: string, synced_at: string}
      */
     public function sync(string $source = 'cli'): array
@@ -24,17 +85,18 @@ class CareSyncService
         $startedAt = Carbon::now();
 
         try {
-            $baseUrl = config('services.care.url', 'http://127.0.0.1:8001');
-            $url = rtrim($baseUrl, '/') . '/api/products';
+            $baseUrl = config('services.care.url', 'http://127.0.0.1:8002');
+            $serverKey = config('services.care.server_key');
+            $storeCode = config('services.care.store_code', '2022');
+            $timeout = (int) config('services.care.timeout', 10);
 
-            $response = Http::timeout(10)->acceptJson()->get($url);
+            // Attempt 1: CARE OMNI (September 2026) Official Schema
+            $items = $this->fetchFromCareOmni($baseUrl, $serverKey, $storeCode, $timeout);
 
-            if (! $response->successful()) {
-                throw new \RuntimeException('CARE API error with status code ' . $response->status());
+            // Attempt 2: Fallback to legacy /api/products if CARE OMNI not available
+            if ($items === null) {
+                $items = $this->fetchFromLegacyApi($baseUrl, $timeout);
             }
-
-            $json = $response->json();
-            $items = $json['data'] ?? [];
 
             $createdCount = 0;
             $updatedCount = 0;
@@ -57,16 +119,17 @@ class CareSyncService
                 if (! $product) {
                     Product::create([
                         'sku'   => $sku,
-                        'name'  => $name,
+                        'name'  => $name ?? ('SKU ' . $sku),
                         'price' => $price,
-                        'stock' => $stock,
+                        'stock' => $stock ?? 0,
                     ]);
                     $createdCount++;
                 } else {
                     $hasChanges = false;
                     $updateData = [];
 
-                    if ($name !== null && $product->name !== $name) {
+                    // Only update name if product has no name yet and item provides one
+                    if ($name !== null && (empty($product->name) || str_starts_with($product->name, 'SKU '))) {
                         $updateData['name'] = $name;
                         $hasChanges = true;
                     }
@@ -90,7 +153,8 @@ class CareSyncService
 
             $status  = 'success';
             $message = sprintf(
-                'CARE sync completed. Total: %d products (%d created, %d updated, %d unchanged).',
+                'CARE sync completed (Store: %s). Total: %d products (%d created, %d updated, %d unchanged).',
+                $storeCode,
                 count($items),
                 $createdCount,
                 $updatedCount,
@@ -140,5 +204,100 @@ class CareSyncService
                 'synced_at' => $startedAt->toIso8601String(),
             ];
         }
+    }
+
+    /**
+     * Fetch prices and stocks from official CARE OMNI endpoints.
+     *
+     * @return array<int, array{sku: string, price: ?float, stock: ?int, name: ?string}>|null
+     */
+    protected function fetchFromCareOmni(string $baseUrl, ?string $serverKey, string $storeCode, int $timeout): ?array
+    {
+        try {
+            $headers = ['Accept' => 'application/json'];
+            if ($serverKey) {
+                $headers['x-server-key'] = $serverKey;
+            }
+
+            // 1. Fetch Pricing Details for Store
+            $pricingUrl = rtrim($baseUrl, '/') . '/api/server/pricing_details';
+            $pricingResp = Http::timeout($timeout)
+                ->withHeaders($headers)
+                ->acceptJson()
+                ->get($pricingUrl, ['filter' => ['loccode' => $storeCode]]);
+
+            if (! $pricingResp->successful()) {
+                return null;
+            }
+
+            $pricingData = $pricingResp->json('data') ?? [];
+            if (empty($pricingData) && ! is_array($pricingData)) {
+                return null;
+            }
+
+            // Map pricing by skucode
+            $itemsMap = [];
+            foreach ($pricingData as $p) {
+                $sku = $p['skucode'] ?? null;
+                if (! $sku) {
+                    continue;
+                }
+                $itemsMap[$sku] = [
+                    'sku' => (string) $sku,
+                    'price' => isset($p['articleprice']) ? (float) $p['articleprice'] : null,
+                    'stock' => 0,
+                    'name' => null,
+                ];
+            }
+
+            // 2. Fetch Stocks for Store
+            $stockUrl = rtrim($baseUrl, '/') . '/api/server/stocks';
+            $stockResp = Http::timeout($timeout)
+                ->withHeaders($headers)
+                ->acceptJson()
+                ->get($stockUrl, ['filter' => ['loccode' => $storeCode]]);
+
+            if ($stockResp->successful()) {
+                $stockData = $stockResp->json('data') ?? [];
+                foreach ($stockData as $s) {
+                    $sku = $s['skucode'] ?? null;
+                    if (! $sku) {
+                        continue;
+                    }
+                    if (! isset($itemsMap[$sku])) {
+                        $itemsMap[$sku] = [
+                            'sku' => (string) $sku,
+                            'price' => null,
+                            'stock' => 0,
+                            'name' => null,
+                        ];
+                    }
+                    $itemsMap[$sku]['stock'] = isset($s['stock']) ? (int) $s['stock'] : 0;
+                }
+            }
+
+            return array_values($itemsMap);
+        } catch (\Throwable $e) {
+            Log::warning('fetchFromCareOmni error, attempting fallback', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Fallback to legacy /api/products endpoint.
+     *
+     * @return array<int, array{sku: string, price: ?float, stock: ?int, name: ?string}>
+     */
+    protected function fetchFromLegacyApi(string $baseUrl, int $timeout): array
+    {
+        $url = rtrim($baseUrl, '/') . '/api/products';
+        $response = Http::timeout($timeout)->acceptJson()->get($url);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException('CARE API error with status code ' . $response->status());
+        }
+
+        $json = $response->json();
+        return $json['data'] ?? [];
     }
 }

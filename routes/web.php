@@ -19,6 +19,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('/pim/scan', [\App\Http\Controllers\Admin\PimController::class, 'scan'])->name('pim.scan');
     Route::get('/pim/qa', [\App\Http\Controllers\Admin\PimController::class, 'qa'])->name('pim.qa');
     Route::match(['get', 'post'], '/pim/{endpoint}', [\App\Http\Controllers\Admin\PimController::class, 'proxy'])->name('pim.proxy');
+
+    // CARE Integration
+    Route::get('/care', [\App\Http\Controllers\Admin\CareController::class, 'index'])->name('care.index');
+    Route::post('/care/sync', [\App\Http\Controllers\Admin\CareController::class, 'sync'])->name('care.sync');
+
     Route::get('/', fn () => redirect()->route('admin.dashboard'));
 
     // Dashboard
