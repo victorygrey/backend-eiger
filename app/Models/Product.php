@@ -49,6 +49,25 @@ class Product extends Model
     ];
 
     /**
+     * Get product category accessor from pim_payload or zone.
+     */
+    public function getCategoryAttribute(): ?string
+    {
+        return $this->pim_payload['category']
+            ?? $this->pim_payload['mc_name']
+            ?? $this->zone?->name
+            ?? null;
+    }
+
+    /**
+     * Get image URL accessor.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image;
+    }
+
+    /**
      * Get the zone this product belongs to.
      */
     public function zone(): BelongsTo

@@ -44,3 +44,13 @@ Route::put('print-rules/{printRule}', [PrintRuleController::class, 'update']);
 Route::prefix('sync')->group(function () {
     Route::post('care', [SyncController::class, 'care']);
 });
+
+// AI Fit & Go Kiosk & GPU Workstation APIs (v1)
+Route::prefix('v1/fit-and-go')->group(function () {
+    Route::get('config', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'config']);
+    Route::get('activities', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'activities']);
+    Route::get('categories', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'categories']);
+    Route::get('products', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'products']);
+    Route::get('search', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'search']);
+    Route::post('heartbeat', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'heartbeat']);
+});

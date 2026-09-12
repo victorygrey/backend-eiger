@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ZoneSeeder::class,
             PrintRuleSeeder::class,
+            FitAndGoSeeder::class,
         ]);
 
         if (app()->environment('local', 'testing') && class_exists(\Faker\Factory::class)) {

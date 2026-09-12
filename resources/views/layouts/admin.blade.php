@@ -538,6 +538,11 @@
             </a>
 
             <div class="nav-section-title">Konfigurasi</div>
+            <a href="{{ route('admin.fit-and-go.index') }}"
+               class="nav-link {{ request()->routeIs('admin.fit-and-go.*') ? 'active' : '' }}">
+                <i class="bi bi-person-bounding-box"></i>
+                <span>AI Fit & Go</span>
+            </a>
             <a href="{{ route('admin.tablets.index') }}"
                class="nav-link {{ request()->routeIs('admin.tablets.*') ? 'active' : '' }}">
                 <i class="bi bi-tablet-landscape-fill"></i>

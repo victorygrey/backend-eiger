@@ -15,8 +15,8 @@ class TabletDisplayTest extends TestCase
 
     public function test_tablet_can_activate_and_fetch_its_configured_catalog(): void
     {
-        $featured = Product::factory()->create(['name' => 'Voyager Jacket 3.0']);
-        $recommendation = Product::factory()->create(['name' => 'Greenland Pro']);
+        $featured = Product::factory()->create(['name' => 'Voyager Jacket 3.0', 'is_discontinued' => false]);
+        $recommendation = Product::factory()->create(['name' => 'Greenland Pro', 'is_discontinued' => false]);
         $tablet = Tablet::create([
             'slug' => 'lobby-01',
             'name' => 'Lobby Tablet 01',

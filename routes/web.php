@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\FitAndGoController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\RfidTagController;
 use App\Http\Controllers\Admin\SyncLogController;
@@ -57,6 +58,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::put('/tablets/{tablet}',         [TabletController::class, 'update'])->name('tablets.update');
     Route::post('/tablets/{tablet}/versions/{version}/rollback', [TabletController::class, 'rollback'])->name('tablets.rollback');
     Route::delete('/tablets/{tablet}',      [TabletController::class, 'destroy'])->name('tablets.destroy');
+
+    // AI Fit & Go
+    Route::prefix('fit-and-go')->name('fit-and-go.')->group(function () {
+        Route::get('/', [FitAndGoController::class, 'index'])->name('index');
+        Route::post('/devices', [FitAndGoController::class, 'storeDevice'])->name('devices.store');
+        Route::put('/devices/{device}', [FitAndGoController::class, 'updateDevice'])->name('devices.update');
+        Route::post('/devices/{device}/ping', [FitAndGoController::class, 'pingDevice'])->name('devices.ping');
+        Route::delete('/devices/{device}', [FitAndGoController::class, 'destroyDevice'])->name('devices.destroy');
+
+        Route::post('/activities', [FitAndGoController::class, 'storeActivity'])->name('activities.store');
+        Route::put('/activities/{activity}', [FitAndGoController::class, 'updateActivity'])->name('activities.update');
+        Route::delete('/activities/{activity}', [FitAndGoController::class, 'destroyActivity'])->name('activities.destroy');
+
+        Route::put('/categories/{category}', [FitAndGoController::class, 'updateCategory'])->name('categories.update');
+        Route::post('/items/visibility', [FitAndGoController::class, 'toggleItemVisibility'])->name('items.visibility');
+    });
 
     // Zones
     Route::get('/zones',                [ZoneController::class, 'index'])->name('zones.index');
