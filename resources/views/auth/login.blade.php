@@ -228,15 +228,33 @@
             </div>
         @endif
 
+        {{-- Quick Credential Reference Box --}}
+        <div class="p-3 mb-4" style="background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.14); font-size: 0.8rem;">
+            <div class="text-warning fw-semibold mb-2 d-flex align-items-center gap-1">
+                <i class="bi bi-shield-check"></i> Akun Bawaan (Default Login):
+            </div>
+            <div class="mb-1 text-light">
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle me-1">SuperAdmin</span>
+                <code>superadmin</code> atau <code>superadmin@eigeradventure.com</code>
+            </div>
+            <div class="mb-1 text-light">
+                <span class="badge bg-info-subtle text-info border border-info-subtle me-1">Store Admin</span>
+                <code>admin</code> atau <code>admin@eigeradventure.com</code>
+            </div>
+            <div class="text-muted mt-2 pt-1 border-top border-secondary border-opacity-25" style="font-size: 0.75rem;">
+                Kata Sandi: <code class="text-warning">password</code>
+            </div>
+        </div>
+
         <form action="{{ route('login') }}" method="POST">
             @csrf
             <div class="mb-3">
-                <label for="email" class="form-label">Alamat Email</label>
+                <label for="email" class="form-label">Username atau Email</label>
                 <div class="input-group">
                     <span class="input-group-text bg-dark border-secondary text-secondary" style="border-radius: 10px 0 0 10px; border-color: rgba(255,255,255,0.12) !important;">
-                        <i class="bi bi-envelope"></i>
+                        <i class="bi bi-person"></i>
                     </span>
-                    <input type="email" name="email" id="email" class="form-control" style="border-radius: 0 10px 10px 0;" placeholder="contoh: admin@eigeradventure.com" value="{{ old('email') }}" required autofocus>
+                    <input type="text" name="email" id="email" class="form-control" style="border-radius: 0 10px 10px 0;" placeholder="superadmin atau admin" value="{{ old('email') }}" required autofocus autocomplete="username">
                 </div>
             </div>
 
@@ -246,7 +264,10 @@
                     <span class="input-group-text bg-dark border-secondary text-secondary" style="border-radius: 10px 0 0 10px; border-color: rgba(255,255,255,0.12) !important;">
                         <i class="bi bi-lock"></i>
                     </span>
-                    <input type="password" name="password" id="password" class="form-control" style="border-radius: 0 10px 10px 0;" placeholder="••••••••" required>
+                    <input type="password" name="password" id="password" class="form-control" style="border-radius: 0;" placeholder="••••••••" required autocomplete="current-password">
+                    <button type="button" class="btn btn-outline-secondary" id="togglePasswordBtn" style="border-radius: 0 10px 10px 0; border-color: rgba(255,255,255,0.12); color: #94a3b8;" onclick="togglePasswordVisibility()">
+                        <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                    </button>
                 </div>
             </div>
 
@@ -272,5 +293,18 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function togglePasswordVisibility() {
+    const pwd = document.getElementById('password');
+    const icon = document.getElementById('togglePasswordIcon');
+    if (pwd.type === 'password') {
+        pwd.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        pwd.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+</script>
 </body>
 </html>

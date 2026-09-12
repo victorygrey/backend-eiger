@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -27,30 +29,33 @@ class AuthController extends Controller
      */
     public function login(Request $request): RedirectResponse
     {
-        $credentials = $request->validate([
-            'email'    => 'required|email',
-            'password' => 'required|string',
-        ], [
-            'email.required'    => 'Email wajib diisi.',
-            'email.email'       => 'Format email tidak valid.',
-            'password.required' => 'Kata sandi wajib diisi.',
-        ]);
+        $loginInput = trim((string) ($request->input('email') ?? $request->input('login') ?? $request->input('username')));
+        $password = (string) $request->input('password');
+
+        if ($loginInput === '' || $password === '') {
+            return back()
+                ->withInput($request->only('email', 'remember'))
+                ->withErrors(['email' => 'Username/Email dan kata sandi wajib diisi.']);
+        }
 
         $remember = $request->boolean('remember');
+        $loginLower = strtolower($loginInput);
 
-        if (Auth::attempt($credentials, $remember)) {
-            $user = Auth::user();
+        // Find user by exact email (case-insensitive), or username/role, or prefix before @
+        $user = User::whereRaw('LOWER(email) = ?', [$loginLower])
+            ->orWhereRaw('LOWER(name) = ?', [$loginLower])
+            ->orWhereRaw('LOWER(role) = ?', [$loginLower])
+            ->orWhere('email', 'like', "{$loginLower}@%")
+            ->first();
 
+        if ($user && Hash::check($password, $user->password)) {
             if (!$user->isActive()) {
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-
                 return back()
                     ->withInput($request->only('email', 'remember'))
                     ->withErrors(['email' => 'Akun Anda telah dinonaktifkan. Silakan hubungi SuperAdmin.']);
             }
 
+            Auth::login($user, $remember);
             $user->update(['last_login_at' => now()]);
             $request->session()->regenerate();
 
@@ -59,7 +64,7 @@ class AuthController extends Controller
 
         return back()
             ->withInput($request->only('email', 'remember'))
-            ->withErrors(['email' => 'Kombinasi email dan kata sandi tidak cocok.']);
+            ->withErrors(['email' => 'Kombinasi akun dan kata sandi tidak cocok. Silakan periksa kembali email/username dan kata sandi Anda.']);
     }
 
     /**

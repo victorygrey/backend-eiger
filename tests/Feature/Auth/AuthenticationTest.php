@@ -43,6 +43,44 @@ class AuthenticationTest extends TestCase
         $this->assertNotNull($user->last_login_at);
     }
 
+    public function test_users_can_authenticate_using_username_role(): void
+    {
+        $user = User::factory()->create([
+            'email'     => 'superadmin@eigeradventure.com',
+            'password'  => Hash::make('secret123'),
+            'role'      => 'superadmin',
+            'is_active' => true,
+        ]);
+
+        // Login with just 'superadmin' as username
+        $response = $this->post(route('login'), [
+            'email'    => 'superadmin',
+            'password' => 'secret123',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('admin.dashboard'));
+    }
+
+    public function test_users_can_authenticate_with_case_insensitivity_and_whitespace(): void
+    {
+        $user = User::factory()->create([
+            'email'     => 'admin@eigeradventure.com',
+            'password'  => Hash::make('secret123'),
+            'role'      => 'admin',
+            'is_active' => true,
+        ]);
+
+        // Login with uppercase and trailing whitespace
+        $response = $this->post(route('login'), [
+            'email'    => '  Admin@EigerAdventure.com  ',
+            'password' => 'secret123',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('admin.dashboard'));
+    }
+
     public function test_users_cannot_authenticate_with_invalid_password(): void
     {
         $user = User::factory()->create([
