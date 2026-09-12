@@ -560,6 +560,13 @@
             </a>
 
             <div class="nav-section-title">Sistem</div>
+            @if(auth()->user()?->isSuperAdmin())
+                <a href="{{ route('admin.users.index') }}"
+                   class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Manajemen User</span>
+                </a>
+            @endif
             <a href="{{ route('admin.integrations.index') }}" class="nav-link {{ request()->routeIs('admin.integrations.*', 'admin.pim.*', 'admin.care.*') ? 'active' : '' }}">
                 <i class="bi bi-diagram-3-fill"></i> Integrasi PIM & CARE
             </a>
@@ -567,6 +574,11 @@
                class="nav-link {{ request()->routeIs('admin.sync-logs.*') ? 'active' : '' }}">
                 <i class="bi bi-arrow-repeat"></i>
                 <span>Sync Logs</span>
+            </a>
+            <a href="{{ route('admin.profile.index') }}"
+               class="nav-link {{ request()->routeIs('admin.profile.*') ? 'active' : '' }}">
+                <i class="bi bi-person-gear"></i>
+                <span>Profil Saya</span>
             </a>
         </div>
 
@@ -594,15 +606,52 @@
                     </ol>
                 </nav>
             </div>
-            <div class="topbar-right">
-                <div class="status-badge d-none d-md-flex">
+            <div class="topbar-right d-flex align-items-center gap-3">
+                <div class="status-badge d-none d-xl-flex">
                     <div class="status-dot"></div>
                     Backend Running
                 </div>
-                <div class="topbar-clock">
+                <div class="topbar-clock d-none d-md-flex">
                     <i class="bi bi-clock-history me-1"></i>
                     {{ now()->setTimezone('Asia/Jakarta')->format('d M Y • H:i') }} WIB
                 </div>
+
+                @auth
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-light dropdown-toggle d-flex align-items-center gap-2 border shadow-sm py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 8px;">
+                            <div style="width: 28px; height: 28px; border-radius: 6px; background: {{ auth()->user()->isSuperAdmin() ? '#ef4444' : '#0ea5e9' }}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">
+                                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                            </div>
+                            <div class="text-start d-none d-sm-block" style="line-height: 1.2;">
+                                <div class="fw-semibold text-dark" style="font-size: 0.8rem;">{{ auth()->user()->name }}</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">{{ auth()->user()->isSuperAdmin() ? 'SuperAdmin' : 'Store Admin' }}</div>
+                            </div>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 10px; font-size: 0.85rem;">
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ route('admin.profile.index') }}">
+                                    <i class="bi bi-person-gear me-2 text-muted"></i> Profil & Password
+                                </a>
+                            </li>
+                            @if(auth()->user()->isSuperAdmin())
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ route('admin.users.index') }}">
+                                        <i class="bi bi-people-fill me-2 text-muted"></i> Manajemen User
+                                    </a>
+                                </li>
+                            @endif
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <button type="submit" class="dropdown-item py-2 text-danger">
+                                        <i class="bi bi-box-arrow-right me-2"></i> Keluar (Logout)
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                @endauth
             </div>
         </header>
 

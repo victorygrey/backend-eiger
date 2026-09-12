@@ -3,20 +3,40 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\FitAndGoController;
 use App\Http\Controllers\Admin\LedAmbienceController;
+use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\TableExpeditionController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\RfidTagController;
 use App\Http\Controllers\Admin\SyncLogController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ZoneController;
 use App\Http\Controllers\Admin\TabletController;
+use App\Http\Controllers\Auth\AuthController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('admin.dashboard');
 });
 
+// Authentication Routes
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
 // ====== Admin Console ======
-Route::prefix('admin')->name('admin.')->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+    // User Profile
+    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    // User Configuration & RBAC (SuperAdmin Only)
+    Route::prefix('users')->name('users.')->middleware(['role:superadmin'])->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::post('/', [UserController::class, 'store'])->name('store');
+        Route::put('/{user}', [UserController::class, 'update'])->name('update');
+        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+    });
+
     // Unified PIM & CARE Integration
     Route::prefix('integrations')->name('integrations.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\IntegrationController::class, 'index'])->name('index');

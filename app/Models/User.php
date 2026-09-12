@@ -20,6 +20,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'is_active',
+        'last_login_at',
     ];
 
     /**
@@ -41,7 +44,33 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
+            'is_active'         => 'boolean',
+            'last_login_at'     => 'datetime',
         ];
+    }
+
+    /**
+     * Check if user has SuperAdmin / SuperUser privileges.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return in_array(strtolower((string) $this->role), ['superadmin', 'superuser'], true);
+    }
+
+    /**
+     * Check if user is standard Admin.
+     */
+    public function isAdmin(): bool
+    {
+        return strtolower((string) $this->role) === 'admin';
+    }
+
+    /**
+     * Check if account is active.
+     */
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active;
     }
 }
