@@ -1,9 +1,9 @@
 @extends('layouts.admin')
 
-@section('title', 'Tambah Tablet')
-@section('page-title', 'Tambah Tablet')
+@section('title', 'Tambah Perangkat Table / Display')
+@section('page-title', 'Tambah Interactive Table')
 @section('breadcrumb-items')
-    <li class="breadcrumb-item"><a href="{{ route('admin.tablets.index') }}">Interactive Tablets</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('admin.tablets.index') }}">Interactive Table & Display</a></li>
     <li class="breadcrumb-item active">Tambah</li>
 @endsection
 

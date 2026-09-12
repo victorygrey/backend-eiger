@@ -546,7 +546,7 @@
             <a href="{{ route('admin.tablets.index') }}"
                class="nav-link {{ request()->routeIs('admin.tablets.*') ? 'active' : '' }}">
                 <i class="bi bi-tablet-landscape-fill"></i>
-                <span>Interactive Tablets</span>
+                <span>Interactive Table</span>
             </a>
 
             <div class="nav-section-title">Sistem</div>

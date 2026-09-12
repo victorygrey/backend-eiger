@@ -15,7 +15,7 @@ class TabletController extends Controller
 {
     public function index()
     {
-        $tablets = Tablet::with('featuredProduct')
+        $tablets = Tablet::with(['featuredProduct.zone', 'recommendations.zone'])
             ->withCount('recommendations')
             ->latest()
             ->paginate(15);
