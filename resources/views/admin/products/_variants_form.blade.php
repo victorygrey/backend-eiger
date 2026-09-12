@@ -156,14 +156,47 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Array.isArray(variants) || variants.length === 0) return;
         tbody.replaceChildren();
         variantIndex = 0;
+
+        const parentSku = (document.querySelector('input[name="sku"]')?.value || '').trim();
+        const parentName = (document.querySelector('input[name="name"]')?.value || '').trim();
+        let seq = 1;
+
+        // Flatten any variant with comma-separated sizes into individual rows
+        const cleanVariants = [];
         variants.forEach(v => {
+            const rawSize = String(v.size || '').trim();
+            const rawSizes = rawSize.includes(',') ? rawSize.split(',').map(s => s.trim()).filter(Boolean) : [rawSize];
+            const baseColor = v.color || '';
+
+            rawSizes.forEach(sz => {
+                let sku12 = String(v.sku || '').trim();
+                // If sku is not 12 digits or if size was split, assign proper 12-digit SKU
+                if (sku12.length !== 12 || rawSizes.length > 1) {
+                    if (parentSku.length === 9) {
+                        sku12 = parentSku + String(seq).padStart(3, '0');
+                    }
+                }
+                seq++;
+
+                cleanVariants.push({
+                    sku: sku12,
+                    name: v.name || `${parentName} - ${baseColor} - ${sz}`,
+                    color: baseColor,
+                    size: sz,
+                    price: v.price || 0,
+                    stock: Math.round((v.stock || 0) / (rawSizes.length > 1 ? rawSizes.length : 1)),
+                });
+            });
+        });
+
+        cleanVariants.forEach(v => {
             const tr = document.createElement('tr');
             tr.className = 'variant-row';
             tr.dataset.index = variantIndex;
             tr.innerHTML = `
                 <td>
                     <input type="text" name="variants[${variantIndex}][sku]" value="${v.sku || ''}"
-                        class="form-control form-control-sm font-monospace fw-bold" required>
+                        class="form-control form-control-sm font-monospace fw-bold" placeholder="SKU 12-Digit" required>
                     <input type="hidden" name="variants[${variantIndex}][name]" value="${v.name || ''}" class="variant-name">
                 </td>
                 <td>

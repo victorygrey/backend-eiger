@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (field('name') && data.name) field('name').value = data.name;
             if (field('description') && data.description) field('description').value = data.description;
             if (field('material') && data.material) field('material').value = data.material;
+            if (field('zone_id') && data.zone_id) field('zone_id').value = data.zone_id;
             if (field('image') && data.image) field('image').value = data.image;
             if (field('price') && data.price !== undefined) field('price').value = data.price;
             if (field('stock') && data.stock !== undefined) field('stock').value = data.stock;

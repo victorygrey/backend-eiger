@@ -67,37 +67,51 @@ class ProductController extends Controller
             'image' => '',
             'price' => 0,
             'stock' => 0,
+            'zone_id' => null,
             'variants' => [],
         ];
 
-        // 1. Try local scrap-eiger products.json first
-        $scrapJsonPath = 'd:/LAPTOP FAIZAL/_Project/scrap-eiger/data/products.json';
+        // 1. Try products.json (database/data/products.json or local fallback)
+        $scrapJsonPath = database_path('data/products.json');
+        if (!file_exists($scrapJsonPath)) {
+            $scrapJsonPath = 'd:/LAPTOP FAIZAL/_Project/scrap-eiger/data/products.json';
+        }
+
+        $scrapedProduct = null;
         if (file_exists($scrapJsonPath)) {
             $products = json_decode(file_get_contents($scrapJsonPath), true) ?: [];
             foreach ($products as $p) {
                 $sSku = (string) ($p['product_code'] ?? $p['sku'] ?? '');
                 if ($sSku === $code) {
+                    $scrapedProduct = $p;
                     $result['name'] = $p['product_name'] ?? '';
                     $result['category'] = $p['category'] ?? '';
                     $result['description'] = $p['description'] ?? '';
                     $result['image'] = $p['images'][0]['url'] ?? '';
                     $result['price'] = (float) ($p['price'] ?? 0);
 
-                    $colors = !empty($p['available_colors']) ? $p['available_colors'] : ['STD'];
+                    // Extract material from description
+                    if (preg_match('/Material\s*:\s*([^.\r\n,]+)/i', $p['description'] ?? '', $m)) {
+                        $result['material'] = trim($m[1]);
+                    } elseif (preg_match('/Bahan\s*:\s*([^.\r\n,]+)/i', $p['description'] ?? '', $m)) {
+                        $result['material'] = trim($m[1]);
+                    }
+
+                    // Build 12-digit variant SKUs (one individual row per size)
+                    $colors = !empty($p['available_colors']) ? $p['available_colors'] : (!empty($p['color']) ? [$p['color']] : ['BLACK']);
                     $sizes = !empty($p['available_sizes']) ? $p['available_sizes'] : ['ALL'];
                     $seq = 1;
                     foreach ($colors as $c) {
                         foreach ($sizes as $sz) {
-                            $sku12 = sprintf('%s%03d', $code, $seq);
+                            $sku12 = sprintf('%s%03d', $code, $seq++);
                             $result['variants'][] = [
                                 'sku' => $sku12,
-                                'name' => sprintf('%s - %s - %s', $p['product_name'], $c, $sz),
+                                'name' => sprintf('%s - %s - %s', $result['name'], $c, $sz),
                                 'color' => $c,
                                 'size' => $sz,
-                                'price' => (float) ($p['price'] ?? 0),
-                                'stock' => 15,
+                                'price' => $result['price'],
+                                'stock' => 0,
                             ];
-                            $seq++;
                         }
                     }
                     break;
@@ -105,7 +119,73 @@ class ProductController extends Controller
             }
         }
 
-        // 2. Query CARE Simulator for current store price & stock
+        // 2. Query PIM Simulator for official master data (if empty or to enrich)
+        try {
+            $pim = app(\App\Services\PimProductLookup::class)->get($code);
+            if (!empty($pim['product'])) {
+                if (empty($result['name'])) {
+                    $result['name'] = $pim['product']['name'] ?? '';
+                }
+                if (empty($result['image'])) {
+                    $result['image'] = $pim['product']['mainImage'] ?? '';
+                }
+
+                foreach ($pim['product']['customAtributes'] ?? [] as $ca) {
+                    $attrCode = strtolower($ca['attributeCode'] ?? '');
+                    if (empty($result['description']) && in_array($attrCode, ['long_description', 'short_description'])) {
+                        $result['description'] = $ca['value'] ?? '';
+                    }
+                    if (empty($result['material']) && in_array($attrCode, ['material', 'fabric', 'bahan'])) {
+                        $result['material'] = trim($ca['value'] ?? '');
+                    }
+                    if (empty($result['category']) && $attrCode === 'category') {
+                        $result['category'] = $ca['value'] ?? '';
+                    }
+                }
+
+                // If material still empty, parse from description
+                if (empty($result['material']) && !empty($result['description'])) {
+                    if (preg_match('/Material\s*:\s*([^.\r\n,]+)/i', $result['description'], $m)) {
+                        $result['material'] = trim($m[1]);
+                    } elseif (preg_match('/Bahan\s*:\s*([^.\r\n,]+)/i', $result['description'], $m)) {
+                        $result['material'] = trim($m[1]);
+                    }
+                }
+
+                // If variants are still empty, build from PIM variants expanding any comma-separated sizes
+                if (empty($result['variants'])) {
+                    $seq = 1;
+                    foreach ($pim['product']['variant'] ?? [] as $pv) {
+                        $color = $pv['color'] ?? 'BLACK';
+                        $rawSize = $pv['size'] ?? 'ALL';
+                        $sizes = str_contains($rawSize, ',') ? array_map('trim', explode(',', $rawSize)) : [$rawSize];
+                        foreach ($sizes as $sz) {
+                            if (empty($sz)) continue;
+                            $sku12 = sprintf('%s%03d', $code, $seq++);
+                            $result['variants'][] = [
+                                'sku' => $sku12,
+                                'name' => sprintf('%s - %s - %s', $result['name'], $color, $sz),
+                                'color' => $color,
+                                'size' => $sz,
+                                'price' => $result['price'],
+                                'stock' => 0,
+                            ];
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore PIM lookup failure
+        }
+
+        // Always ensure material is extracted if present in description
+        if (empty($result['material']) && !empty($result['description'])) {
+            if (preg_match('/Material\s*:\s*([^.\r\n,]+)/i', $result['description'], $m)) {
+                $result['material'] = trim($m[1]);
+            }
+        }
+
+        // 3. Query CARE Simulator for current store price & stock
         try {
             $baseUrl = config('services.care.url', 'http://127.0.0.1:8002');
             $serverKey = config('services.care.server_key');
@@ -113,62 +193,87 @@ class ProductController extends Controller
             $headers = ['Accept' => 'application/json'];
             if ($serverKey) $headers['x-server-key'] = $serverKey;
 
-            // Pricing
+            // Fetch pricing for store
             $pResp = \Illuminate\Support\Facades\Http::timeout(3)->withHeaders($headers)
-                ->get(rtrim($baseUrl, '/') . '/api/server/pricing_details', ['filter' => ['skucode' => $code, 'loccode' => $storeCode]]);
+                ->get(rtrim($baseUrl, '/') . '/api/server/pricing_details', ['filter' => ['loccode' => $storeCode]]);
+            $pData = [];
             if ($pResp->successful()) {
-                $pData = $pResp->json('data') ?? [];
-                if (!empty($pData[0]['articleprice'])) {
-                    $result['price'] = (float) $pData[0]['articleprice'];
+                $pData = collect($pResp->json('data') ?? [])->keyBy('skucode');
+                if (isset($pData[$code]['articleprice'])) {
+                    $result['price'] = (float) $pData[$code]['articleprice'];
                 }
             }
 
-            // Stocks
+            // Fetch stocks for store
             $sResp = \Illuminate\Support\Facades\Http::timeout(3)->withHeaders($headers)
                 ->get(rtrim($baseUrl, '/') . '/api/server/stocks', ['filter' => ['loccode' => $storeCode]]);
+            $sData = [];
             if ($sResp->successful()) {
                 $sData = collect($sResp->json('data') ?? [])->keyBy('skucode');
-                if (isset($sData[$code])) {
-                    $result['stock'] = (int) $sData[$code]['stock'];
+            }
+
+            // Attach CARE prices & stocks to each variant
+            foreach ($result['variants'] as &$v) {
+                if (isset($pData[$v['sku']]['articleprice'])) {
+                    $v['price'] = (float) $pData[$v['sku']]['articleprice'];
+                } elseif ($result['price'] > 0) {
+                    $v['price'] = $result['price'];
                 }
-                foreach ($result['variants'] as &$v) {
-                    if (isset($sData[$v['sku']])) {
-                        $v['stock'] = (int) $sData[$v['sku']]['stock'];
-                    }
+                if (isset($sData[$v['sku']]['stock'])) {
+                    $v['stock'] = (int) $sData[$v['sku']]['stock'];
                 }
-                unset($v);
+            }
+            unset($v);
+
+            // Accumulate parent stock
+            $variantTotalStock = collect($result['variants'])->sum('stock');
+            if ($variantTotalStock > 0) {
+                $result['stock'] = $variantTotalStock;
+            } elseif (isset($sData[$code]['stock'])) {
+                $result['stock'] = (int) $sData[$code]['stock'];
             }
         } catch (\Throwable $e) {
             // ignore CARE lookup failure
         }
 
-        // 3. Fallback to PIM Lookup if name is still empty
-        if (empty($result['name'])) {
-            try {
-                $pim = app(\App\Services\PimProductLookup::class)->get($code);
-                if (!empty($pim['product'])) {
-                    $result['name'] = $pim['product']['name'] ?? '';
-                    $result['image'] = $pim['product']['mainImage'] ?? '';
-                    foreach ($pim['product']['customAtributes'] ?? [] as $ca) {
-                        if (($ca['attributeCode'] ?? '') === 'long_description' || ($ca['attributeCode'] ?? '') === 'short_description') {
-                            $result['description'] = $ca['value'] ?? '';
-                        }
-                    }
-                    foreach ($pim['product']['variant'] ?? [] as $pv) {
-                        $result['variants'][] = [
-                            'sku' => $pv['sku'],
-                            'name' => $pv['name'],
-                            'color' => $pv['color'] ?? '',
-                            'size' => $pv['size'] ?? '',
-                            'price' => $result['price'],
-                            'stock' => 15,
-                        ];
-                    }
-                }
-            } catch (\Throwable $e) {
-                // ignore
-            }
+        // If no variants generated yet, generate at least 1 default 12-digit variant
+        if (empty($result['variants'])) {
+            $sku12 = sprintf('%s001', $code);
+            $result['variants'][] = [
+                'sku' => $sku12,
+                'name' => sprintf('%s - STD - ALL', $result['name'] ?: 'Product'),
+                'color' => 'STD',
+                'size' => 'ALL',
+                'price' => $result['price'],
+                'stock' => $result['stock'],
+            ];
         }
+
+        // 4. Auto-detect Zone based on category & name
+        $cat = strtolower($result['category'] . ' ' . $result['name']);
+        $zoneId = null;
+        if (preg_match('/topi|cap|hat|beanie|tas|bag|pack|duffel|sling|waist|pouch|wallet|dompet|belt|ikat pinggang/i', $cat)) {
+            $zoneId = \App\Models\Zone::where('name', 'like', '%Tas%')->orWhere('name', 'like', '%Aksesoris%')->value('id');
+        } elseif (preg_match('/sepatu|shoe|boot|sandal|footwear/i', $cat)) {
+            $zoneId = \App\Models\Zone::where('name', 'like', '%Sepatu%')->orWhere('name', 'like', '%Alas Kaki%')->value('id');
+        } elseif (preg_match('/wanita|women|dress|rok/i', $cat . ' ' . ($scrapedProduct['gender'] ?? ''))) {
+            $zoneId = \App\Models\Zone::where('name', 'like', '%Wanita%')->value('id');
+        } elseif (preg_match('/pria|men|kaos|shirt|t-shirt|kemeja|jaket|jacket|celana|pants|sweater/i', $cat)) {
+            $zoneId = \App\Models\Zone::where('name', 'like', '%Pria%')->value('id');
+        } elseif (preg_match('/tenda|tent|sleeping|camp/i', $cat)) {
+            $zoneId = \App\Models\Zone::where('name', 'like', '%Camping%')->value('id');
+        } elseif (preg_match('/mendaki|climb|carabiner|trekking/i', $cat)) {
+            $zoneId = \App\Models\Zone::where('name', 'like', '%Mendaki%')->value('id');
+        } elseif (preg_match('/outdoor|cooking|botol|bottle|tumbler/i', $cat)) {
+            $zoneId = \App\Models\Zone::where('name', 'like', '%Outdoor%')->value('id');
+        } elseif (preg_match('/elektronik|gadget|jam|watch|headlamp/i', $cat)) {
+            $zoneId = \App\Models\Zone::where('name', 'like', '%Elektronik%')->value('id');
+        }
+
+        if (!$zoneId) {
+            $zoneId = \App\Models\Zone::first()?->id;
+        }
+        $result['zone_id'] = $zoneId;
 
         if (empty($result['name'])) {
             return response()->json(['message' => 'Produk dengan kode ' . $code . ' tidak ditemukan di katalog PIM maupun CARE.'], 404);
