@@ -553,6 +553,11 @@
                 <i class="bi bi-soundwave"></i>
                 <span>LED Ambience</span>
             </a>
+            <a href="{{ route('admin.table-expedition.index') }}"
+               class="nav-link {{ request()->routeIs('admin.table-expedition.*') ? 'active' : '' }}">
+                <i class="bi bi-compass-fill"></i>
+                <span>Table Expedition</span>
+            </a>
 
             <div class="nav-section-title">Sistem</div>
             <a href="{{ route('admin.integrations.index') }}" class="nav-link {{ request()->routeIs('admin.integrations.*', 'admin.pim.*', 'admin.care.*') ? 'active' : '' }}">

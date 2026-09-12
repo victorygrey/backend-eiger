@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\FitAndGoController;
 use App\Http\Controllers\Admin\LedAmbienceController;
+use App\Http\Controllers\Admin\TableExpeditionController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\RfidTagController;
 use App\Http\Controllers\Admin\SyncLogController;
@@ -86,6 +87,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/scenes', [LedAmbienceController::class, 'storeScene'])->name('scenes.store');
         Route::put('/scenes/{scene}', [LedAmbienceController::class, 'updateScene'])->name('scenes.update');
         Route::delete('/scenes/{scene}', [LedAmbienceController::class, 'destroyScene'])->name('scenes.destroy');
+    });
+
+    // Table Expedition (Table Expedition Hub / Product Knowledge)
+    Route::prefix('table-expedition')->name('table-expedition.')->group(function () {
+        Route::get('/', [TableExpeditionController::class, 'index'])->name('index');
+        Route::post('/items', [TableExpeditionController::class, 'store'])->name('store');
+        Route::put('/items/{item}', [TableExpeditionController::class, 'update'])->name('update');
+        Route::delete('/items/{item}', [TableExpeditionController::class, 'destroy'])->name('destroy');
+        Route::post('/config', [TableExpeditionController::class, 'updateConfig'])->name('config');
     });
 
     // Zones

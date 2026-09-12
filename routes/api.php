@@ -63,3 +63,13 @@ Route::prefix('v1/led-ambience')->group(function () {
     Route::post('item-lost', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'itemLost']);
     Route::get('status', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'status']);
 });
+
+// Table Expedition (Table Expedition Hub / Product Knowledge) APIs (v1)
+Route::prefix('v1/table-expedition')->group(function () {
+    Route::get('standby', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'standby']);
+    Route::post('scan', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'scan']);
+    Route::post('item-lost', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'itemLost']);
+    Route::post('compare', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'compare']);
+    Route::get('status', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'status']);
+});
+
