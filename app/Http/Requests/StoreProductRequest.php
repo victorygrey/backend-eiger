@@ -33,6 +33,13 @@ class StoreProductRequest extends FormRequest
             'description'     => ['nullable', 'string'],
             'is_featured'     => ['nullable', 'boolean'],
             'is_discontinued' => ['nullable', 'boolean'],
+            'variants'        => ['nullable', 'array'],
+            'variants.*.sku'  => ['required_with:variants', 'string', 'max:100'],
+            'variants.*.name' => ['nullable', 'string', 'max:255'],
+            'variants.*.color' => ['nullable', 'string', 'max:100'],
+            'variants.*.size' => ['nullable', 'string', 'max:100'],
+            'variants.*.price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.stock' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

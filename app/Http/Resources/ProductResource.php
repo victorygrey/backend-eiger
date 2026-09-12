@@ -30,6 +30,8 @@ class ProductResource extends JsonResource
             'description'     => $this->description,
             'is_featured'     => $this->is_featured,
             'is_discontinued' => $this->is_discontinued,
+            'variants_count'  => $this->whenCounted('variants', $this->variants_count, fn () => $this->variants()->count()),
+            'variants'        => ProductVariantResource::collection($this->whenLoaded('variants')),
             'rfid_tag'        => new RfidTagResource($this->whenLoaded('rfidTag')),
             'created_at'      => $this->created_at?->toISOString(),
             'updated_at'      => $this->updated_at?->toISOString(),

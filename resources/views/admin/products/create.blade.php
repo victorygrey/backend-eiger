@@ -28,30 +28,31 @@
 
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label">SKU <span class="text-danger">*</span></label>
+                    <label class="form-label">SKU (Generic Article / 9-Digit) <span class="text-danger">*</span></label>
                     <input type="text" name="sku" value="{{ old('sku') }}"
-                        class="form-control @error('sku') is-invalid @enderror" placeholder="Contoh: EGR-001" required>
+                        class="form-control font-monospace fw-bold @error('sku') is-invalid @enderror" placeholder="Contoh: 910009029" required>
                     @error('sku') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
                 <div class="col-md-6">
                     <label class="form-label">Nama Produk <span class="text-danger">*</span></label>
                     <input type="text" name="name" value="{{ old('name') }}"
-                        class="form-control @error('name') is-invalid @enderror" placeholder="Contoh: Laptop Mountain Pro" required>
+                        class="form-control @error('name') is-invalid @enderror" placeholder="Contoh: WS G.WS ALPINIST SWEATER" required>
                     @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
                 <div class="col-md-4">
-                    <label class="form-label">Harga (Rp)</label>
+                    <label class="form-label">Harga Dasar (Rp)</label>
                     <input type="number" name="price" value="{{ old('price', 0) }}" step="0.01" min="0"
                         class="form-control @error('price') is-invalid @enderror">
                     @error('price') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
                 <div class="col-md-4">
-                    <label class="form-label">Stok</label>
+                    <label class="form-label">Total Stok (Akumulasi Varian)</label>
                     <input type="number" name="stock" value="{{ old('stock', 0) }}" min="0"
-                        class="form-control @error('stock') is-invalid @enderror">
+                        class="form-control bg-light @error('stock') is-invalid @enderror" readonly>
+                    <small class="text-muted">Terhitung otomatis dari stok varian di bawah</small>
                     @error('stock') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
@@ -99,18 +100,13 @@
                         <label for="is_featured" class="form-check-label">Tandai sebagai Featured</label>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-check form-switch">
-                        <input type="checkbox" name="is_discontinued" value="1" id="is_discontinued"
-                            class="form-check-input" {{ old('is_discontinued') ? 'checked' : '' }}>
-                        <label for="is_discontinued" class="form-check-label">Produk Discontinued</label>
-                    </div>
-                </div>
             </div>
+
+            @include('admin.products._variants_form')
 
             <div class="mt-4 d-flex gap-2">
                 <button type="submit" class="btn btn-eiger">
-                    <i class="bi bi-save me-1"></i>Simpan
+                    <i class="bi bi-save me-1"></i>Simpan Produk
                 </button>
                 <a href="{{ route('admin.products.index') }}" class="btn btn-outline-secondary">Batal</a>
             </div>

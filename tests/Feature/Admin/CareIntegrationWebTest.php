@@ -60,6 +60,11 @@ class CareIntegrationWebTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('products', [
+            'sku' => '910012408',
+            'price' => 175000,
+            'stock' => 25,
+        ]);
+        $this->assertDatabaseHas('product_variants', [
             'sku' => '910012408001',
             'price' => 175000,
             'stock' => 25,
@@ -99,6 +104,11 @@ class CareIntegrationWebTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('products', [
+            'sku' => '910012408',
+            'price' => 199000,
+            'stock' => 15,
+        ]);
+        $this->assertDatabaseHas('product_variants', [
             'sku' => '910012408002',
             'price' => 199000,
             'stock' => 15,

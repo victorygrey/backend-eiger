@@ -29,9 +29,9 @@
 
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label">SKU <span class="text-danger">*</span></label>
+                    <label class="form-label">SKU (Generic Article / 9-Digit) <span class="text-danger">*</span></label>
                     <input type="text" name="sku" value="{{ old('sku', $product->sku) }}"
-                        class="form-control @error('sku') is-invalid @enderror" required>
+                        class="form-control font-monospace fw-bold @error('sku') is-invalid @enderror" required>
                     @error('sku') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
@@ -50,9 +50,10 @@
                 </div>
 
                 <div class="col-md-4">
-                    <label class="form-label">Stok</label>
+                    <label class="form-label">Total Stok (Akumulasi Varian)</label>
                     <input type="number" name="stock" value="{{ old('stock', $product->stock) }}" min="0"
-                        class="form-control @error('stock') is-invalid @enderror">
+                        class="form-control bg-light @error('stock') is-invalid @enderror" readonly>
+                    <small class="text-muted">Terhitung otomatis dari stok varian di bawah</small>
                     @error('stock') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
@@ -105,6 +106,8 @@
                     </div>
                 </div>
             </div>
+
+            @include('admin.products._variants_form')
 
             <div class="mt-4 d-flex gap-2">
                 <button type="submit" class="btn btn-eiger">

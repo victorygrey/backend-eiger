@@ -31,6 +31,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // Products
     Route::get('/products/pim-lookup', [ProductController::class, 'pimLookup'])->name('products.pim-lookup');
+    Route::get('/products/catalog-lookup', [ProductController::class, 'catalogLookup'])->name('products.catalog-lookup');
     Route::get('/products',                [ProductController::class, 'index'])->name('products.index');
     Route::get('/products/create',         [ProductController::class, 'create'])->name('products.create');
     Route::post('/products',               [ProductController::class, 'store'])->name('products.store');

@@ -67,8 +67,22 @@
                     @forelse($products as $i => $product)
                         <tr>
                             <td class="ps-3 text-muted">{{ $products->firstItem() + $i }}</td>
-                            <td><span class="badge-soft badge-gray-soft"><i class="bi bi-upc-scan"></i>{{ $product->sku }}</span></td>
-                            <td class="fw-semibold">{{ $product->name }}</td>
+                            <td>
+                                <span class="badge-soft badge-gray-soft"><i class="bi bi-upc-scan me-1"></i>{{ $product->sku }}</span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ $product->name }}</div>
+                                @if($product->variants->isNotEmpty())
+                                    <div class="mt-1">
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 small text-primary d-inline-flex align-items-center gap-1"
+                                            data-bs-toggle="collapse" data-bs-target="#variants-{{ $product->id }}" aria-expanded="false">
+                                            <i class="bi bi-diagram-3-fill"></i>
+                                            <span>Lihat {{ $product->variants->count() }} Varian SKU</span>
+                                            <i class="bi bi-chevron-down small"></i>
+                                        </button>
+                                    </div>
+                                @endif
+                            </td>
                             <td>
                                 @if($product->zone)
                                     <span class="badge-soft badge-info-soft">
@@ -81,9 +95,9 @@
                             <td class="fw-semibold">Rp {{ number_format($product->price, 0, ',', '.') }}</td>
                             <td>
                                 @if($product->stock > 10)
-                                    <span class="badge-soft badge-success-soft">{{ $product->stock }}</span>
+                                    <span class="badge-soft badge-success-soft">{{ number_format($product->stock) }}</span>
                                 @elseif($product->stock > 0)
-                                    <span class="badge-soft badge-warning-soft">{{ $product->stock }}</span>
+                                    <span class="badge-soft badge-warning-soft">{{ number_format($product->stock) }}</span>
                                 @else
                                     <span class="badge-soft badge-danger-soft">Habis</span>
                                 @endif
@@ -110,6 +124,50 @@
                                 </div>
                             </td>
                         </tr>
+                        @if($product->variants->isNotEmpty())
+                            <tr class="collapse bg-light" id="variants-{{ $product->id }}">
+                                <td colspan="8" class="p-3">
+                                    <div class="card border border-primary border-opacity-25 shadow-sm rounded-3">
+                                        <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+                                            <span class="small fw-bold text-dark">
+                                                <i class="bi bi-boxes text-primary me-1"></i> Rincian Varian ({{ $product->variants->count() }} Item) &bull; Produk Induk: <code class="text-dark">{{ $product->sku }}</code>
+                                            </span>
+                                            <span class="badge bg-primary bg-opacity-10 text-primary small">Toko: Setiabudi (2022)</span>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover mb-0 align-middle">
+                                                <thead class="table-light small text-muted">
+                                                    <tr>
+                                                        <th class="ps-3">SKU Varian (12 Digit)</th>
+                                                        <th>Nama Varian</th>
+                                                        <th>Warna</th>
+                                                        <th>Ukuran</th>
+                                                        <th class="text-end">Harga Varian</th>
+                                                        <th class="text-center">Stok Toko</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($product->variants as $v)
+                                                        <tr>
+                                                            <td class="ps-3"><code class="fw-bold text-dark">{{ $v->sku }}</code></td>
+                                                            <td class="small">{{ $v->name }}</td>
+                                                            <td><span class="badge bg-secondary">{{ $v->color ?? '—' }}</span></td>
+                                                            <td><span class="badge bg-dark">{{ $v->size ?? '—' }}</span></td>
+                                                            <td class="text-end fw-bold text-success small">Rp {{ number_format($v->price, 0, ',', '.') }}</td>
+                                                            <td class="text-center">
+                                                                <span class="badge {{ $v->stock > 0 ? 'bg-success' : 'bg-danger' }} px-2 py-1">
+                                                                    {{ $v->stock }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endif
                     @empty
                         <tr><td colspan="8">
                             @include('admin.partials.empty-state', [

@@ -104,15 +104,28 @@ class CareSyncService
 
             DB::beginTransaction();
 
+            // Separate items into Parent Articles (9-digit or standalone) and Variants (12-digit)
+            $parentItems = [];
+            $variantItems = [];
+
             foreach ($items as $item) {
-                $sku = $item['sku'] ?? null;
+                $sku = (string) ($item['sku'] ?? '');
                 if (! $sku) {
                     continue;
                 }
+                if (strlen($sku) === 12 && ctype_digit($sku)) {
+                    $variantItems[] = $item;
+                } else {
+                    $parentItems[] = $item;
+                }
+            }
 
-                $name = $item['name'] ?? null;
-                $price = isset($item['price']) ? (float) $item['price'] : null;
-                $stock = isset($item['stock']) ? (int) $item['stock'] : null;
+            // 1. Process Parent Products (Main Articles)
+            foreach ($parentItems as $pItem) {
+                $sku = $pItem['sku'];
+                $name = $pItem['name'] ?? null;
+                $price = isset($pItem['price']) ? (float) $pItem['price'] : null;
+                $stock = isset($pItem['stock']) ? (int) $pItem['stock'] : null;
 
                 $product = Product::where('sku', $sku)->first();
 
@@ -120,7 +133,7 @@ class CareSyncService
                     Product::create([
                         'sku'   => $sku,
                         'name'  => $name ?: ('SKU ' . $sku),
-                        'price' => $price,
+                        'price' => $price ?? 0,
                         'stock' => $stock ?? 0,
                     ]);
                     $createdCount++;
@@ -151,14 +164,83 @@ class CareSyncService
                 }
             }
 
+            // 2. Process Variants and attach to Parent Products
+            $variantCount = 0;
+            foreach ($variantItems as $vItem) {
+                $vSku = $vItem['sku'];
+                $parentSku = substr($vSku, 0, 9);
+                $parent = Product::where('sku', $parentSku)->first();
+
+                if (! $parent) {
+                    $parentName = !empty($vItem['name']) ? explode(' - ', $vItem['name'])[0] : ('SKU ' . $parentSku);
+                    $parent = Product::create([
+                        'sku'   => $parentSku,
+                        'name'  => $parentName,
+                        'price' => isset($vItem['price']) ? (float) $vItem['price'] : 0,
+                        'stock' => 0,
+                    ]);
+                    $createdCount++;
+                } elseif ((float) $parent->price === 0.0 && isset($vItem['price'])) {
+                    $parent->update(['price' => (float) $vItem['price']]);
+                }
+
+                // Extract color and size from name if available
+                $vName = $vItem['name'] ?? ('Variant ' . $vSku);
+                $color = null;
+                $size = null;
+                if (str_contains($vName, ' - ')) {
+                    $parts = explode(' - ', $vName);
+                    if (count($parts) >= 3) {
+                        $color = trim($parts[1]);
+                        $size = trim($parts[2]);
+                    }
+                }
+
+                $vPrice = isset($vItem['price']) ? (float) $vItem['price'] : (float) $parent->price;
+                $vStock = isset($vItem['stock']) ? (int) $vItem['stock'] : 0;
+
+                \App\Models\ProductVariant::updateOrCreate(
+                    ['sku' => $vSku],
+                    [
+                        'product_id' => $parent->id,
+                        'name'       => $vName,
+                        'color'      => $color,
+                        'size'       => $size,
+                        'price'      => $vPrice,
+                        'stock'      => $vStock,
+                    ]
+                );
+                $variantCount++;
+            }
+
+            // 3. Clean up any 12-digit variant items previously left directly in the products table
+            $old12Products = Product::whereRaw('length(sku) = 12')->get();
+            foreach ($old12Products as $old) {
+                $pSku = substr($old->sku, 0, 9);
+                $parent = Product::where('sku', $pSku)->first();
+                if ($parent) {
+                    \App\Models\RfidTag::where('product_id', $old->id)->update(['product_id' => $parent->id]);
+                    DB::table('tablet_recommendations')->where('product_id', $old->id)->update(['product_id' => $parent->id]);
+                    $old->delete();
+                }
+            }
+
+            // 4. Update parent products total stock from variants
+            foreach (Product::has('variants')->get() as $p) {
+                $totalStock = $p->variants()->sum('stock');
+                if ((int) $p->stock !== $totalStock) {
+                    $p->update(['stock' => $totalStock]);
+                }
+            }
+
             $status  = 'success';
             $message = sprintf(
-                'CARE sync completed (Store: %s). Total: %d products (%d created, %d updated, %d unchanged).',
+                'CARE sync completed (Store: %s). Total: %d main products (%d created, %d updated) and %d variants attached.',
                 $storeCode,
-                count($items),
+                count($parentItems),
                 $createdCount,
                 $updatedCount,
-                $unchangedCount
+                $variantCount
             );
 
             $log = SyncLog::create([

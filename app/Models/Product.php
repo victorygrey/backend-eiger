@@ -70,4 +70,12 @@ class Product extends Model
             ->withPivot('sort_order')
             ->withTimestamps();
     }
+
+    /**
+     * Get all variants for this product.
+     */
+    public function variants(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
 }
