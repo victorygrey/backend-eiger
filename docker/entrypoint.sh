@@ -7,7 +7,7 @@ export DB_DATABASE
 export RUN_QUEUE="${RUN_QUEUE:-true}"
 export RUN_SCHEDULER="${RUN_SCHEDULER:-true}"
 umask 027
-mkdir -p /data/backups storage/app/public storage/app/pim-media storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+mkdir -p /data/backups storage/app/public storage/app/pim-media storage/app/pim-drop storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 if [ "${DB_CONNECTION:-sqlite}" = sqlite ]; then
     case "$DB_DATABASE" in /data/*) ;; *) echo 'SQLite DB_DATABASE must be under /data' >&2; exit 1 ;; esac
     if [ -s "$DB_DATABASE" ]; then

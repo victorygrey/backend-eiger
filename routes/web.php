@@ -17,6 +17,7 @@ Route::get('/', function () {
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/pim', [\App\Http\Controllers\Admin\PimController::class, 'index'])->name('pim.index');
     Route::post('/pim/scan', [\App\Http\Controllers\Admin\PimController::class, 'scan'])->name('pim.scan');
+    Route::post('/pim/sync', [\App\Http\Controllers\Admin\PimController::class, 'sync'])->name('pim.sync');
     Route::get('/pim/qa', [\App\Http\Controllers\Admin\PimController::class, 'qa'])->name('pim.qa');
     Route::match(['get', 'post'], '/pim/{endpoint}', [\App\Http\Controllers\Admin\PimController::class, 'proxy'])->name('pim.proxy');
 
