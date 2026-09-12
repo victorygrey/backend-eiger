@@ -550,11 +550,8 @@
             </a>
 
             <div class="nav-section-title">Sistem</div>
-            <a href="{{ route('admin.pim.index') }}" class="nav-link {{ request()->routeIs('admin.pim.*') ? 'active' : '' }}">
-                <i class="bi bi-cloud-arrow-down"></i> PIM Integration
-            </a>
-            <a href="{{ route('admin.care.index') }}" class="nav-link {{ request()->routeIs('admin.care.*') ? 'active' : '' }}">
-                <i class="bi bi-shield-check"></i> CARE Integration
+            <a href="{{ route('admin.integrations.index') }}" class="nav-link {{ request()->routeIs('admin.integrations.*', 'admin.pim.*', 'admin.care.*') ? 'active' : '' }}">
+                <i class="bi bi-diagram-3-fill"></i> Integrasi PIM & CARE
             </a>
             <a href="{{ route('admin.sync-logs.index') }}"
                class="nav-link {{ request()->routeIs('admin.sync-logs.*') ? 'active' : '' }}">

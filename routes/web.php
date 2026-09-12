@@ -15,13 +15,23 @@ Route::get('/', function () {
 
 // ====== Admin Console ======
 Route::prefix('admin')->name('admin.')->group(function () {
+    // Unified PIM & CARE Integration
+    Route::prefix('integrations')->name('integrations.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\IntegrationController::class, 'index'])->name('index');
+        Route::post('/sync', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncAll'])->name('sync-all');
+        Route::post('/sync-pim', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncPim'])->name('sync-pim');
+        Route::post('/sync-care', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncCare'])->name('sync-care');
+        Route::post('/scan-folder', [\App\Http\Controllers\Admin\IntegrationController::class, 'scanFolder'])->name('scan-folder');
+    });
+
+    // PIM Legacy / Dedicated Endpoints
     Route::get('/pim', [\App\Http\Controllers\Admin\PimController::class, 'index'])->name('pim.index');
     Route::post('/pim/scan', [\App\Http\Controllers\Admin\PimController::class, 'scan'])->name('pim.scan');
     Route::post('/pim/sync', [\App\Http\Controllers\Admin\PimController::class, 'sync'])->name('pim.sync');
     Route::get('/pim/qa', [\App\Http\Controllers\Admin\PimController::class, 'qa'])->name('pim.qa');
     Route::match(['get', 'post'], '/pim/{endpoint}', [\App\Http\Controllers\Admin\PimController::class, 'proxy'])->name('pim.proxy');
 
-    // CARE Integration
+    // CARE Legacy / Dedicated Endpoints
     Route::get('/care', [\App\Http\Controllers\Admin\CareController::class, 'index'])->name('care.index');
     Route::post('/care/sync', [\App\Http\Controllers\Admin\CareController::class, 'sync'])->name('care.sync');
 
