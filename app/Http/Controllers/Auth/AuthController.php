@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -17,6 +19,8 @@ class AuthController extends Controller
      */
     public function showLoginForm(): View|RedirectResponse
     {
+        $this->ensureDefaultUsersExist();
+
         if (Auth::check()) {
             return redirect()->route('admin.dashboard');
         }
@@ -29,6 +33,8 @@ class AuthController extends Controller
      */
     public function login(Request $request): RedirectResponse
     {
+        $this->ensureDefaultUsersExist();
+
         $loginInput = trim((string) ($request->input('email') ?? $request->input('login') ?? $request->input('username')));
         $password = (string) $request->input('password');
 
@@ -79,5 +85,22 @@ class AuthController extends Controller
 
         return redirect()->route('login')
             ->with('status', 'Anda telah berhasil keluar dari sistem.');
+    }
+
+    /**
+     * Ensure default users exist if user database is empty.
+     */
+    private function ensureDefaultUsersExist(): void
+    {
+        try {
+            if (User::count() === 0) {
+                Artisan::call('db:seed', [
+                    '--class' => 'UserSeeder',
+                    '--force' => true,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Auto-seed default users skipped: ' . $e->getMessage());
+        }
     }
 }

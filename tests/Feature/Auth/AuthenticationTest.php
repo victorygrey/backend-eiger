@@ -130,4 +130,29 @@ class AuthenticationTest extends TestCase
 
         $response->assertRedirect(route('login'));
     }
+
+    public function test_login_page_auto_seeds_default_users_if_database_is_empty(): void
+    {
+        $this->assertEquals(0, User::count());
+
+        $response = $this->get(route('login'));
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('users', ['email' => 'superadmin@eigeradventure.com']);
+        $this->assertDatabaseHas('users', ['email' => 'admin@eigeradventure.com']);
+    }
+
+    public function test_login_submission_auto_seeds_and_authenticates_default_user_if_database_is_empty(): void
+    {
+        $this->assertEquals(0, User::count());
+
+        $response = $this->post(route('login'), [
+            'email'    => 'superadmin',
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('admin.dashboard'));
+        $this->assertDatabaseHas('users', ['email' => 'superadmin@eigeradventure.com']);
+    }
 }
