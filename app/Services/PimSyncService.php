@@ -94,13 +94,14 @@ class PimSyncService
                 $product = Product::where('sku', $sku)->first();
 
                 if (! $product) {
-                    Product::create([
+                    $product = Product::create([
                         'sku' => $sku,
                         'name' => $name,
                         'image' => $image,
                         'price' => 0,
                         'stock' => 0,
                     ]);
+                    ProductEnrichmentService::enrichProduct($product, $art);
                     $createdCount++;
                 } else {
                     $updates = [];
@@ -114,8 +115,14 @@ class PimSyncService
                         $product->update($updates);
                         $updatedCount++;
                     }
+                    if (ProductEnrichmentService::enrichProduct($product, $art)) {
+                        $updatedCount++;
+                    }
                 }
             }
+
+            // Ensure any other products without zone, material or description are also backfilled
+            ProductEnrichmentService::backfillAll();
 
             DB::commit();
 

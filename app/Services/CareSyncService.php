@@ -130,12 +130,13 @@ class CareSyncService
                 $product = Product::where('sku', $sku)->first();
 
                 if (! $product) {
-                    Product::create([
+                    $product = Product::create([
                         'sku'   => $sku,
                         'name'  => $name ?: ('SKU ' . $sku),
                         'price' => $price ?? 0,
                         'stock' => $stock ?? 0,
                     ]);
+                    ProductEnrichmentService::enrichProduct($product);
                     $createdCount++;
                 } else {
                     $hasChanges = false;
@@ -179,6 +180,7 @@ class CareSyncService
                         'price' => isset($vItem['price']) ? (float) $vItem['price'] : 0,
                         'stock' => 0,
                     ]);
+                    ProductEnrichmentService::enrichProduct($parent);
                     $createdCount++;
                 } elseif ((float) $parent->price === 0.0 && isset($vItem['price'])) {
                     $parent->update(['price' => (float) $vItem['price']]);
@@ -249,6 +251,9 @@ class CareSyncService
                 'message'   => $message,
                 'synced_at' => $startedAt,
             ]);
+
+            // Ensure all products have zone, material, and description filled
+            ProductEnrichmentService::backfillAll();
 
             DB::commit();
 
