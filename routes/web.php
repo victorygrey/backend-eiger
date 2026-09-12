@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\PrintRuleController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\RfidTagController;
 use App\Http\Controllers\Admin\SyncLogController;
@@ -67,18 +66,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::put('/zones/{zone}',         [ZoneController::class, 'update'])->name('zones.update');
     Route::delete('/zones/{zone}',      [ZoneController::class, 'destroy'])->name('zones.destroy');
 
-    // RFID Tags (binding key 'rfidTag')
+    // RFID Tags (Add & View only - no edit, no delete)
     Route::get('/rfid-tags',                 [RfidTagController::class, 'index'])->name('rfid-tags.index');
     Route::get('/rfid-tags/create',          [RfidTagController::class, 'create'])->name('rfid-tags.create');
     Route::post('/rfid-tags',                [RfidTagController::class, 'store'])->name('rfid-tags.store');
-    Route::get('/rfid-tags/{rfidTag}/edit',  [RfidTagController::class, 'edit'])->name('rfid-tags.edit');
-    Route::put('/rfid-tags/{rfidTag}',       [RfidTagController::class, 'update'])->name('rfid-tags.update');
-    Route::delete('/rfid-tags/{rfidTag}',    [RfidTagController::class, 'destroy'])->name('rfid-tags.destroy');
-
-    // Print Rules
-    Route::get('/print-rules',                [PrintRuleController::class, 'index'])->name('print-rules.index');
-    Route::get('/print-rules/{printRule}/edit',[PrintRuleController::class, 'edit'])->name('print-rules.edit');
-    Route::put('/print-rules/{printRule}',    [PrintRuleController::class, 'update'])->name('print-rules.update');
 
     // Sync Logs (read-only)
     Route::get('/sync-logs',                 [SyncLogController::class, 'index'])->name('sync-logs.index');

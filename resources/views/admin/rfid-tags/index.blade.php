@@ -47,8 +47,7 @@
                         <th>UID</th>
                         <th>Produk</th>
                         <th>SKU</th>
-                        <th>Dibuat</th>
-                        <th class="pe-3 text-end">Aksi</th>
+                        <th class="pe-3">Dibuat</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -71,22 +70,10 @@
                                 @endif
                             </td>
                             <td><span class="badge-soft badge-gray-soft">{{ $tag->product->sku ?? '—' }}</span></td>
-                            <td class="text-muted small"><i class="bi bi-calendar3 me-1"></i>{{ $tag->created_at->format('d M Y') }}</td>
-                            <td class="pe-3 text-end">
-                                <div class="btn-group-actions">
-                                    <a href="{{ route('admin.rfid-tags.edit', $tag) }}" class="btn btn-sm btn-outline-warning btn-icon" title="Edit">
-                                        <i class="bi bi-pencil-fill"></i>
-                                    </a>
-                                    <form action="{{ route('admin.rfid-tags.destroy', $tag) }}" method="POST" class="d-inline"
-                                        onsubmit="return confirm('Yakin hapus tag ini?')">
-                                        @csrf @method('DELETE')
-                                        <button class="btn btn-sm btn-outline-danger btn-icon" title="Hapus"><i class="bi bi-trash-fill"></i></button>
-                                    </form>
-                                </div>
-                            </td>
+                            <td class="pe-3 text-muted small"><i class="bi bi-calendar3 me-1"></i>{{ $tag->created_at->format('d M Y') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6">
+                        <tr><td colspan="5">
                             @include('admin.partials.empty-state', [
                                 'icon'        => 'bi-broadcast',
                                 'title'       => 'Belum ada RFID Tag',

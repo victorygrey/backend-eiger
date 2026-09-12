@@ -543,11 +543,6 @@
                 <i class="bi bi-tablet-landscape-fill"></i>
                 <span>Interactive Tablets</span>
             </a>
-            <a href="{{ route('admin.print-rules.index') }}"
-               class="nav-link {{ request()->routeIs('admin.print-rules.*') ? 'active' : '' }}">
-                <i class="bi bi-printer-fill"></i>
-                <span>Print Rules</span>
-            </a>
 
             <div class="nav-section-title">Sistem</div>
             <a href="{{ route('admin.integrations.index') }}" class="nav-link {{ request()->routeIs('admin.integrations.*', 'admin.pim.*', 'admin.care.*') ? 'active' : '' }}">
