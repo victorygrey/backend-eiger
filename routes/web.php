@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\FitAndGoController;
+use App\Http\Controllers\Admin\LedAmbienceController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\RfidTagController;
 use App\Http\Controllers\Admin\SyncLogController;
@@ -73,6 +74,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::put('/categories/{category}', [FitAndGoController::class, 'updateCategory'])->name('categories.update');
         Route::post('/items/visibility', [FitAndGoController::class, 'toggleItemVisibility'])->name('items.visibility');
+    });
+
+    // LED Ambience (Immersive Ambience Digital)
+    Route::prefix('led-ambience')->name('led-ambience.')->group(function () {
+        Route::get('/', [LedAmbienceController::class, 'index'])->name('index');
+        Route::post('/rfid-items', [LedAmbienceController::class, 'storeRfidItem'])->name('rfid-items.store');
+        Route::put('/rfid-items/{item}', [LedAmbienceController::class, 'updateRfidItem'])->name('rfid-items.update');
+        Route::delete('/rfid-items/{item}', [LedAmbienceController::class, 'destroyRfidItem'])->name('rfid-items.destroy');
+
+        Route::post('/scenes', [LedAmbienceController::class, 'storeScene'])->name('scenes.store');
+        Route::put('/scenes/{scene}', [LedAmbienceController::class, 'updateScene'])->name('scenes.update');
+        Route::delete('/scenes/{scene}', [LedAmbienceController::class, 'destroyScene'])->name('scenes.destroy');
     });
 
     // Zones

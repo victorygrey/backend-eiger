@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             ZoneSeeder::class,
             PrintRuleSeeder::class,
             FitAndGoSeeder::class,
+            LedAmbienceSeeder::class,
         ]);
 
         if (app()->environment('local', 'testing') && class_exists(\Faker\Factory::class)) {

@@ -54,3 +54,12 @@ Route::prefix('v1/fit-and-go')->group(function () {
     Route::get('search', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'search']);
     Route::post('heartbeat', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'heartbeat']);
 });
+
+// LED Ambience (Immersive Ambience Digital) APIs (v1)
+Route::prefix('v1/led-ambience')->group(function () {
+    Route::get('idle', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'idle']);
+    Route::get('scenes', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'scenes']);
+    Route::post('trigger', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'trigger']);
+    Route::post('item-lost', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'itemLost']);
+    Route::get('status', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'status']);
+});
