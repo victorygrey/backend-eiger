@@ -13,10 +13,8 @@ class RfidTagController extends Controller
 {
     public function index(Request $request)
     {
-        $tags = RfidTag::with('product')
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('uid', 'like', "%{$request->search}%")
-                  ->orWhereHas('product', fn($p) => $p->where('sku', 'like', "%{$request->search}%"));
+        $tags = RfidTag::when($request->filled('search'), function ($q) use ($request) {
+                $q->where('uid', 'like', "%{$request->search}%");
             })
             ->latest()
             ->paginate(10)

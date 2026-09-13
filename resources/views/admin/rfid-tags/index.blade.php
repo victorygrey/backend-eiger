@@ -11,7 +11,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="mb-1 fw-bold"><i class="bi bi-broadcast-pin text-warning me-2"></i>Manajemen RFID Tag</h4>
-        <p class="text-muted small mb-0">Kelola UID RFID yang tertaut dengan produk.</p>
+        <p class="text-muted small mb-0">Daftar UID RFID dan tanggal terscan.</p>
     </div>
     <a href="{{ route('admin.rfid-tags.create') }}" class="btn btn-eiger">
         <i class="bi bi-plus-lg me-1"></i>Tambah RFID Tag
@@ -24,7 +24,7 @@
             <div class="col-12 col-md-8">
                 <div class="input-group">
                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                    <input type="text" name="search" class="form-control" placeholder="Cari UID atau SKU..." value="{{ request('search') }}">
+                    <input type="text" name="search" class="form-control" placeholder="Cari UID RFID..." value="{{ request('search') }}">
                 </div>
             </div>
             <div class="col-12 col-md-4 d-flex gap-2">
@@ -43,11 +43,9 @@
             <table class="table table-hover align-middle mb-0">
                 <thead>
                     <tr>
-                        <th class="ps-3">#</th>
-                        <th>UID</th>
-                        <th>Produk</th>
-                        <th>SKU</th>
-                        <th class="pe-3">Dibuat</th>
+                        <th class="ps-3" style="width: 70px;">#</th>
+                        <th>UID RFID</th>
+                        <th class="pe-3" style="width: 260px;">Tanggal Terscan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -59,25 +57,25 @@
                                     <div class="p-2 rounded text-white" style="background:linear-gradient(135deg,#f59e0b,#b45309)">
                                         <i class="bi bi-broadcast-pin"></i>
                                     </div>
-                                    <code class="fw-semibold">{{ $tag->uid }}</code>
+                                    <code class="fw-semibold fs-6 text-dark font-monospace">{{ $tag->uid }}</code>
                                 </div>
                             </td>
-                            <td class="fw-semibold">
-                                @if($tag->product)
-                                    {{ $tag->product->name }}
-                                @else
-                                    <span class="badge bg-warning text-dark">Belum dipetakan</span>
-                                @endif
+                            <td class="pe-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-clock-history text-secondary fs-5"></i>
+                                    <div>
+                                        <div class="fw-semibold text-dark">{{ $tag->created_at->format('d M Y') }}</div>
+                                        <small class="text-muted">{{ $tag->created_at->format('H:i:s') }} WIB</small>
+                                    </div>
+                                </div>
                             </td>
-                            <td><span class="badge-soft badge-gray-soft">{{ $tag->product->sku ?? '—' }}</span></td>
-                            <td class="pe-3 text-muted small"><i class="bi bi-calendar3 me-1"></i>{{ $tag->created_at->format('d M Y') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5">
+                        <tr><td colspan="3">
                             @include('admin.partials.empty-state', [
                                 'icon'        => 'bi-broadcast',
                                 'title'       => 'Belum ada RFID Tag',
-                                'sub'         => 'Daftarkan UID RFID untuk menautkannya ke produk.',
+                                'sub'         => 'Daftarkan atau scan UID RFID untuk menambahkan data baru.',
                                 'actionUrl'   => route('admin.rfid-tags.create'),
                                 'actionLabel' => 'Tambah RFID Tag',
                             ])
