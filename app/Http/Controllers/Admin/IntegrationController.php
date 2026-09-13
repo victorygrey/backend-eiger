@@ -74,7 +74,7 @@ class IntegrationController extends Controller
             'importCounts' => $importCounts,
             'storeCode' => config('services.care.store_code', '2022'),
             'storeName' => 'Toko Flagship Setiabudi (Bandung)',
-            'careUrl' => config('services.care.url', 'http://127.0.0.1:8002'),
+            'careUrl' => config('services.care.url', 'http://192.168.18.31:8002'),
             'pimUrl' => config('pim.url', 'http://192.168.18.31:8001'),
         ]);
     }
