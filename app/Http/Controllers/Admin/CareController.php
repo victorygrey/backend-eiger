@@ -51,7 +51,7 @@ class CareController extends Controller
             'recentProducts' => $recentProducts,
             'storeCode' => config('services.care.store_code', '2022'),
             'storeName' => 'Toko Flagship Setiabudi (Bandung)',
-            'careUrl' => config('services.care.url', 'http://127.0.0.1:8002'),
+            'careUrl' => $connection['url'],
         ]);
     }
 

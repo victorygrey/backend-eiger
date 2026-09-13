@@ -187,7 +187,7 @@ class ProductController extends Controller
 
         // 3. Query CARE Simulator for current store price & stock
         try {
-            $baseUrl = config('services.care.url', 'http://127.0.0.1:8002');
+            $baseUrl = app(\App\Services\CareSyncService::class)->getBaseUrl();
             $serverKey = config('services.care.server_key');
             $storeCode = config('services.care.store_code', '2022');
             $headers = ['Accept' => 'application/json'];

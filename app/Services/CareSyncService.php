@@ -12,13 +12,53 @@ use Illuminate\Support\Facades\Log;
 class CareSyncService
 {
     /**
+     * Get the active CARE base URL with auto-discovery fallback.
+     */
+    public function getBaseUrl(): string
+    {
+        $configured = rtrim((string) config('services.care.url', 'http://192.168.18.31:8002'), '/');
+
+        // 1. If configured URL responds healthy, use it
+        try {
+            $resp = Http::timeout(2)->acceptJson()->get($configured . '/api/health');
+            if ($resp->successful()) {
+                return $configured;
+            }
+        } catch (\Throwable $e) {
+            // Probe fallback candidates below
+        }
+
+        // 2. Candidates: TrueNAS host endpoint, then localhost
+        $candidates = [
+            'http://192.168.18.31:8002',
+            'http://127.0.0.1:8002',
+        ];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate === $configured) {
+                continue;
+            }
+            try {
+                $resp = Http::timeout(2)->acceptJson()->get($candidate . '/api/health');
+                if ($resp->successful()) {
+                    return $candidate;
+                }
+            } catch (\Throwable $e) {
+                // Try next
+            }
+        }
+
+        return $configured;
+    }
+
+    /**
      * Test connection to CARE API.
      *
      * @return array{online: bool, status_code: ?int, message: string, url: string, store_code: string}
      */
     public function testConnection(): array
     {
-        $baseUrl = config('services.care.url', 'http://127.0.0.1:8002');
+        $baseUrl = $this->getBaseUrl();
         $storeCode = config('services.care.store_code', '2022');
         $serverKey = config('services.care.server_key');
         $timeout = (int) config('services.care.timeout', 5);
@@ -85,7 +125,7 @@ class CareSyncService
         $startedAt = Carbon::now();
 
         try {
-            $baseUrl = config('services.care.url', 'http://127.0.0.1:8002');
+            $baseUrl = $this->getBaseUrl();
             $serverKey = config('services.care.server_key');
             $storeCode = config('services.care.store_code', '2022');
             $timeout = (int) config('services.care.timeout', 10);
