@@ -25,8 +25,7 @@ class RfidTagController extends Controller
 
     public function create()
     {
-        $products = Product::orderBy('name')->get();
-        return view('admin.rfid-tags.create', compact('products'));
+        return view('admin.rfid-tags.create');
     }
 
     public function store(StoreRfidTagRequest $request)
