@@ -40,14 +40,16 @@ class LedAmbienceController extends Controller
 
             $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
 
-            return view('admin.led-ambience.index', [
+            $html = view('admin.led-ambience.index', [
                 'currentTab'        => $currentTab,
                 'rfidItems'         => $rfidItems,
                 'scenes'            => $scenes,
                 'products'          => $products,
                 'activities'        => $activities,
                 'availableRfidTags' => $availableRfidTags,
-            ]);
+            ])->render();
+
+            return response($html);
         } catch (\Throwable $e) {
             return response()->json([
                 'error' => $e->getMessage(),
