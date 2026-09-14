@@ -258,7 +258,9 @@
 
                         <dt class="col-6 text-muted">Konektivitas:</dt>
                         <dd class="col-6">
-                            @php($online = $tablet->last_seen_at?->gt(now()->subMinutes(2)) ?? false)
+                            @php
+                                $online = $tablet->last_seen_at?->gt(now()->subMinutes(2)) ?? false;
+                            @endphp
                             @if($online)
                                 <span class="badge badge-success-soft"><i class="bi bi-wifi"></i> Online</span>
                             @else

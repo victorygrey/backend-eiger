@@ -221,14 +221,12 @@
                                             <div class="rfid-select-wrap">
                                                 <select name="rfid_tag" class="form-select font-monospace rfid-select-field" required>
                                                     <option value="">-- Pilih dari Master RFID Tags --</option>
-                                                    @php $foundCurrent = false; @endphp
                                                     @foreach($availableRfidTags as $rt)
-                                                        @if($rt->uid === $item->rfid_tag) @php $foundCurrent = true; @endphp @endif
                                                         <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}" @selected($rt->uid === $item->rfid_tag)>
                                                             {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
                                                         </option>
                                                     @endforeach
-                                                    @if(!$foundCurrent && $item->rfid_tag)
+                                                    @if(!$availableRfidTags->contains('uid', $item->rfid_tag) && $item->rfid_tag)
                                                         <option value="{{ $item->rfid_tag }}" selected>
                                                             {{ $item->rfid_tag }} (Tag saat ini / Kustom)
                                                         </option>
@@ -293,7 +291,9 @@
                                         <div class="col-12">
                                             <label class="form-label fw-semibold">Produk Serupa untuk Rekomendasi & Komparasi (Pilih Maks. 5)</label>
                                             <select name="similar_product_ids[]" class="form-select" multiple size="4">
-                                                @php($selSim = $item->similar_product_ids ?: [])
+                                                @php
+                                                    $selSim = $item->similar_product_ids ?: [];
+                                                @endphp
                                                 @foreach($products as $simProd)
                                                     @if($simProd->id !== $item->product_id)
                                                         <option value="{{ $simProd->id }}" @selected(in_array($simProd->id, $selSim))>

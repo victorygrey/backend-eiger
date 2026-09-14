@@ -62,19 +62,6 @@ Route::prefix('v1/led-ambience')->group(function () {
     Route::post('trigger', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'trigger']);
     Route::post('item-lost', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'itemLost']);
     Route::get('status', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'status']);
-    Route::get('debug-view', function () {
-        try {
-            $controller = app(\App\Http\Controllers\Admin\LedAmbienceController::class);
-            return $controller->index(request());
-        } catch (\Throwable $e) {
-            return response()->json([
-                'error' => $e->getMessage(),
-                'file'  => $e->getFile(),
-                'line'  => $e->getLine(),
-                'trace' => collect($e->getTrace())->take(5)->map(fn($t) => ($t['file'] ?? '') . ':' . ($t['line'] ?? ''))->toArray(),
-            ], 500);
-        }
-    });
 });
 
 // Table Expedition (Table Expedition Hub / Product Knowledge) APIs (v1)

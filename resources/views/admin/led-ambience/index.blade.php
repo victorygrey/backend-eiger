@@ -79,7 +79,6 @@
     <div class="col-6 col-md-3">
         <div class="stat-card">
             <div class="d-flex align-items-center justify-content-between">
-                @php($idleScene = $scenes->firstWhere('scene_type', 'idle'))
                 <div>
                     <div class="stat-value text-success">{{ $idleScene ? 'Aktif' : 'Belum' }}</div>
                     <div class="stat-label">Idle Scene Loop</div>
@@ -146,6 +145,7 @@
             </thead>
             <tbody>
                 @forelse($rfidItems as $item)
+                <tr>
                     <td class="ps-3">
                         @if($item->rfidTag && $item->rfidTag->name)
                             <div class="fw-semibold text-primary small d-flex align-items-center gap-1 mb-1">
@@ -237,14 +237,12 @@
                                         <div class="rfid-select-wrap">
                                             <select name="rfid_tag" class="form-select font-monospace rfid-select-field" required>
                                                 <option value="">-- Pilih dari Master RFID Tags --</option>
-                                                @php $foundCurrent = false; @endphp
                                                 @foreach($availableRfidTags as $rt)
-                                                    @if($rt->uid === $item->rfid_tag) @php $foundCurrent = true; @endphp @endif
                                                     <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}" @selected($rt->uid === $item->rfid_tag)>
                                                         {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
                                                     </option>
                                                 @endforeach
-                                                @if(!$foundCurrent && $item->rfid_tag)
+                                                @if(!$availableRfidTags->contains('uid', $item->rfid_tag) && $item->rfid_tag)
                                                     <option value="{{ $item->rfid_tag }}" selected>
                                                         {{ $item->rfid_tag }} (Tag saat ini / Kustom)
                                                     </option>

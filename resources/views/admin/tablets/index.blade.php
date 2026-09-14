@@ -128,7 +128,9 @@
                 </thead>
                 <tbody>
                     @forelse($tablets as $tablet)
-                        @php($online = $tablet->is_active && ($tablet->last_seen_at?->gt(now()->subMinutes(2)) ?? false))
+                        @php
+                            $online = $tablet->is_active && ($tablet->last_seen_at?->gt(now()->subMinutes(2)) ?? false);
+                        @endphp
                         <tr class="tablet-row" data-name="{{ strtolower($tablet->name) }}" data-location="{{ strtolower($tablet->location ?? '') }}">
                             <td class="ps-3">
                                 <div class="fw-bold text-dark">{{ $tablet->name }}</div>

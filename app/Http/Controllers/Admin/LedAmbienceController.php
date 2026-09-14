@@ -19,45 +19,36 @@ class LedAmbienceController extends Controller
      */
     public function index(Request $request)
     {
-        try {
-            $currentTab = $request->query('tab', 'rfid');
+        $currentTab = $request->query('tab', 'rfid');
 
-            $rfidItems = LedAmbienceItem::with(['product.zone', 'scene', 'rfidTag'])
-                ->latest('id')
-                ->get();
+        $rfidItems = LedAmbienceItem::with(['product.zone', 'scene', 'rfidTag'])
+            ->latest('id')
+            ->get();
 
-            $scenes = LedAmbienceScene::withCount('items')
-                ->orderBy('sort_order')
-                ->get();
+        $scenes = LedAmbienceScene::withCount('items')
+            ->orderBy('sort_order')
+            ->get();
 
-            $products = Product::where('is_discontinued', false)
-                ->orderBy('name')
-                ->get();
+        $products = Product::where('is_discontinued', false)
+            ->orderBy('name')
+            ->get();
 
-            $activities = FitAndGoActivity::where('is_active', true)
-                ->orderBy('sort_order')
-                ->get();
+        $activities = FitAndGoActivity::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
 
-            $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+        $idleScene = $scenes->firstWhere('scene_type', 'idle');
 
-            $html = view('admin.led-ambience.index', [
-                'currentTab'        => $currentTab,
-                'rfidItems'         => $rfidItems,
-                'scenes'            => $scenes,
-                'products'          => $products,
-                'activities'        => $activities,
-                'availableRfidTags' => $availableRfidTags,
-            ])->render();
-
-            return response($html);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'error' => $e->getMessage(),
-                'file'  => $e->getFile(),
-                'line'  => $e->getLine(),
-                'trace' => collect($e->getTrace())->take(10)->map(fn($t) => ($t['file'] ?? '') . ':' . ($t['line'] ?? ''))->toArray(),
-            ], 500);
-        }
+        return view('admin.led-ambience.index', [
+            'currentTab'        => $currentTab,
+            'rfidItems'         => $rfidItems,
+            'scenes'            => $scenes,
+            'idleScene'         => $idleScene,
+            'products'          => $products,
+            'activities'        => $activities,
+            'availableRfidTags' => $availableRfidTags,
+        ]);
     }
 
     // ==========================================
