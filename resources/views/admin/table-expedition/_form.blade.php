@@ -19,11 +19,14 @@
         $techVal = trim($techStr);
     }
 
-    $selSimilar = old('similar_product_ids', isset($item) ? ($item->similar_product_ids ?? []) : []);
-    if (!is_array($selSimilar)) {
-        $selSimilar = [];
+    $oldSimilarIds = old('similar_product_ids', isset($item) ? ($item->similar_product_ids ?? []) : []);
+    if (!is_array($oldSimilarIds)) {
+        $oldSimilarIds = [];
     }
-    $selSimilar = array_map('intval', $selSimilar);
+    $selectedSimilarIds = collect($oldSimilarIds)->map(fn ($id) => (int) $id)->values();
+    $selectedSimilarProducts = $selectedSimilarIds
+        ->map(fn ($id) => $products->firstWhere('id', $id))
+        ->filter();
 @endphp
 
 <div class="row g-4">
@@ -69,7 +72,7 @@
 
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Produk EIGER Terkait <span class="text-danger">*</span></label>
-                        <select name="product_id" class="form-select @error('product_id') is-invalid @enderror" required>
+                        <select name="product_id" id="main_product_select" class="form-select @error('product_id') is-invalid @enderror" required>
                             <option value="">-- Pilih Produk EIGER --</option>
                             @foreach($products as $prod)
                                 <option value="{{ $prod->id }}" @selected($prod->id === $selectedProdId)>
@@ -150,26 +153,126 @@
             </div>
         </div>
 
-        {{-- Card 3: Similar Products for Recommendation & Comparison --}}
+        {{-- Card 3: Similar Products for Recommendation & Comparison (Dual-List Visual Picker) --}}
         <div class="card border-0 shadow-sm rounded-3 mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div>
                     <h6 class="mb-0 fw-bold"><i class="bi bi-shuffle text-success me-2"></i>Produk Rekomendasi & Komparasi Serupa</h6>
-                    <small class="text-muted">Pilih hingga maksimal 5 produk untuk ditampilkan sebagai opsi perbandingan di layar meja.</small>
+                    <small class="text-muted">Pilih hingga maksimal 5 produk komparasi. Klik tombol <strong>+ Tambah</strong> pada katalog di sebelah kiri.</small>
                 </div>
-                <span class="badge bg-secondary-subtle text-secondary" id="selected-sim-count">{{ count($selSimilar) }} / 5 Dipilih</span>
+                <span class="badge bg-secondary" id="sim-count-badge">{{ $selectedSimilarProducts->count() }} / 5 Terpilih</span>
             </div>
             <div class="card-body">
-                <select name="similar_product_ids[]" id="similar_products_select" class="form-select @error('similar_product_ids') is-invalid @enderror" multiple size="6">
-                    @foreach($products as $simProd)
-                        <option value="{{ $simProd->id }}" @selected(in_array($simProd->id, $selSimilar))>
-                            {{ $simProd->name }} ({{ $simProd->sku }}) — Rp {{ number_format($simProd->price ?? 0, 0, ',', '.') }} [{{ $simProd->zone?->name ?? 'Outdoor' }}]
-                        </option>
-                    @endforeach
-                </select>
-                @error('similar_product_ids')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                <div class="form-text small mt-2">
-                    Tahan tombol <strong>Ctrl</strong> (Windows) atau <strong>Command</strong> (Mac) untuk memilih beberapa produk (maksimal 5).
+                <div class="row g-3">
+                    {{-- LEFT PANEL: Available Catalog Products --}}
+                    <div class="col-12 col-md-6 border-end pe-md-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-semibold small text-muted text-uppercase">Katalog Produk Tersedia</span>
+                            <span class="small text-muted" id="avail-sim-count">{{ $products->count() }} produk</span>
+                        </div>
+
+                        {{-- Search & Filter --}}
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="search-avail-sim-products" class="form-control" placeholder="Cari nama / SKU produk...">
+                        </div>
+
+                        {{-- Scrollable List of Available Products --}}
+                        <div class="overflow-auto border rounded-3 p-2 bg-light" style="max-height: 420px;" id="available-sim-products-list">
+                            @foreach($products as $prod)
+                                @php
+                                    $isSel = $selectedSimilarIds->contains($prod->id);
+                                    $isMain = $selectedProdId === $prod->id;
+                                @endphp
+                                <div class="product-item-row p-2 mb-2 bg-white rounded border d-flex align-items-center justify-content-between gap-2 transition-all {{ ($isSel || $isMain) ? 'opacity-50' : '' }}"
+                                     id="avail-sim-prod-{{ $prod->id }}"
+                                     data-id="{{ $prod->id }}"
+                                     data-name="{{ strtolower($prod->name) }}"
+                                     data-sku="{{ strtolower($prod->sku) }}"
+                                     data-zone="{{ strtolower($prod->zone?->name ?? '') }}"
+                                     data-rawname="{{ $prod->name }}"
+                                     data-rawsku="{{ $prod->sku }}"
+                                     data-img="{{ $prod->image ?: 'https://placehold.co/60x60?text=EIGER' }}"
+                                     data-price="Rp {{ number_format($prod->price ?? 0, 0, ',', '.') }}">
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                        <img src="{{ $prod->image ?: 'https://placehold.co/60x60?text=EIGER' }}"
+                                             alt="{{ $prod->name }}" class="rounded border object-fit-cover flex-shrink-0" style="width: 44px; height: 44px;">
+                                        <div class="overflow-hidden">
+                                            <div class="fw-semibold small text-truncate text-dark" title="{{ $prod->name }}">{{ $prod->name }}</div>
+                                            <div class="text-muted small font-monospace">{{ $prod->sku }}</div>
+                                            <div class="text-secondary small">Rp {{ number_format($prod->price ?? 0, 0, ',', '.') }}</div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0 btn-add-sim"
+                                            onclick="addSimilarProduct({{ $prod->id }})"
+                                            {{ ($isSel || $isMain) ? 'disabled' : '' }}>
+                                        @if($isMain)
+                                            <i class="bi bi-star-fill"></i> Utama
+                                        @elseif($isSel)
+                                            <i class="bi bi-check"></i> Ada
+                                        @else
+                                            <i class="bi bi-plus-lg"></i> Tambah
+                                        @endif
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    {{-- RIGHT PANEL: Selected Similar Products --}}
+                    <div class="col-12 col-md-6 ps-md-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-semibold small text-muted text-uppercase">Daftar Komparasi Terpilih</span>
+                            <small class="text-muted">Maksimal 5 produk komparasi</small>
+                        </div>
+
+                        {{-- Hidden inputs container --}}
+                        <div id="similar-inputs-container">
+                            @foreach($selectedSimilarProducts as $prod)
+                                <input type="hidden" name="similar_product_ids[]" value="{{ $prod->id }}" id="sim-input-{{ $prod->id }}">
+                            @endforeach
+                        </div>
+
+                        {{-- Selected List Container --}}
+                        <div class="overflow-auto border rounded-3 p-2 bg-light" style="max-height: 420px;" id="selected-similar-list">
+                            {{-- Empty State --}}
+                            <div id="sim-empty-state" class="text-center py-5 text-muted {{ $selectedSimilarProducts->isNotEmpty() ? 'd-none' : '' }}">
+                                <i class="bi bi-hand-index-thumb fs-2 text-secondary d-block mb-2"></i>
+                                <div class="fw-semibold small">Belum ada produk komparasi dipilih</div>
+                                <small>Klik tombol <strong>+ Tambah</strong> di katalog kiri untuk memilih produk (maksimal 5).</small>
+                            </div>
+
+                            {{-- Selected Cards --}}
+                            @foreach($selectedSimilarProducts as $index => $prod)
+                                <div class="selected-sim-item p-2 mb-2 bg-white rounded border shadow-sm d-flex align-items-center justify-content-between gap-2"
+                                     id="selected-sim-card-{{ $prod->id }}" data-id="{{ $prod->id }}">
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                        <span class="badge bg-secondary font-monospace sim-rank-badge" style="width: 28px;">#{{ $index + 1 }}</span>
+                                        <img src="{{ $prod->image ?: 'https://placehold.co/60x60?text=EIGER' }}"
+                                             alt="{{ $prod->name }}" class="rounded border object-fit-cover flex-shrink-0" style="width: 44px; height: 44px;">
+                                        <div class="overflow-hidden">
+                                            <div class="fw-semibold small text-truncate text-dark" title="{{ $prod->name }}">{{ $prod->name }}</div>
+                                            <div class="text-muted small font-monospace">{{ $prod->sku }} | Rp {{ number_format($prod->price ?? 0, 0, ',', '.') }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary p-1 px-2" onclick="moveSimUp({{ $prod->id }})" title="Geser Naik">
+                                            <i class="bi bi-arrow-up"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary p-1 px-2" onclick="moveSimDown({{ $prod->id }})" title="Geser Turun">
+                                            <i class="bi bi-arrow-down"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger p-1 px-2" onclick="removeSimilarProduct({{ $prod->id }})" title="Hapus">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        @error('similar_product_ids')<div class="text-danger small mt-2"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>@enderror
+                        @error('similar_product_ids.*')<div class="text-danger small mt-2"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>@enderror
+                    </div>
                 </div>
             </div>
         </div>
@@ -257,7 +360,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const form = this.closest('form');
                 if (form) {
                     const prodSelect = form.querySelector('select[name="product_id"]');
-                    if (prodSelect) prodSelect.value = productId;
+                    if (prodSelect) {
+                        prodSelect.value = productId;
+                        prodSelect.dispatchEvent(new Event('change'));
+                    }
                 }
             }
         });
@@ -305,22 +411,205 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 3. Similar products counter
-    const simSelect = document.getElementById('similar_products_select');
-    const simCountBadge = document.getElementById('selected-sim-count');
-    if (simSelect && simCountBadge) {
-        simSelect.addEventListener('change', function () {
-            const count = Array.from(this.selectedOptions).length;
-            simCountBadge.textContent = `${count} / 5 Dipilih`;
-            if (count > 5) {
-                simCountBadge.classList.remove('bg-secondary-subtle', 'text-secondary');
-                simCountBadge.classList.add('bg-danger', 'text-white');
+    // 3. Search & Filter Available Similar Products
+    const searchInput = document.getElementById('search-avail-sim-products');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+            let count = 0;
+            document.querySelectorAll('#available-sim-products-list .product-item-row').forEach(row => {
+                const name = row.dataset.name;
+                const sku = row.dataset.sku;
+                const zone = row.dataset.zone;
+                const match = (name.includes(q) || sku.includes(q) || zone.includes(q));
+                row.style.display = match ? '' : 'none';
+                if (match) count++;
+            });
+            const countEl = document.getElementById('avail-sim-count');
+            if (countEl) countEl.textContent = `${count} produk`;
+        });
+    }
+
+    // 4. Add Similar Product (Max 5)
+    window.addSimilarProduct = function (productId) {
+        const currentInputs = document.querySelectorAll('#similar-inputs-container input');
+        if (currentInputs.length >= 5) {
+            alert('Maksimal 5 produk rekomendasi & komparasi yang dapat dipilih.');
+            return;
+        }
+
+        const mainProdSelect = document.getElementById('main_product_select');
+        const mainProdId = mainProdSelect ? parseInt(mainProdSelect.value || 0) : 0;
+        if (productId === mainProdId) {
+            alert('Produk ini sedang dipilih sebagai Produk Utama.');
+            return;
+        }
+
+        if (document.getElementById(`sim-input-${productId}`)) return;
+
+        const row = document.getElementById(`avail-sim-prod-${productId}`);
+        if (!row) return;
+
+        const name = row.dataset.rawname;
+        const sku = row.dataset.rawsku;
+        const price = row.dataset.price;
+        const img = row.dataset.img;
+
+        // 1. Add hidden input
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'similar_product_ids[]';
+        input.value = productId;
+        input.id = `sim-input-${productId}`;
+        document.getElementById('similar-inputs-container').appendChild(input);
+
+        // 2. Add visual card
+        const card = document.createElement('div');
+        card.className = 'selected-sim-item p-2 mb-2 bg-white rounded border shadow-sm d-flex align-items-center justify-content-between gap-2';
+        card.id = `selected-sim-card-${productId}`;
+        card.dataset.id = productId;
+        card.innerHTML = `
+            <div class="d-flex align-items-center gap-2 overflow-hidden">
+                <span class="badge bg-secondary font-monospace sim-rank-badge" style="width: 28px;">#</span>
+                <img src="${img}" alt="${name}" class="rounded border object-fit-cover flex-shrink-0" style="width: 44px; height: 44px;">
+                <div class="overflow-hidden">
+                    <div class="fw-semibold small text-truncate text-dark" title="${name}">${name}</div>
+                    <div class="text-muted small font-monospace">${sku} | ${price}</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary p-1 px-2" onclick="moveSimUp(${productId})" title="Geser Naik">
+                    <i class="bi bi-arrow-up"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary p-1 px-2" onclick="moveSimDown(${productId})" title="Geser Turun">
+                    <i class="bi bi-arrow-down"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger p-1 px-2" onclick="removeSimilarProduct(${productId})" title="Hapus">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        `;
+
+        document.getElementById('selected-similar-list').appendChild(card);
+        updateSimRanks();
+        updateAvailableSimState();
+    };
+
+    // 5. Remove Similar Product
+    window.removeSimilarProduct = function (productId) {
+        const input = document.getElementById(`sim-input-${productId}`);
+        if (input) input.remove();
+
+        const card = document.getElementById(`selected-sim-card-${productId}`);
+        if (card) card.remove();
+
+        updateSimRanks();
+        updateAvailableSimState();
+    };
+
+    // 6. Move Similar Product Up
+    window.moveSimUp = function (productId) {
+        const card = document.getElementById(`selected-sim-card-${productId}`);
+        const input = document.getElementById(`sim-input-${productId}`);
+        if (!card || !card.previousElementSibling || card.previousElementSibling.id === 'sim-empty-state') return;
+
+        const prevCard = card.previousElementSibling;
+        const prevInput = input.previousElementSibling;
+
+        card.parentNode.insertBefore(card, prevCard);
+        input.parentNode.insertBefore(input, prevInput);
+        updateSimRanks();
+    };
+
+    // 7. Move Similar Product Down
+    window.moveSimDown = function (productId) {
+        const card = document.getElementById(`selected-sim-card-${productId}`);
+        const input = document.getElementById(`sim-input-${productId}`);
+        if (!card || !card.nextElementSibling) return;
+
+        const nextCard = card.nextElementSibling;
+        const nextInput = input.nextElementSibling;
+
+        card.parentNode.insertBefore(nextCard, card);
+        input.parentNode.insertBefore(nextInput, input);
+        updateSimRanks();
+    };
+
+    // 8. Update Ranks, Badges & Empty State
+    function updateSimRanks() {
+        const cards = document.querySelectorAll('#selected-similar-list .selected-sim-item');
+        cards.forEach((card, index) => {
+            const badge = card.querySelector('.sim-rank-badge');
+            if (badge) badge.textContent = `#${index + 1}`;
+        });
+
+        const emptyState = document.getElementById('sim-empty-state');
+        if (emptyState) {
+            emptyState.classList.toggle('d-none', cards.length > 0);
+        }
+
+        const badge = document.getElementById('sim-count-badge');
+        if (badge) {
+            badge.textContent = `${cards.length} / 5 Terpilih`;
+            if (cards.length >= 5) {
+                badge.className = 'badge bg-success';
             } else {
-                simCountBadge.classList.remove('bg-danger', 'text-white');
-                simCountBadge.classList.add('bg-secondary-subtle', 'text-secondary');
+                badge.className = 'badge bg-secondary';
+            }
+        }
+    }
+
+    // 9. Update Available Catalog Items State
+    function updateAvailableSimState() {
+        const mainProdSelect = document.getElementById('main_product_select');
+        const mainProdId = mainProdSelect ? parseInt(mainProdSelect.value || 0) : 0;
+        const simIds = Array.from(document.querySelectorAll('#similar-inputs-container input'))
+            .map(inp => parseInt(inp.value));
+        const isMax = simIds.length >= 5;
+
+        document.querySelectorAll('#available-sim-products-list .product-item-row').forEach(row => {
+            const id = parseInt(row.dataset.id);
+            const isSim = simIds.includes(id);
+            const isMain = (id === mainProdId);
+            const btn = row.querySelector('.btn-add-sim');
+
+            if (isSim || isMain) {
+                row.classList.add('opacity-50');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = isMain ? '<i class="bi bi-star-fill"></i> Utama' : '<i class="bi bi-check"></i> Ada';
+                }
+            } else if (isMax) {
+                row.classList.remove('opacity-50');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="bi bi-slash-circle"></i> Penuh';
+                }
+            } else {
+                row.classList.remove('opacity-50');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-plus-lg"></i> Tambah';
+                }
             }
         });
     }
+
+    // 10. Re-evaluate when main product changes
+    const mainProdSelect = document.getElementById('main_product_select');
+    if (mainProdSelect) {
+        mainProdSelect.addEventListener('change', function () {
+            const newMainId = parseInt(this.value || 0);
+            if (document.getElementById(`sim-input-${newMainId}`)) {
+                removeSimilarProduct(newMainId);
+            }
+            updateAvailableSimState();
+        });
+    }
+
+    // Run initial state setup
+    updateSimRanks();
+    updateAvailableSimState();
 });
 </script>
 @endpush
