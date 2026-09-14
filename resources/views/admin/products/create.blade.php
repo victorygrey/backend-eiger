@@ -69,15 +69,9 @@
                     @error('zone_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
-                <div class="col-md-6">
-                    <label class="form-label">URL Gambar</label>
-                    <input type="text" name="image" value="{{ old('image') }}"
-                        class="form-control @error('image') is-invalid @enderror"
-                        placeholder="https://...">
-                    @error('image') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
+                @include('admin.products._cover_picker')
 
-                <div class="col-md-6">
+                <div class="col-md-12">
                     <label class="form-label">Material</label>
                     <input type="text" name="material" value="{{ old('material') }}"
                         class="form-control @error('material') is-invalid @enderror"

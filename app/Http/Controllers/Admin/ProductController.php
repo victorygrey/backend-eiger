@@ -78,6 +78,7 @@ class ProductController extends Controller
         }
 
         $scrapedProduct = null;
+        $images = [];
         if (file_exists($scrapJsonPath)) {
             $products = json_decode(file_get_contents($scrapJsonPath), true) ?: [];
             foreach ($products as $p) {
@@ -89,6 +90,12 @@ class ProductController extends Controller
                     $result['description'] = $p['description'] ?? '';
                     $result['image'] = $p['images'][0]['url'] ?? '';
                     $result['price'] = (float) ($p['price'] ?? 0);
+
+                    if (!empty($p['images'])) {
+                        foreach ($p['images'] as $img) {
+                            if (!empty($img['url'])) $images[] = $img['url'];
+                        }
+                    }
 
                     // Extract material from description
                     if (preg_match('/Material\s*:\s*([^.\r\n,]+)/i', $p['description'] ?? '', $m)) {
@@ -111,6 +118,7 @@ class ProductController extends Controller
                                 'size' => $sz,
                                 'price' => $result['price'],
                                 'stock' => 0,
+                                'image' => $result['image'] ?? '',
                             ];
                         }
                     }
@@ -128,6 +136,33 @@ class ProductController extends Controller
                 }
                 if (empty($result['image'])) {
                     $result['image'] = $pim['product']['mainImage'] ?? '';
+                }
+                if (!empty($pim['product']['mainImage'])) {
+                    $images[] = $pim['product']['mainImage'];
+                }
+
+                if (!empty($pim['product']['media'])) {
+                    foreach ($pim['product']['media'] as $mediaGroup) {
+                        foreach ($mediaGroup['files'] ?? [] as $f) {
+                            if (!empty($f['value'])) $images[] = $f['value'];
+                        }
+                    }
+                }
+
+                if (!empty($pim['image']['generic'])) {
+                    foreach ($pim['image']['generic'] as $gen) {
+                        foreach ($gen['image'] ?? [] as $gi) {
+                            if (!empty($gi['url'])) $images[] = $gi['url'];
+                        }
+                    }
+                }
+
+                if (!empty($pim['image']['variant'])) {
+                    foreach ($pim['image']['variant'] as $pvar) {
+                        foreach ($pvar['image'] ?? [] as $vi) {
+                            if (!empty($vi['url'])) $images[] = $vi['url'];
+                        }
+                    }
                 }
 
                 foreach ($pim['product']['customAtributes'] ?? [] as $ca) {
@@ -169,6 +204,7 @@ class ProductController extends Controller
                                 'size' => $sz,
                                 'price' => $result['price'],
                                 'stock' => 0,
+                                'image' => $result['image'] ?? '',
                             ];
                         }
                     }
@@ -246,7 +282,35 @@ class ProductController extends Controller
                 'size' => 'ALL',
                 'price' => $result['price'],
                 'stock' => $result['stock'],
+                'image' => $result['image'] ?? '',
             ];
+        }
+
+        // Finalize unique images list
+        $images = array_values(array_unique(array_filter($images)));
+        if (empty($result['image']) && !empty($images)) {
+            $result['image'] = $images[0];
+        }
+        $result['images'] = $images;
+
+        // Map specific variant images from PIM if available
+        if (!empty($pim['image']['variant'])) {
+            $pimVarMap = [];
+            foreach ($pim['image']['variant'] as $pvImg) {
+                $pvSku = (string) ($pvImg['sku'] ?? '');
+                $first = $pvImg['image'][0]['url'] ?? '';
+                if ($pvSku && $first) {
+                    $pimVarMap[$pvSku] = $first;
+                }
+            }
+            foreach ($result['variants'] as &$v) {
+                if (!empty($pimVarMap[$v['sku']])) {
+                    $v['image'] = $pimVarMap[$v['sku']];
+                } elseif (empty($v['image'])) {
+                    $v['image'] = $result['image'] ?? '';
+                }
+            }
+            unset($v);
         }
 
         // 4. Auto-detect Zone based on category & name
@@ -285,7 +349,8 @@ class ProductController extends Controller
     public function create()
     {
         $zones = Zone::all();
-        return view('admin.products.create', compact('zones'));
+        $availableImages = [];
+        return view('admin.products.create', compact('zones', 'availableImages'));
     }
 
     /**
@@ -312,6 +377,7 @@ class ProductController extends Controller
                         'size'  => $var['size'] ?? null,
                         'price' => $var['price'] ?? $product->price,
                         'stock' => $var['stock'] ?? 0,
+                        'image' => $var['image'] ?? null,
                     ]);
                 }
             }
@@ -329,7 +395,8 @@ class ProductController extends Controller
     {
         $product->load('variants');
         $zones = Zone::all();
-        return view('admin.products.edit', compact('product', 'zones'));
+        $availableImages = $this->collectAvailableImages($product);
+        return view('admin.products.edit', compact('product', 'zones', 'availableImages'));
     }
 
     /**
@@ -359,6 +426,7 @@ class ProductController extends Controller
                             'size'  => $var['size'] ?? null,
                             'price' => $var['price'] ?? $product->price,
                             'stock' => $var['stock'] ?? 0,
+                            'image' => $var['image'] ?? null,
                         ]
                     );
                 }
@@ -371,6 +439,60 @@ class ProductController extends Controller
 
         return redirect()->route('admin.products.index')
             ->with('success', 'Produk berhasil diperbarui.');
+    }
+
+    /**
+     * Extract all unique images available for a product from PIM payloads, scraping data, and variants.
+     */
+    protected function collectAvailableImages(Product $product): array
+    {
+        $images = [];
+        if (!empty($product->image)) {
+            $images[] = $product->image;
+        }
+
+        // From pim_image_payload
+        if (is_array($product->pim_image_payload)) {
+            foreach ($product->pim_image_payload['generic'] ?? [] as $gen) {
+                foreach ($gen['image'] ?? [] as $gi) {
+                    if (!empty($gi['url'])) $images[] = $gi['url'];
+                }
+            }
+            foreach ($product->pim_image_payload['variant'] ?? [] as $pvar) {
+                foreach ($pvar['image'] ?? [] as $vi) {
+                    if (!empty($vi['url'])) $images[] = $vi['url'];
+                }
+            }
+        }
+
+        // From pim_media
+        if (is_array($product->pim_media)) {
+            foreach ($product->pim_media as $m) {
+                if (is_string($m) && !empty($m)) {
+                    $images[] = $m;
+                } elseif (is_array($m)) {
+                    if (!empty($m['url'])) $images[] = $m['url'];
+                    if (!empty($m['value'])) $images[] = $m['value'];
+                }
+            }
+        }
+
+        // From scraped products.json fallback
+        $scraped = \App\Services\ProductEnrichmentService::findJsonProduct($product->sku);
+        if (!empty($scraped['images'])) {
+            foreach ($scraped['images'] as $img) {
+                if (!empty($img['url'])) $images[] = $img['url'];
+            }
+        }
+
+        // From existing variants
+        foreach ($product->variants as $var) {
+            if (!empty($var->image)) {
+                $images[] = $var->image;
+            }
+        }
+
+        return array_values(array_unique(array_filter($images)));
     }
 
     /**

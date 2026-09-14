@@ -56,6 +56,7 @@
                         <th class="ps-3">#</th>
                         <th>SKU</th>
                         <th>Nama Produk</th>
+                        <th class="text-center" style="width: 70px;">Photo</th>
                         <th>Zone</th>
                         <th>Harga</th>
                         <th>Stok</th>
@@ -80,6 +81,19 @@
                                             <span>Lihat {{ $product->variants->count() }} Varian SKU</span>
                                             <i class="bi bi-chevron-down small"></i>
                                         </button>
+                                    </div>
+                                @endif
+                            </td>
+                            <td class="text-center">
+                                @if($product->image)
+                                    <img src="{{ $product->image }}" alt="{{ $product->name }}"
+                                        class="rounded border bg-white shadow-sm"
+                                        style="width: 48px; height: 48px; object-fit: contain; padding: 2px;"
+                                        loading="lazy"
+                                        onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'rounded border bg-light d-flex align-items-center justify-content-center text-muted mx-auto\' style=\'width:48px;height:48px;\'><i class=\'bi bi-image text-muted\'></i></div>';">
+                                @else
+                                    <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted mx-auto" style="width: 48px; height: 48px;">
+                                        <i class="bi bi-image text-muted"></i>
                                     </div>
                                 @endif
                             </td>
@@ -126,7 +140,7 @@
                         </tr>
                         @if($product->variants->isNotEmpty())
                             <tr class="collapse bg-light" id="variants-{{ $product->id }}">
-                                <td colspan="8" class="p-3">
+                                <td colspan="9" class="p-3">
                                     <div class="card border border-primary border-opacity-25 shadow-sm rounded-3">
                                         <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
                                             <span class="small fw-bold text-dark">
@@ -139,6 +153,7 @@
                                                 <thead class="table-light small text-muted">
                                                     <tr>
                                                         <th class="ps-3">SKU Varian (12 Digit)</th>
+                                                        <th class="text-center" style="width: 60px;">Foto</th>
                                                         <th>Nama Varian</th>
                                                         <th>Warna</th>
                                                         <th>Ukuran</th>
@@ -150,6 +165,20 @@
                                                     @foreach($product->variants as $v)
                                                         <tr>
                                                             <td class="ps-3"><code class="fw-bold text-dark">{{ $v->sku }}</code></td>
+                                                            <td class="text-center">
+                                                                @php $varImg = $v->image ?: $product->image; @endphp
+                                                                @if($varImg)
+                                                                    <img src="{{ $varImg }}" alt="{{ $v->name }}"
+                                                                        class="rounded border bg-white shadow-sm"
+                                                                        style="width: 36px; height: 36px; object-fit: contain; padding: 1px;"
+                                                                        loading="lazy"
+                                                                        onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'rounded border bg-light d-flex align-items-center justify-content-center text-muted mx-auto\' style=\'width:36px;height:36px;\'><i class=\'bi bi-image small text-muted\'></i></div>';">
+                                                                @else
+                                                                    <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted mx-auto" style="width: 36px; height: 36px;">
+                                                                        <i class="bi bi-image small text-muted"></i>
+                                                                    </div>
+                                                                @endif
+                                                            </td>
                                                             <td class="small">{{ $v->name }}</td>
                                                             <td><span class="badge bg-secondary">{{ $v->color ?? '—' }}</span></td>
                                                             <td><span class="badge bg-dark">{{ $v->size ?? '—' }}</span></td>
@@ -169,7 +198,7 @@
                             </tr>
                         @endif
                     @empty
-                        <tr><td colspan="8">
+                        <tr><td colspan="9">
                             @include('admin.partials.empty-state', [
                                 'icon'        => 'bi-box',
                                 'title'       => 'Belum ada produk',

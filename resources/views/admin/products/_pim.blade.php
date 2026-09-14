@@ -79,24 +79,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (field('price') && data.price !== undefined) field('price').value = data.price;
             if (field('stock') && data.stock !== undefined) field('stock').value = data.stock;
 
+            // Populate Cover Photo Picker & PIM Gallery
+            const allImages = Array.isArray(data.images) && data.images.length > 0
+                ? data.images
+                : (data.image ? [data.image] : []);
+
+            if (typeof window.updateAvailablePimPhotos === 'function') {
+                window.updateAvailablePimPhotos(allImages, data.image);
+            }
+
             // Populate Variants Table
             if (Array.isArray(data.variants) && typeof window.populateCatalogVariants === 'function') {
                 window.populateCatalogVariants(data.variants);
             }
 
-            // Preview Image
-            el('pim-gallery').replaceChildren();
-            if (data.image) {
-                const img = document.createElement('img');
-                img.src = data.image;
-                img.alt = data.name;
-                img.className = 'rounded border shadow-sm';
-                img.style.cssText = 'width: 100px; height: 110px; object-fit: contain; background: #fff;';
-                el('pim-gallery').appendChild(img);
-            }
-
             feedback.className = 'small text-success fw-semibold mb-2';
-            feedback.textContent = `✓ Data artikel "${data.name}" dan ${data.variants.length} varian berhasil disinkronkan dari PIM & CARE!`;
+            feedback.textContent = `✓ Data artikel "${data.name}", ${allImages.length} foto, dan ${data.variants.length} varian berhasil disinkronkan dari PIM & CARE!`;
         } catch (e) {
             feedback.className = 'small text-danger mb-2';
             feedback.textContent = e.message;
