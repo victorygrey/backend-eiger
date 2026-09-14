@@ -84,12 +84,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // AI Fit & Go
     Route::prefix('fit-and-go')->name('fit-and-go.')->group(function () {
         Route::get('/', [FitAndGoController::class, 'index'])->name('index');
+        Route::get('/devices/create', [FitAndGoController::class, 'createDevice'])->name('devices.create');
         Route::post('/devices', [FitAndGoController::class, 'storeDevice'])->name('devices.store');
+        Route::get('/devices/{device}/edit', [FitAndGoController::class, 'editDevice'])->name('devices.edit');
         Route::put('/devices/{device}', [FitAndGoController::class, 'updateDevice'])->name('devices.update');
         Route::post('/devices/{device}/ping', [FitAndGoController::class, 'pingDevice'])->name('devices.ping');
         Route::delete('/devices/{device}', [FitAndGoController::class, 'destroyDevice'])->name('devices.destroy');
 
+        Route::get('/activities/create', [FitAndGoController::class, 'createActivity'])->name('activities.create');
         Route::post('/activities', [FitAndGoController::class, 'storeActivity'])->name('activities.store');
+        Route::get('/activities/{activity}/edit', [FitAndGoController::class, 'editActivity'])->name('activities.edit');
         Route::put('/activities/{activity}', [FitAndGoController::class, 'updateActivity'])->name('activities.update');
         Route::delete('/activities/{activity}', [FitAndGoController::class, 'destroyActivity'])->name('activities.destroy');
 
@@ -100,11 +104,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // LED Ambience (Immersive Ambience Digital)
     Route::prefix('led-ambience')->name('led-ambience.')->group(function () {
         Route::get('/', [LedAmbienceController::class, 'index'])->name('index');
+        Route::get('/rfid-items/create', [LedAmbienceController::class, 'createRfidItem'])->name('rfid-items.create');
         Route::post('/rfid-items', [LedAmbienceController::class, 'storeRfidItem'])->name('rfid-items.store');
+        Route::get('/rfid-items/{item}/edit', [LedAmbienceController::class, 'editRfidItem'])->name('rfid-items.edit');
         Route::put('/rfid-items/{item}', [LedAmbienceController::class, 'updateRfidItem'])->name('rfid-items.update');
         Route::delete('/rfid-items/{item}', [LedAmbienceController::class, 'destroyRfidItem'])->name('rfid-items.destroy');
 
+        Route::get('/scenes/create', [LedAmbienceController::class, 'createScene'])->name('scenes.create');
         Route::post('/scenes', [LedAmbienceController::class, 'storeScene'])->name('scenes.store');
+        Route::get('/scenes/{scene}/edit', [LedAmbienceController::class, 'editScene'])->name('scenes.edit');
         Route::put('/scenes/{scene}', [LedAmbienceController::class, 'updateScene'])->name('scenes.update');
         Route::delete('/scenes/{scene}', [LedAmbienceController::class, 'destroyScene'])->name('scenes.destroy');
     });
@@ -112,7 +120,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // Table Expedition (Table Expedition Hub / Product Knowledge)
     Route::prefix('table-expedition')->name('table-expedition.')->group(function () {
         Route::get('/', [TableExpeditionController::class, 'index'])->name('index');
+        Route::get('/create', [TableExpeditionController::class, 'create'])->name('create');
         Route::post('/items', [TableExpeditionController::class, 'store'])->name('store');
+        Route::get('/items/{item}/edit', [TableExpeditionController::class, 'edit'])->name('edit');
         Route::put('/items/{item}', [TableExpeditionController::class, 'update'])->name('update');
         Route::delete('/items/{item}', [TableExpeditionController::class, 'destroy'])->name('destroy');
         Route::post('/config', [TableExpeditionController::class, 'updateConfig'])->name('config');

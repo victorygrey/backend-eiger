@@ -52,6 +52,15 @@ class TableExpeditionController extends Controller
         ]);
     }
 
+    public function create(): View
+    {
+        $products = Product::where('is_discontinued', false)->orderBy('name')->get();
+        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
+        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+
+        return view('admin.table-expedition.create', compact('products', 'activities', 'availableRfidTags'));
+    }
+
     /**
      * Store a newly created Table Expedition RFID mapping.
      */
@@ -99,6 +108,16 @@ class TableExpeditionController extends Controller
 
         return redirect()->route('admin.table-expedition.index')
             ->with('success', "Mapping RFID {$validated['rfid_tag']} berhasil ditambahkan ke Table Expedition.");
+    }
+
+    public function edit(TableExpeditionItem $item): View
+    {
+        $item->load(['product.zone', 'rfidTag']);
+        $products = Product::where('is_discontinued', false)->orderBy('name')->get();
+        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
+        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+
+        return view('admin.table-expedition.edit', compact('item', 'products', 'activities', 'availableRfidTags'));
     }
 
     /**

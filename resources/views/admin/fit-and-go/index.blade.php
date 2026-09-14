@@ -19,13 +19,13 @@
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-center">
         @if($currentTab === 'devices')
-            <button type="button" class="btn btn-eiger fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
+            <a href="{{ route('admin.fit-and-go.devices.create') }}" class="btn btn-eiger fw-bold shadow-sm">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Perangkat Kiosk
-            </button>
+            </a>
         @elseif($currentTab === 'activities')
-            <button type="button" class="btn btn-eiger fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addActivityModal">
+            <a href="{{ route('admin.fit-and-go.activities.create') }}" class="btn btn-eiger fw-bold shadow-sm">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Aktivitas
-            </button>
+            </a>
         @endif
     </div>
 </div>
@@ -133,77 +133,15 @@
                                     <i class="bi bi-activity"></i>
                                 </button>
                             </form>
-                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editDeviceModal{{ $device->id }}" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
+                            <a href="{{ route('admin.fit-and-go.devices.edit', $device) }}" class="btn btn-outline-primary" title="Edit Konfigurasi">
+                                <i class="bi bi-pencil-fill"></i>
+                            </a>
                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteDeviceModal{{ $device->id }}" title="Hapus">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
-
-                {{-- Edit Device Modal --}}
-                <div class="modal fade" id="editDeviceModal{{ $device->id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <form action="{{ route('admin.fit-and-go.devices.update', $device) }}" method="POST">
-                                @csrf
-                                @method('PUT')
-                                <div class="modal-header">
-                                    <h5 class="modal-title fw-bold">Edit Perangkat: {{ $device->name }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Nama Perangkat <span class="text-danger">*</span></label>
-                                        <input type="text" name="name" class="form-control" value="{{ old('name', $device->name) }}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Kode Perangkat <span class="text-danger">*</span></label>
-                                        <input type="text" name="device_code" class="form-control font-monospace" value="{{ old('device_code', $device->device_code) }}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Lokasi / Lantai</label>
-                                        <input type="text" name="location" class="form-control" value="{{ old('location', $device->location) }}" placeholder="Contoh: Flagship Store Lt. 1">
-                                    </div>
-                                    <div class="row g-2 mb-3">
-                                        <div class="col-6">
-                                            <label class="form-label fw-semibold">IP Address</label>
-                                            <input type="text" name="ip_address" class="form-control font-monospace" value="{{ old('ip_address', $device->ip_address) }}" placeholder="192.168.1.50">
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="form-label fw-semibold">Status <span class="text-danger">*</span></label>
-                                            <select name="status" class="form-select" required>
-                                                <option value="online" {{ $device->status === 'online' ? 'selected' : '' }}>Online</option>
-                                                <option value="offline" {{ $device->status === 'offline' ? 'selected' : '' }}>Offline</option>
-                                                <option value="active" {{ $device->status === 'active' ? 'selected' : '' }}>Active</option>
-                                                <option value="maintenance" {{ $device->status === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">GPU Workstation Endpoint</label>
-                                        <input type="url" name="gpu_endpoint" class="form-control font-monospace" value="{{ old('gpu_endpoint', $device->gpu_endpoint) }}" placeholder="http://192.168.1.200:8000/api/v1/fit-prediction">
-                                        <small class="text-muted">URL inference server GPU untuk processing virtual try-on.</small>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Camera Source / ID</label>
-                                        <input type="text" name="camera_source" class="form-control" value="{{ old('camera_source', $device->camera_source) }}" placeholder="camera_0 atau rtsp://...">
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" name="is_active" value="1" id="isActiveSwitch{{ $device->id }}" {{ $device->is_active ? 'checked' : '' }}>
-                                        <label class="form-check-label fw-semibold" for="isActiveSwitch{{ $device->id }}">Perangkat Aktif</label>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Perubahan</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
 
                 {{-- Delete Device Modal --}}
                 <div class="modal fade" id="deleteDeviceModal{{ $device->id }}" tabindex="-1" aria-hidden="true">
@@ -238,66 +176,6 @@
                 @endforelse
             </tbody>
         </table>
-    </div>
-</div>
-
-{{-- Add Device Modal --}}
-<div class="modal fade" id="addDeviceModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ route('admin.fit-and-go.devices.store') }}" method="POST">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Tambah Perangkat Kiosk</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Nama Perangkat <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control" placeholder="Contoh: AI Fit & Go Kiosk 01" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Kode Perangkat <span class="text-danger">*</span></label>
-                        <input type="text" name="device_code" class="form-control font-monospace" placeholder="fit-kiosk-02" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Lokasi / Lantai</label>
-                        <input type="text" name="location" class="form-control" placeholder="Contoh: Lantai 1 Area Apparel">
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">IP Address</label>
-                            <input type="text" name="ip_address" class="form-control font-monospace" placeholder="192.168.1.51">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Status <span class="text-danger">*</span></label>
-                            <select name="status" class="form-select" required>
-                                <option value="online" selected>Online</option>
-                                <option value="offline">Offline</option>
-                                <option value="active">Active</option>
-                                <option value="maintenance">Maintenance</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">GPU Workstation Endpoint</label>
-                        <input type="url" name="gpu_endpoint" class="form-control font-monospace" placeholder="http://192.168.1.200:8000/api/v1/fit-prediction">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Camera Source / ID</label>
-                        <input type="text" name="camera_source" class="form-control" placeholder="camera_0">
-                    </div>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="is_active" value="1" id="newIsActiveSwitch" checked>
-                        <label class="form-check-label fw-semibold" for="newIsActiveSwitch">Perangkat Aktif</label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Perangkat</button>
-                </div>
-            </form>
-        </div>
     </div>
 </div>
 @endif
@@ -359,69 +237,15 @@
                     </td>
                     <td class="text-end">
                         <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editActivityModal{{ $activity->id }}" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
+                            <a href="{{ route('admin.fit-and-go.activities.edit', $activity) }}" class="btn btn-outline-primary" title="Edit Aktivitas">
+                                <i class="bi bi-pencil-fill"></i>
+                            </a>
                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteActivityModal{{ $activity->id }}" title="Hapus">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
-
-                {{-- Edit Activity Modal --}}
-                <div class="modal fade" id="editActivityModal{{ $activity->id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <form action="{{ route('admin.fit-and-go.activities.update', $activity) }}" method="POST">
-                                @csrf
-                                @method('PUT')
-                                <div class="modal-header">
-                                    <h5 class="modal-title fw-bold">Edit Aktivitas: {{ $activity->name }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Nama Aktivitas <span class="text-danger">*</span></label>
-                                        <input type="text" name="name" class="form-control" value="{{ old('name', $activity->name) }}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Slug Identifier <span class="text-danger">*</span></label>
-                                        <input type="text" name="slug" class="form-control font-monospace" value="{{ old('slug', $activity->slug) }}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Care MC Level 2 Code</label>
-                                        <input type="text" name="care_mc_level_2" class="form-control" value="{{ old('care_mc_level_2', $activity->care_mc_level_2) }}" placeholder="Contoh: MOUNTAINEERING">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">URL Foto Representatif</label>
-                                        <input type="url" name="image" class="form-control font-monospace" value="{{ old('image', $activity->image) }}" placeholder="https://...">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Deskripsi Aktivitas</label>
-                                        <textarea name="description" class="form-control" rows="2">{{ old('description', $activity->description) }}</textarea>
-                                    </div>
-                                    <div class="row g-2 mb-3">
-                                        <div class="col-6">
-                                            <label class="form-label fw-semibold">Nomor Urutan</label>
-                                            <input type="number" name="sort_order" class="form-control" value="{{ old('sort_order', $activity->sort_order) }}" min="0">
-                                        </div>
-                                        <div class="col-6 d-flex align-items-center pt-4">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="is_active" value="1" id="actActiveSwitch{{ $activity->id }}" {{ $activity->is_active ? 'checked' : '' }}>
-                                                <label class="form-check-label fw-semibold" for="actActiveSwitch{{ $activity->id }}">Status Aktif</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Perubahan</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
 
                 {{-- Delete Activity Modal --}}
                 <div class="modal fade" id="deleteActivityModal{{ $activity->id }}" tabindex="-1" aria-hidden="true">
@@ -456,59 +280,6 @@
                 @endforelse
             </tbody>
         </table>
-    </div>
-</div>
-
-{{-- Add Activity Modal --}}
-<div class="modal fade" id="addActivityModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ route('admin.fit-and-go.activities.store') }}" method="POST">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Tambah Aktivitas EIGER</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Nama Aktivitas <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control" placeholder="Contoh: Mountaineering" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Slug (Opsional)</label>
-                        <input type="text" name="slug" class="form-control font-monospace" placeholder="mountaineering (otomatis dibuat jika kosong)">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Care MC Level 2</label>
-                        <input type="text" name="care_mc_level_2" class="form-control" placeholder="MOUNTAINEERING">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">URL Foto Representatif</label>
-                        <input type="url" name="image" class="form-control font-monospace" placeholder="https://...">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Deskripsi</label>
-                        <textarea name="description" class="form-control" rows="2" placeholder="Deskripsi singkat aktivitas..."></textarea>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Nomor Urutan</label>
-                            <input type="number" name="sort_order" class="form-control" value="0" min="0">
-                        </div>
-                        <div class="col-6 d-flex align-items-center pt-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="is_active" value="1" id="newActActiveSwitch" checked>
-                                <label class="form-check-label fw-semibold" for="newActActiveSwitch">Status Aktif</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Aktivitas</button>
-                </div>
-            </form>
-        </div>
     </div>
 </div>
 @endif

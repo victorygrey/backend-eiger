@@ -22,9 +22,9 @@
         <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#standbyConfigModal">
             <i class="bi bi-gear me-1"></i>Pengaturan Standby & Panduan
         </button>
-        <button type="button" class="btn btn-eiger fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addRfidModal">
+        <a href="{{ route('admin.table-expedition.create') }}" class="btn btn-eiger fw-bold shadow-sm">
             <i class="bi bi-plus-lg me-1"></i>Tambah Mapping RFID
-        </button>
+        </a>
     </div>
 </div>
 
@@ -186,143 +186,16 @@
                             <span class="badge badge-gray-soft">Nonaktif</span>
                         @endif
                     </td>
-                    <td class="pe-3 text-end">
                         <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editRfidModal{{ $item->id }}" title="Edit Mapping">
+                            <a href="{{ route('admin.table-expedition.edit', $item) }}" class="btn btn-outline-primary" title="Edit Mapping">
                                 <i class="bi bi-pencil-fill"></i>
-                            </button>
+                            </a>
                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteRfidModal{{ $item->id }}" title="Hapus Mapping">
                                 <i class="bi bi-trash-fill"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
-
-                {{-- Edit RFID Item Modal --}}
-                <div class="modal fade" id="editRfidModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <form action="{{ route('admin.table-expedition.update', $item) }}" method="POST">
-                                @csrf
-                                @method('PUT')
-                                <div class="modal-header">
-                                    <h5 class="modal-title fw-bold">Edit Mapping Table Expedition</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <label class="form-label fw-semibold mb-0">Tag RFID (EPC) <span class="text-danger">*</span></label>
-                                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none toggle-rfid-manual-btn" style="font-size: 0.78rem;">
-                                                    <i class="bi bi-pencil-square"></i> Input Manual
-                                                </button>
-                                            </div>
-                                            <div class="rfid-select-wrap">
-                                                <select name="rfid_tag" class="form-select font-monospace rfid-select-field" required>
-                                                    <option value="">-- Pilih dari Master RFID Tags --</option>
-                                                    @foreach($availableRfidTags as $rt)
-                                                        <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}" @selected($rt->uid === $item->rfid_tag)>
-                                                            {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
-                                                        </option>
-                                                    @endforeach
-                                                    @if(!$availableRfidTags->contains('uid', $item->rfid_tag) && $item->rfid_tag)
-                                                        <option value="{{ $item->rfid_tag }}" selected>
-                                                            {{ $item->rfid_tag }} (Tag saat ini / Kustom)
-                                                        </option>
-                                                    @endif
-                                                </select>
-                                                <div class="form-text small">Pilih tag dari master atau klik "Input Manual".</div>
-                                            </div>
-                                            <div class="rfid-manual-wrap d-none mt-2">
-                                                <input type="text" class="form-control font-monospace rfid-manual-field" value="{{ old('rfid_tag', $item->rfid_tag) }}" placeholder="E280116060000204..." disabled>
-                                                <div class="form-text small">Masukkan kode hex EPC/UID secara manual jika belum didaftarkan di master.</div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">Produk EIGER Terkait <span class="text-danger">*</span></label>
-                                            <select name="product_id" class="form-select" required>
-                                                @foreach($products as $prod)
-                                                    <option value="{{ $prod->id }}" @selected($prod->id === $item->product_id)>
-                                                        {{ $prod->name }} ({{ $prod->sku }})
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">Aktivitas Outdoor Terkait</label>
-                                            <select name="activity_slug" class="form-select">
-                                                <option value="">-- Bebas (General) --</option>
-                                                @foreach($activities as $act)
-                                                    <option value="{{ $act->slug }}" @selected($act->slug === $item->activity_slug)>
-                                                        {{ $act->name }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">Peruntukan (Ideal For)</label>
-                                            <input type="text" name="ideal_for" class="form-control" value="{{ old('ideal_for', $item->ideal_for) }}" placeholder="Contoh: Mountaineering, High Alpine">
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label fw-semibold">URL Video Demo Produk (MP4/Stream)</label>
-                                            <input type="url" name="video_url" class="form-control font-monospace" value="{{ old('video_url', $item->video_url) }}" placeholder="https://...">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">Fitur Utama (1 baris per poin fitur)</label>
-                                            <textarea name="features" class="form-control font-monospace small" rows="4">{{ old('features', is_array($item->features) ? implode("\n", $item->features) : '') }}</textarea>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-semibold">Spesifikasi Teknis (Format: Label: Nilai)</label>
-                                            @php
-                                                $techStr = '';
-                                                if (is_array($item->technical_details)) {
-                                                    foreach ($item->technical_details as $k => $v) {
-                                                        $techStr .= is_string($k) ? "{$k}: {$v}\n" : "{$v}\n";
-                                                    }
-                                                }
-                                            @endphp
-                                            <textarea name="technical_details" class="form-control font-monospace small" rows="4">{{ old('technical_details', trim($techStr)) }}</textarea>
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label fw-semibold">Ringkasan AI (AI Summary Product Knowledge)</label>
-                                            <textarea name="ai_summary" class="form-control" rows="3">{{ old('ai_summary', $item->ai_summary) }}</textarea>
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label fw-semibold">Produk Serupa untuk Rekomendasi & Komparasi (Pilih Maks. 5)</label>
-                                            <select name="similar_product_ids[]" class="form-select" multiple size="4">
-                                                @php
-                                                    $selSim = $item->similar_product_ids ?: [];
-                                                @endphp
-                                                @foreach($products as $simProd)
-                                                    @if($simProd->id !== $item->product_id)
-                                                        <option value="{{ $simProd->id }}" @selected(in_array($simProd->id, $selSim))>
-                                                            {{ $simProd->name }} ({{ $simProd->sku }}) - Rp {{ number_format($simProd->price ?? 0, 0, ',', '.') }}
-                                                        </option>
-                                                    @endif
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-md-8">
-                                            <label class="form-label fw-semibold">Catatan Khusus</label>
-                                            <input type="text" name="notes" class="form-control" value="{{ old('notes', $item->notes) }}" placeholder="Catatan internal">
-                                        </div>
-                                        <div class="col-md-4 d-flex align-items-center pt-4">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="is_active" value="1" id="editItemAct{{ $item->id }}" {{ $item->is_active ? 'checked' : '' }}>
-                                                <label class="form-check-label fw-semibold" for="editItemAct{{ $item->id }}">Tag Aktif</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Perubahan</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
 
                 {{-- Delete RFID Item Modal --}}
                 <div class="modal fade" id="deleteRfidModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
@@ -356,109 +229,6 @@
                 @endforelse
             </tbody>
         </table>
-    </div>
-</div>
-
-{{-- Add RFID Modal --}}
-<div class="modal fade" id="addRfidModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form action="{{ route('admin.table-expedition.store') }}" method="POST">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Tambah Mapping RFID Table Expedition</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label fw-semibold mb-0">Tag RFID (EPC) <span class="text-danger">*</span></label>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none toggle-rfid-manual-btn" style="font-size: 0.78rem;">
-                                    <i class="bi bi-pencil-square"></i> Input Manual
-                                </button>
-                            </div>
-                            <div class="rfid-select-wrap">
-                                <select name="rfid_tag" class="form-select font-monospace rfid-select-field" required>
-                                    <option value="">-- Pilih dari Master RFID Tags ({{ $availableRfidTags->count() }} terdaftar) --</option>
-                                    @foreach($availableRfidTags as $rt)
-                                        <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}">
-                                            {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <div class="form-text small">Pilih tag RFID dari master RFID tags (nama atau UID).</div>
-                            </div>
-                            <div class="rfid-manual-wrap d-none mt-2">
-                                <input type="text" class="form-control font-monospace rfid-manual-field" placeholder="E280116060000204..." disabled>
-                                <div class="form-text small">Masukkan kode hex EPC/UID secara manual jika belum didaftarkan di master.</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Produk EIGER Terkait <span class="text-danger">*</span></label>
-                            <select name="product_id" class="form-select" required>
-                                <option value="">-- Pilih Produk --</option>
-                                @foreach($products as $prod)
-                                    <option value="{{ $prod->id }}">{{ $prod->name }} ({{ $prod->sku }})</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Aktivitas Outdoor</label>
-                            <select name="activity_slug" class="form-select">
-                                <option value="">-- Bebas (General) --</option>
-                                @foreach($activities as $act)
-                                    <option value="{{ $act->slug }}">{{ $act->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Peruntukan (Ideal For)</label>
-                            <input type="text" name="ideal_for" class="form-control" placeholder="Contoh: Mountaineering, Alpine Weather">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">URL Video Demo Produk</label>
-                            <input type="url" name="video_url" class="form-control font-monospace" placeholder="https://...">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Fitur Utama (1 baris per fitur)</label>
-                            <textarea name="features" class="form-control small" rows="4" placeholder="Teknologi Tropic Waterproof&#10;Resleting tahan air YKK&#10;Ventilasi udara"></textarea>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Spesifikasi Teknis (Format: Label: Nilai)</label>
-                            <textarea name="technical_details" class="form-control small" rows="4" placeholder="Weight: 450 gram&#10;Material: Gore-Tex&#10;Warranty: 1 Year"></textarea>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Ringkasan AI (AI Summary)</label>
-                            <textarea name="ai_summary" class="form-control" rows="2" placeholder="Ringkasan penjelasan produk otomatis oleh AI untuk pengunjung..."></textarea>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Produk Rekomendasi / Komparasi Serupa (Pilih Maks. 5)</label>
-                            <select name="similar_product_ids[]" class="form-select" multiple size="4">
-                                @foreach($products as $simProd)
-                                    <option value="{{ $simProd->id }}">{{ $simProd->name }} ({{ $simProd->sku }})</option>
-                                @endforeach
-                            </select>
-                            <small class="text-muted">Gunakan Ctrl/Cmd untuk memilih hingga 5 produk serupa.</small>
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label fw-semibold">Catatan</label>
-                            <input type="text" name="notes" class="form-control" placeholder="Catatan mapping">
-                        </div>
-                        <div class="col-md-4 d-flex align-items-center pt-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="is_active" value="1" id="newItemAct" checked>
-                                <label class="form-check-label fw-semibold" for="newItemAct">Tag Aktif</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Mapping</button>
-                </div>
-            </form>
-        </div>
     </div>
 </div>
 
@@ -496,69 +266,3 @@
 </div>
 
 @endsection
-
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // 1. Auto-select product when RFID tag is picked from master dropdown
-    document.querySelectorAll('.rfid-select-field').forEach(function (selectEl) {
-        selectEl.addEventListener('change', function () {
-            const selectedOpt = this.options[this.selectedIndex];
-            const productId = selectedOpt ? selectedOpt.getAttribute('data-product-id') : null;
-            if (productId) {
-                const form = this.closest('form');
-                if (form) {
-                    const prodSelect = form.querySelector('select[name="product_id"]');
-                    if (prodSelect) {
-                        prodSelect.value = productId;
-                    }
-                }
-            }
-        });
-    });
-
-    // 2. Toggle manual RFID input vs master select
-    document.querySelectorAll('.toggle-rfid-manual-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            const parent = this.closest('.col-md-6, .mb-3');
-            if (!parent) return;
-            const selectWrap = parent.querySelector('.rfid-select-wrap');
-            const manualWrap = parent.querySelector('.rfid-manual-wrap');
-            const selectField = parent.querySelector('.rfid-select-field');
-            const manualField = parent.querySelector('.rfid-manual-field');
-
-            const isManualActive = !manualWrap.classList.contains('d-none');
-
-            if (isManualActive) {
-                // Switch back to master select
-                manualWrap.classList.add('d-none');
-                manualField.setAttribute('disabled', 'disabled');
-                manualField.removeAttribute('name');
-                manualField.removeAttribute('required');
-
-                selectWrap.classList.remove('d-none');
-                selectField.removeAttribute('disabled');
-                selectField.setAttribute('name', 'rfid_tag');
-                selectField.setAttribute('required', 'required');
-
-                this.innerHTML = '<i class="bi bi-pencil-square"></i> Input Manual';
-            } else {
-                // Switch to manual input
-                selectWrap.classList.add('d-none');
-                selectField.setAttribute('disabled', 'disabled');
-                selectField.removeAttribute('name');
-                selectField.removeAttribute('required');
-
-                manualWrap.classList.remove('d-none');
-                manualField.removeAttribute('disabled');
-                manualField.setAttribute('name', 'rfid_tag');
-                manualField.setAttribute('required', 'required');
-                manualField.focus();
-
-                this.innerHTML = '<i class="bi bi-list-ul"></i> Pilih dari Master';
-            }
-        });
-    });
-});
-</script>
-@endpush

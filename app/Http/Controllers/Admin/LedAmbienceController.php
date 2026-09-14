@@ -55,6 +55,16 @@ class LedAmbienceController extends Controller
     // RFID ITEM MAPPINGS (Full CRUD for LED Ambience)
     // ==========================================
 
+    public function createRfidItem(): View
+    {
+        $products = Product::where('is_discontinued', false)->orderBy('name')->get();
+        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
+        $scenes = LedAmbienceScene::orderBy('sort_order')->get();
+        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+
+        return view('admin.led-ambience.rfid-items.create', compact('products', 'activities', 'scenes', 'availableRfidTags'));
+    }
+
     public function storeRfidItem(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -73,6 +83,17 @@ class LedAmbienceController extends Controller
 
         return redirect()->route('admin.led-ambience.index', ['tab' => 'rfid'])
             ->with('success', "Mapping RFID {$validated['rfid_tag']} berhasil ditambahkan ke LED Ambience.");
+    }
+
+    public function editRfidItem(LedAmbienceItem $item): View
+    {
+        $item->load(['product.zone', 'scene', 'rfidTag']);
+        $products = Product::where('is_discontinued', false)->orderBy('name')->get();
+        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
+        $scenes = LedAmbienceScene::orderBy('sort_order')->get();
+        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+
+        return view('admin.led-ambience.rfid-items.edit', compact('item', 'products', 'activities', 'scenes', 'availableRfidTags'));
     }
 
     public function updateRfidItem(Request $request, LedAmbienceItem $item): RedirectResponse
@@ -108,6 +129,13 @@ class LedAmbienceController extends Controller
     // AMBIENCE SCENES (Video, Audio, Lighting)
     // ==========================================
 
+    public function createScene(): View
+    {
+        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
+
+        return view('admin.led-ambience.scenes.create', compact('activities'));
+    }
+
     public function storeScene(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -130,6 +158,13 @@ class LedAmbienceController extends Controller
 
         return redirect()->route('admin.led-ambience.index', ['tab' => 'scenes'])
             ->with('success', "Scene Ambience '{$validated['name']}' berhasil ditambahkan.");
+    }
+
+    public function editScene(LedAmbienceScene $scene): View
+    {
+        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
+
+        return view('admin.led-ambience.scenes.edit', compact('scene', 'activities'));
     }
 
     public function updateScene(Request $request, LedAmbienceScene $scene): RedirectResponse

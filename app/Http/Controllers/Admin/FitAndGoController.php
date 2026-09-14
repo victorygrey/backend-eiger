@@ -71,6 +71,11 @@ class FitAndGoController extends Controller
     // DEVICE CONFIGURATION ACTIONS
     // ==========================================
 
+    public function createDevice(): View
+    {
+        return view('admin.fit-and-go.devices.create');
+    }
+
     public function storeDevice(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -91,6 +96,11 @@ class FitAndGoController extends Controller
 
         return redirect()->route('admin.fit-and-go.index', ['tab' => 'devices'])
             ->with('success', "Perangkat {$validated['name']} berhasil ditambahkan.");
+    }
+
+    public function editDevice(FitAndGoDevice $device): View
+    {
+        return view('admin.fit-and-go.devices.edit', compact('device'));
     }
 
     public function updateDevice(Request $request, FitAndGoDevice $device): RedirectResponse
@@ -137,6 +147,11 @@ class FitAndGoController extends Controller
     // ACTIVITY CONFIGURATION ACTIONS
     // ==========================================
 
+    public function createActivity(): View
+    {
+        return view('admin.fit-and-go.activities.create');
+    }
+
     public function storeActivity(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -157,6 +172,11 @@ class FitAndGoController extends Controller
 
         return redirect()->route('admin.fit-and-go.index', ['tab' => 'activities'])
             ->with('success', "Aktivitas {$validated['name']} berhasil ditambahkan.");
+    }
+
+    public function editActivity(FitAndGoActivity $activity): View
+    {
+        return view('admin.fit-and-go.activities.edit', compact('activity'));
     }
 
     public function updateActivity(Request $request, FitAndGoActivity $activity): RedirectResponse

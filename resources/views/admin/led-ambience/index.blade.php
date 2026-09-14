@@ -20,13 +20,13 @@
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-center">
         @if($currentTab === 'rfid')
-            <button type="button" class="btn btn-eiger fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addRfidModal">
+            <a href="{{ route('admin.led-ambience.rfid-items.create') }}" class="btn btn-eiger fw-bold shadow-sm">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Mapping RFID
-            </button>
+            </a>
         @else
-            <button type="button" class="btn btn-eiger fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addSceneModal">
+            <a href="{{ route('admin.led-ambience.scenes.create') }}" class="btn btn-eiger fw-bold shadow-sm">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Scene Ambience
-            </button>
+            </a>
         @endif
     </div>
 </div>
@@ -205,105 +205,15 @@
                     </td>
                     <td class="pe-3 text-end">
                         <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editRfidModal{{ $item->id }}" title="Edit Mapping">
+                            <a href="{{ route('admin.led-ambience.rfid-items.edit', $item) }}" class="btn btn-outline-primary" title="Edit Mapping">
                                 <i class="bi bi-pencil-fill"></i>
-                            </button>
+                            </a>
                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteRfidModal{{ $item->id }}" title="Hapus Mapping">
                                 <i class="bi bi-trash-fill"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
-
-                {{-- Edit RFID Item Modal --}}
-                <div class="modal fade" id="editRfidModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <form action="{{ route('admin.led-ambience.rfid-items.update', $item) }}" method="POST">
-                                @csrf
-                                @method('PUT')
-                                <div class="modal-header">
-                                    <h5 class="modal-title fw-bold">Edit Mapping RFID LED Ambience</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <div class="d-flex justify-content-between align-items-center mb-1">
-                                            <label class="form-label fw-semibold mb-0">Tag RFID (EPC) <span class="text-danger">*</span></label>
-                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none toggle-rfid-manual-btn" style="font-size: 0.78rem;">
-                                                <i class="bi bi-pencil-square"></i> Input Manual
-                                            </button>
-                                        </div>
-                                        <div class="rfid-select-wrap">
-                                            <select name="rfid_tag" class="form-select font-monospace rfid-select-field" required>
-                                                <option value="">-- Pilih dari Master RFID Tags --</option>
-                                                @foreach($availableRfidTags as $rt)
-                                                    <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}" @selected($rt->uid === $item->rfid_tag)>
-                                                        {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
-                                                    </option>
-                                                @endforeach
-                                                @if(!$availableRfidTags->contains('uid', $item->rfid_tag) && $item->rfid_tag)
-                                                    <option value="{{ $item->rfid_tag }}" selected>
-                                                        {{ $item->rfid_tag }} (Tag saat ini / Kustom)
-                                                    </option>
-                                                @endif
-                                            </select>
-                                            <div class="form-text small">Pilih tag dari master atau klik "Input Manual" untuk kode kustom.</div>
-                                        </div>
-                                        <div class="rfid-manual-wrap d-none mt-2">
-                                            <input type="text" class="form-control font-monospace rfid-manual-field" value="{{ old('rfid_tag', $item->rfid_tag) }}" placeholder="E280116060000204..." disabled>
-                                            <div class="form-text small">Masukkan kode hex EPC/UID secara manual jika belum didaftarkan di master.</div>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Produk EIGER <span class="text-danger">*</span></label>
-                                        <select name="product_id" class="form-select" required>
-                                            @foreach($products as $prod)
-                                                <option value="{{ $prod->id }}" @selected($prod->id === $item->product_id)>
-                                                    {{ $prod->name }} ({{ $prod->sku }})
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Aktivitas Outdoor (EIGER Activity)</label>
-                                        <select name="activity_slug" class="form-select">
-                                            <option value="">-- Pilih Aktivitas (Opsional) --</option>
-                                            @foreach($activities as $act)
-                                                <option value="{{ $act->slug }}" @selected($act->slug === $item->activity_slug)>
-                                                    {{ $act->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Scene Ambience Spesifik</label>
-                                        <select name="scene_id" class="form-select">
-                                            <option value="">-- Otomatis Pilih Berdasarkan Aktivitas --</option>
-                                            @foreach($scenes as $sc)
-                                                <option value="{{ $sc->id }}" @selected($sc->id === $item->scene_id)>
-                                                    {{ $sc->name }} ({{ strtoupper($sc->scene_type) }})
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Catatan</label>
-                                        <input type="text" name="notes" class="form-control" value="{{ old('notes', $item->notes) }}" placeholder="Contoh: Jaket sample meja display 1">
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" name="is_active" value="1" id="editActive{{ $item->id }}" {{ $item->is_active ? 'checked' : '' }}>
-                                        <label class="form-check-label fw-semibold" for="editActive{{ $item->id }}">Tag Aktif</label>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Perubahan</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
 
                 {{-- Delete RFID Modal --}}
                 <div class="modal fade" id="deleteRfidModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
@@ -337,85 +247,6 @@
                 @endforelse
             </tbody>
         </table>
-    </div>
-</div>
-
-{{-- Add RFID Modal --}}
-<div class="modal fade" id="addRfidModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ route('admin.led-ambience.rfid-items.store') }}" method="POST">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Tambah Mapping RFID ke LED Ambience</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label fw-semibold mb-0">Tag RFID (EPC) <span class="text-danger">*</span></label>
-                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none toggle-rfid-manual-btn" style="font-size: 0.78rem;">
-                                <i class="bi bi-pencil-square"></i> Input Manual
-                            </button>
-                        </div>
-                        <div class="rfid-select-wrap">
-                            <select name="rfid_tag" class="form-select font-monospace rfid-select-field" required>
-                                <option value="">-- Pilih dari Master RFID Tags ({{ $availableRfidTags->count() }} terdaftar) --</option>
-                                @foreach($availableRfidTags as $rt)
-                                    <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}">
-                                        {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <div class="form-text small">Pilih tag RFID dari master RFID tags (nama atau UID).</div>
-                        </div>
-                        <div class="rfid-manual-wrap d-none mt-2">
-                            <input type="text" class="form-control font-monospace rfid-manual-field" placeholder="E280116060000204..." disabled>
-                            <div class="form-text small">Masukkan kode hex EPC/UID secara manual jika belum didaftarkan di master.</div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Produk EIGER Terkait <span class="text-danger">*</span></label>
-                        <select name="product_id" class="form-select" required>
-                            <option value="">-- Pilih Produk --</option>
-                            @foreach($products as $prod)
-                                <option value="{{ $prod->id }}">{{ $prod->name }} ({{ $prod->sku }})</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Aktivitas Outdoor (EIGER Activity)</label>
-                        <select name="activity_slug" class="form-select">
-                            <option value="">-- Pilih Aktivitas (Opsional) --</option>
-                            @foreach($activities as $act)
-                                <option value="{{ $act->slug }}">{{ $act->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Scene Ambience Spesifik</label>
-                        <select name="scene_id" class="form-select">
-                            <option value="">-- Otomatis Berdasarkan Aktivitas --</option>
-                            @foreach($scenes as $sc)
-                                <option value="{{ $sc->id }}">{{ $sc->name }} ({{ strtoupper($sc->scene_type) }})</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Catatan</label>
-                        <input type="text" name="notes" class="form-control" placeholder="Contoh: Jaket display rak depan">
-                    </div>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="is_active" value="1" id="newRfidActive" checked>
-                        <label class="form-check-label fw-semibold" for="newRfidActive">Tag Aktif</label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Mapping RFID</button>
-                </div>
-            </form>
-        </div>
     </div>
 </div>
 @endif
@@ -462,9 +293,9 @@
                         <i class="bi bi-broadcast me-1"></i>{{ $scene->items_count }} RFID Terhubung
                     </span>
                     <div class="btn-group btn-group-sm">
-                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSceneModal{{ $scene->id }}" title="Edit Scene">
+                        <a href="{{ route('admin.led-ambience.scenes.edit', $scene) }}" class="btn btn-outline-primary" title="Edit Scene">
                             <i class="bi bi-pencil-fill"></i> Edit
-                        </button>
+                        </a>
                         @if($scene->scene_type !== 'idle')
                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteSceneModal{{ $scene->id }}" title="Hapus Scene">
                                 <i class="bi bi-trash-fill"></i>
@@ -472,84 +303,6 @@
                         @endif
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Edit Scene Modal --}}
-    <div class="modal fade" id="editSceneModal{{ $scene->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="{{ route('admin.led-ambience.scenes.update', $scene) }}" method="POST">
-                    @csrf
-                    @method('PUT')
-                    <div class="modal-header">
-                        <h5 class="modal-title fw-bold">Edit Scene Ambience: {{ $scene->name }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Nama Scene Ambience <span class="text-danger">*</span></label>
-                            <input type="text" name="name" class="form-control" value="{{ old('name', $scene->name) }}" required>
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="form-label fw-semibold">Tipe Scene <span class="text-danger">*</span></label>
-                                <select name="scene_type" class="form-select" required>
-                                    <option value="active" {{ $scene->scene_type === 'active' ? 'selected' : '' }}>Active Scene</option>
-                                    <option value="idle" {{ $scene->scene_type === 'idle' ? 'selected' : '' }}>Idle Loop (Standby)</option>
-                                    <option value="default" {{ $scene->scene_type === 'default' ? 'selected' : '' }}>Default Scene</option>
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label fw-semibold">Aktivitas Outdoor</label>
-                                <select name="activity_slug" class="form-select">
-                                    <option value="">-- Bebas (General) --</option>
-                                    @foreach($activities as $act)
-                                        <option value="{{ $act->slug }}" @selected($act->slug === $scene->activity_slug)>
-                                            {{ $act->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">URL Video Layar Lebar (MP4/Stream)</label>
-                            <input type="url" name="video_url" class="form-control font-monospace" value="{{ old('video_url', $scene->video_url) }}" placeholder="https://...">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">URL Audio Suasana (MP3/WAV)</label>
-                            <input type="url" name="audio_url" class="form-control font-monospace" value="{{ old('audio_url', $scene->audio_url) }}" placeholder="https://...">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Warna Pencahayaan Ambience (Lighting Color)</label>
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="color" name="lighting_color" class="form-control form-control-color" value="{{ old('lighting_color', $scene->lighting_color) }}" title="Pilih warna">
-                                <input type="text" class="form-control font-monospace small" value="{{ $scene->lighting_color }}" readonly style="max-width: 120px;">
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Deskripsi Suasana</label>
-                            <textarea name="description" class="form-control" rows="2">{{ old('description', $scene->description) }}</textarea>
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="form-label fw-semibold">Urutan Prioritas</label>
-                                <input type="number" name="sort_order" class="form-control" value="{{ old('sort_order', $scene->sort_order) }}" min="0">
-                            </div>
-                            <div class="col-6 d-flex align-items-center pt-4">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="is_active" value="1" id="scAct{{ $scene->id }}" {{ $scene->is_active ? 'checked' : '' }}>
-                                    <label class="form-check-label fw-semibold" for="scAct{{ $scene->id }}">Scene Aktif</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-eiger fw-bold">Simpan Scene</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
@@ -583,148 +336,7 @@
     </div>
     @endforelse
 </div>
-
-{{-- Add Scene Modal --}}
-<div class="modal fade" id="addSceneModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ route('admin.led-ambience.scenes.store') }}" method="POST">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Tambah Scene Ambience Baru</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Nama Scene Ambience <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control" placeholder="Contoh: Badai Puncak Gunung" required>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Tipe Scene <span class="text-danger">*</span></label>
-                            <select name="scene_type" class="form-select" required>
-                                <option value="active" selected>Active Scene</option>
-                                <option value="idle">Idle Loop (Standby)</option>
-                                <option value="default">Default Scene</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Aktivitas Outdoor</label>
-                            <select name="activity_slug" class="form-select">
-                                <option value="">-- Bebas (General) --</option>
-                                @foreach($activities as $act)
-                                    <option value="{{ $act->slug }}">{{ $act->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">URL Video Layar Lebar (MP4/Stream)</label>
-                        <input type="url" name="video_url" class="form-control font-monospace" placeholder="https://...">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">URL Audio Suasana (MP3/WAV)</label>
-                        <input type="url" name="audio_url" class="form-control font-monospace" placeholder="https://...">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Warna Pencahayaan Ambience (Lighting Color)</label>
-                        <div class="d-flex align-items-center gap-2">
-                            <input type="color" name="lighting_color" class="form-control form-control-color" value="#e8500a" title="Pilih warna">
-                            <span class="small text-muted">Contoh: Orange (#e8500a), Biru (#0284c7), Hijau (#16a34a)</span>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Deskripsi Suasana</label>
-                        <textarea name="description" class="form-control" rows="2" placeholder="Deskripsi video dan efek suara..."></textarea>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Urutan Prioritas</label>
-                            <input type="number" name="sort_order" class="form-control" value="0" min="0">
-                        </div>
-                        <div class="col-6 d-flex align-items-center pt-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="is_active" value="1" id="newScAct" checked>
-                                <label class="form-check-label fw-semibold" for="newScAct">Scene Aktif</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-eiger fw-bold">Simpan Scene</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 @endif
 
 @endsection
-
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // 1. Auto-select product when RFID tag is picked from master dropdown
-    document.querySelectorAll('.rfid-select-field').forEach(function (selectEl) {
-        selectEl.addEventListener('change', function () {
-            const selectedOpt = this.options[this.selectedIndex];
-            const productId = selectedOpt ? selectedOpt.getAttribute('data-product-id') : null;
-            if (productId) {
-                const form = this.closest('form');
-                if (form) {
-                    const prodSelect = form.querySelector('select[name="product_id"]');
-                    if (prodSelect) {
-                        prodSelect.value = productId;
-                    }
-                }
-            }
-        });
-    });
-
-    // 2. Toggle manual RFID input vs master select
-    document.querySelectorAll('.toggle-rfid-manual-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            const parent = this.closest('.mb-3');
-            if (!parent) return;
-            const selectWrap = parent.querySelector('.rfid-select-wrap');
-            const manualWrap = parent.querySelector('.rfid-manual-wrap');
-            const selectField = parent.querySelector('.rfid-select-field');
-            const manualField = parent.querySelector('.rfid-manual-field');
-
-            const isManualActive = !manualWrap.classList.contains('d-none');
-
-            if (isManualActive) {
-                // Switch back to master select
-                manualWrap.classList.add('d-none');
-                manualField.setAttribute('disabled', 'disabled');
-                manualField.removeAttribute('name');
-                manualField.removeAttribute('required');
-
-                selectWrap.classList.remove('d-none');
-                selectField.removeAttribute('disabled');
-                selectField.setAttribute('name', 'rfid_tag');
-                selectField.setAttribute('required', 'required');
-
-                this.innerHTML = '<i class="bi bi-pencil-square"></i> Input Manual';
-            } else {
-                // Switch to manual input
-                selectWrap.classList.add('d-none');
-                selectField.setAttribute('disabled', 'disabled');
-                selectField.removeAttribute('name');
-                selectField.removeAttribute('required');
-
-                manualWrap.classList.remove('d-none');
-                manualField.removeAttribute('disabled');
-                manualField.setAttribute('name', 'rfid_tag');
-                manualField.setAttribute('required', 'required');
-                manualField.focus();
-
-                this.innerHTML = '<i class="bi bi-list-ul"></i> Pilih dari Master';
-            }
-        });
-    });
-});
-</script>
-@endpush
 
