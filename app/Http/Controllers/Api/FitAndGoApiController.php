@@ -95,7 +95,13 @@ class FitAndGoApiController extends Controller
     {
         $categoryParam = $request->query('category');
         $activityParam = $request->query('activity');
+        $deviceCode = $request->query('device_code');
         $limit = min((int) $request->query('limit', 15), 50);
+
+        $device = null;
+        if ($deviceCode) {
+            $device = FitAndGoDevice::where('device_code', $deviceCode)->first();
+        }
 
         $query = Product::query();
 
@@ -140,11 +146,17 @@ class FitAndGoApiController extends Controller
         }
 
         // 3. Exclude hidden products (Store staff visibility control - FR-CMS-03)
-        $hiddenProductIds = FitAndGoItemVisibility::where('is_visible', false);
+        $hiddenQuery = FitAndGoItemVisibility::where('is_visible', false);
         if ($categoryCode) {
-            $hiddenProductIds->where('category_code', $categoryCode);
+            $hiddenQuery->where('category_code', $categoryCode);
         }
-        $query->whereNotIn('id', $hiddenProductIds->pluck('product_id'));
+        if ($device) {
+            $hiddenQuery->where(function ($q) use ($device) {
+                $q->where('device_id', $device->id)
+                  ->orWhereNull('device_id');
+            });
+        }
+        $query->whereNotIn('id', $hiddenQuery->pluck('product_id'));
 
         // Sort latest and limit (default 15 per SRS recommendation)
         $products = $query->latest('id')
@@ -155,9 +167,10 @@ class FitAndGoApiController extends Controller
             'status' => 'success',
             'count'  => $products->count(),
             'filter' => [
-                'category' => $categoryParam,
-                'activity' => $activityParam,
-                'limit'    => $limit,
+                'category'    => $categoryParam,
+                'activity'    => $activityParam,
+                'device_code' => $deviceCode,
+                'limit'       => $limit,
             ],
             'data'   => $products->map(function ($p) {
                 return [
@@ -186,6 +199,7 @@ class FitAndGoApiController extends Controller
     public function search(Request $request): JsonResponse
     {
         $q = trim($request->query('q', ''));
+        $deviceCode = $request->query('device_code');
         $limit = min((int) $request->query('limit', 15), 50);
 
         if (empty($q)) {
@@ -194,6 +208,11 @@ class FitAndGoApiController extends Controller
                 'count'  => 0,
                 'data'   => [],
             ]);
+        }
+
+        $device = null;
+        if ($deviceCode) {
+            $device = FitAndGoDevice::where('device_code', $deviceCode)->first();
         }
 
         $query = Product::query()
@@ -205,8 +224,14 @@ class FitAndGoApiController extends Controller
             });
 
         // Exclude hidden products
-        $hiddenProductIds = FitAndGoItemVisibility::where('is_visible', false)->pluck('product_id');
-        $query->whereNotIn('id', $hiddenProductIds);
+        $hiddenQuery = FitAndGoItemVisibility::where('is_visible', false);
+        if ($device) {
+            $hiddenQuery->where(function ($sub) use ($device) {
+                $sub->where('device_id', $device->id)
+                    ->orWhereNull('device_id');
+            });
+        }
+        $query->whereNotIn('id', $hiddenQuery->pluck('product_id'));
 
         $products = $query->latest('id')->limit($limit)->get();
 

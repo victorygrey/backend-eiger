@@ -16,54 +16,22 @@ use Illuminate\View\View;
 class FitAndGoController extends Controller
 {
     /**
-     * Display AI Fit & Go configuration dashboard (Devices, Activities, Categories).
+     * Display AI Fit & Go configuration dashboard (Devices, Activities).
      */
     public function index(Request $request): View
     {
         $currentTab = $request->query('tab', 'devices');
-        $selectedCat = $request->query('category', 'hat');
-
-        $devices = FitAndGoDevice::orderBy('id')->get();
-        $activities = FitAndGoActivity::orderBy('sort_order')->get();
-        $categories = FitAndGoCategory::orderBy('sort_order')->get();
-
-        // Get products for the selected category
-        $activeCategory = $categories->firstWhere('code', $selectedCat) ?? $categories->first();
-        $categoryProducts = collect();
-
-        if ($activeCategory) {
-            $keywords = array_filter(array_map('trim', explode(',', strtolower($activeCategory->mc_keywords ?? ''))));
-            
-            $query = Product::query();
-            if (!empty($keywords)) {
-                $query->where(function ($q) use ($keywords) {
-                    foreach ($keywords as $kw) {
-                        $q->orWhere('name', 'like', "%{$kw}%")
-                          ->orWhere('description', 'like', "%{$kw}%")
-                          ->orWhere('pim_payload', 'like', "%{$kw}%");
-                    }
-                });
-            }
-
-            $rawProducts = $query->orderBy('name')->get();
-
-            // Attach visibility status
-            $visibilities = FitAndGoItemVisibility::where('category_code', $activeCategory->code)
-                ->pluck('is_visible', 'product_id');
-
-            $categoryProducts = $rawProducts->map(function ($p) use ($visibilities) {
-                $p->is_fit_visible = $visibilities->get($p->id, true);
-                return $p;
-            });
+        if (!in_array($currentTab, ['devices', 'activities'])) {
+            $currentTab = 'devices';
         }
 
+        $devices = FitAndGoDevice::withCount('itemVisibilities')->orderBy('id')->get();
+        $activities = FitAndGoActivity::orderBy('sort_order')->get();
+
         return view('admin.fit-and-go.index', [
-            'currentTab'        => $currentTab,
-            'selectedCategory'  => $activeCategory,
-            'devices'           => $devices,
-            'activities'        => $activities,
-            'categories'        => $categories,
-            'categoryProducts'  => $categoryProducts,
+            'currentTab' => $currentTab,
+            'devices'    => $devices,
+            'activities' => $activities,
         ]);
     }
 
@@ -98,9 +66,64 @@ class FitAndGoController extends Controller
             ->with('success', "Perangkat {$validated['name']} berhasil ditambahkan.");
     }
 
-    public function editDevice(FitAndGoDevice $device): View
+    public function editDevice(Request $request, FitAndGoDevice $device): View
     {
-        return view('admin.fit-and-go.devices.edit', compact('device'));
+        $currentTab = $request->query('tab', 'device');
+        $selectedCat = $request->query('category', 'hat');
+        $searchQuery = trim($request->query('q', ''));
+
+        $categories = FitAndGoCategory::orderBy('sort_order')->get();
+        $activeCategory = $categories->firstWhere('code', $selectedCat) ?? $categories->first();
+        $categoryProducts = collect();
+
+        if ($activeCategory) {
+            $keywords = array_filter(array_map('trim', explode(',', strtolower($activeCategory->mc_keywords ?? ''))));
+
+            $query = Product::query();
+            if (!empty($keywords)) {
+                $query->where(function ($q) use ($keywords) {
+                    foreach ($keywords as $kw) {
+                        $q->orWhere('name', 'like', "%{$kw}%")
+                          ->orWhere('description', 'like', "%{$kw}%")
+                          ->orWhere('pim_payload', 'like', "%{$kw}%");
+                    }
+                });
+            }
+
+            if (!empty($searchQuery)) {
+                $query->where(function ($q) use ($searchQuery) {
+                    $q->where('name', 'like', "%{$searchQuery}%")
+                      ->orWhere('sku', 'like', "%{$searchQuery}%");
+                });
+            }
+
+            $rawProducts = $query->orderBy('name')->get();
+
+            // Load device-specific visibilities first, falling back to global settings
+            $visibilities = FitAndGoItemVisibility::where('category_code', $activeCategory->code)
+                ->where(function ($q) use ($device) {
+                    $q->where('device_id', $device->id)
+                      ->orWhereNull('device_id');
+                })
+                ->orderBy('device_id', 'desc')
+                ->get()
+                ->unique('product_id')
+                ->pluck('is_visible', 'product_id');
+
+            $categoryProducts = $rawProducts->map(function ($p) use ($visibilities) {
+                $p->is_fit_visible = $visibilities->get($p->id, true);
+                return $p;
+            });
+        }
+
+        return view('admin.fit-and-go.devices.edit', [
+            'device'           => $device,
+            'currentTab'       => $currentTab,
+            'categories'       => $categories,
+            'selectedCategory' => $activeCategory,
+            'categoryProducts' => $categoryProducts,
+            'searchQuery'      => $searchQuery,
+        ]);
     }
 
     public function updateDevice(Request $request, FitAndGoDevice $device): RedirectResponse
@@ -223,13 +246,13 @@ class FitAndGoController extends Controller
         $validated['is_active'] = $request->boolean('is_active');
         $category->update($validated);
 
-        return redirect()->route('admin.fit-and-go.index', ['tab' => 'categories', 'category' => $category->code])
-            ->with('success', "Kategori {$category->display_name} berhasil diperbarui.");
+        return back()->with('success', "Kategori {$category->display_name} berhasil diperbarui.");
     }
 
     public function toggleItemVisibility(Request $request): RedirectResponse
     {
         $validated = $request->validate([
+            'device_id'     => 'nullable|exists:fit_and_go_devices,id',
             'product_id'    => 'required|exists:products,id',
             'category_code' => 'required|string',
             'is_visible'    => 'required|boolean',
@@ -237,6 +260,7 @@ class FitAndGoController extends Controller
 
         FitAndGoItemVisibility::updateOrCreate(
             [
+                'device_id'     => $validated['device_id'] ?? null,
                 'product_id'    => $validated['product_id'],
                 'category_code' => $validated['category_code'],
             ],

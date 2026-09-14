@@ -14,7 +14,7 @@
             <i class="bi bi-person-bounding-box text-warning me-2"></i>Konfigurasi AI Fit & Go
         </h4>
         <p class="text-muted small mb-0">
-            Kelola Kiosk Hardware, GPU Workstation Endpoint, Aktivitas Petualangan, Kategori & Visibilitas Katalog AI Fit & Go.
+            Kelola Kiosk Hardware, GPU Workstation Endpoint, Aktivitas Petualangan, dan Konfigurasi AI Fit & Go.
         </p>
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -47,7 +47,7 @@
     </div>
 @endif
 
-{{-- Navigation Tabs --}}
+{{-- Navigation Tabs: Only Perangkat Kiosk & Aktivitas EIGER --}}
 <ul class="nav nav-tabs border-bottom mb-4" id="fitGoTabs" role="tablist">
     <li class="nav-item" role="presentation">
         <a href="{{ route('admin.fit-and-go.index', ['tab' => 'devices']) }}"
@@ -59,12 +59,6 @@
         <a href="{{ route('admin.fit-and-go.index', ['tab' => 'activities']) }}"
            class="nav-link fw-semibold {{ $currentTab === 'activities' ? 'active text-primary' : 'text-muted' }}">
             <i class="bi bi-compass me-1"></i>Aktivitas EIGER ({{ $activities->count() }})
-        </a>
-    </li>
-    <li class="nav-item" role="presentation">
-        <a href="{{ route('admin.fit-and-go.index', ['tab' => 'categories', 'category' => $selectedCategory ? $selectedCategory->code : 'hat']) }}"
-           class="nav-link fw-semibold {{ $currentTab === 'categories' ? 'active text-primary' : 'text-muted' }}">
-            <i class="bi bi-tags me-1"></i>Kategori & Visibilitas Produk
         </a>
     </li>
 </ul>
@@ -86,7 +80,7 @@
                     <th>IP & GPU Endpoint</th>
                     <th>Status</th>
                     <th>Heartbeat Terakhir</th>
-                    <th class="text-end" style="width: 180px;">Aksi</th>
+                    <th class="text-end" style="width: 200px;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -96,6 +90,10 @@
                     <td>
                         <div class="fw-bold text-dark">{{ $device->name }}</div>
                         <div class="text-muted small font-monospace"><i class="bi bi-qr-code me-1"></i>{{ $device->device_code }}</div>
+                        <a href="{{ route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'catalog']) }}"
+                           class="badge bg-primary-subtle text-primary border border-primary-subtle text-decoration-none mt-1">
+                            <i class="bi bi-tags me-1"></i>Kelola Katalog & Visibilitas
+                        </a>
                     </td>
                     <td>
                         <span class="badge bg-light text-dark border">
@@ -133,7 +131,10 @@
                                     <i class="bi bi-activity"></i>
                                 </button>
                             </form>
-                            <a href="{{ route('admin.fit-and-go.devices.edit', $device) }}" class="btn btn-outline-primary" title="Edit Konfigurasi">
+                            <a href="{{ route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'catalog']) }}" class="btn btn-outline-warning" title="Kelola Katalog & Visibilitas Produk">
+                                <i class="bi bi-tags-fill"></i>
+                            </a>
+                            <a href="{{ route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'device']) }}" class="btn btn-outline-primary" title="Edit Parameter Hardware & Jaringan">
                                 <i class="bi bi-pencil-fill"></i>
                             </a>
                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteDeviceModal{{ $device->id }}" title="Hapus">
@@ -282,162 +283,6 @@
         </table>
     </div>
 </div>
-@endif
-
-{{-- TAB 3: CATEGORIES & PRODUCT VISIBILITY --}}
-@if($currentTab === 'categories')
-<div class="row g-4 mb-4">
-    {{-- Category Cards --}}
-    @foreach($categories as $category)
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 {{ $selectedCategory && $selectedCategory->code === $category->code ? 'border border-primary shadow' : '' }}">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h6 class="fw-bold mb-0 text-dark">{{ $category->display_name }}</h6>
-                    <button type="button" class="btn btn-sm btn-outline-secondary p-1 py-0" data-bs-toggle="modal" data-bs-target="#editCatModal{{ $category->id }}" title="Edit Preset">
-                        <i class="bi bi-gear"></i>
-                    </button>
-                </div>
-                <div class="small text-muted mb-2 font-monospace">
-                    Kode: <strong>{{ $category->code }}</strong> ({{ $category->mc_level }})
-                </div>
-                <div class="border rounded p-1 mb-2 bg-light text-center overflow-hidden" style="height: 100px;">
-                    @if($category->background_image)
-                        <img src="{{ $category->background_image }}" alt="{{ $category->display_name }}" class="img-fluid rounded h-100 object-fit-cover w-100">
-                    @else
-                        <div class="h-100 d-flex align-items-center justify-content-center text-muted small">
-                            <i class="bi bi-image me-1"></i>No Background
-                        </div>
-                    @endif
-                </div>
-                <div class="small text-muted text-truncate mb-3" title="{{ $category->mc_keywords }}">
-                    Kata Kunci: <em>{{ $category->mc_keywords }}</em>
-                </div>
-                <a href="{{ route('admin.fit-and-go.index', ['tab' => 'categories', 'category' => $category->code]) }}"
-                   class="btn btn-sm w-100 {{ $selectedCategory && $selectedCategory->code === $category->code ? 'btn-primary fw-bold' : 'btn-outline-secondary' }}">
-                    <i class="bi bi-eye me-1"></i>Kelola Visibilitas Produk
-                </a>
-            </div>
-        </div>
-    </div>
-
-    {{-- Edit Category Modal --}}
-    <div class="modal fade" id="editCatModal{{ $category->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="{{ route('admin.fit-and-go.categories.update', $category) }}" method="POST">
-                    @csrf
-                    @method('PUT')
-                    <div class="modal-header">
-                        <h5 class="modal-title fw-bold">Konfigurasi Kategori: {{ $category->display_name }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Nama Tampilan <span class="text-danger">*</span></label>
-                            <input type="text" name="display_name" class="form-control" value="{{ old('display_name', $category->display_name) }}" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">URL Background Preset (SRS FR-CMS-03)</label>
-                            <input type="url" name="background_image" class="form-control font-monospace" value="{{ old('background_image', $category->background_image) }}" placeholder="https://...">
-                            <small class="text-muted">Gambar latar belakang saat pengunjung memilih kategori ini di Kiosk.</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Kata Kunci Filter Katalog (Pisahkan dengan koma)</label>
-                            <input type="text" name="mc_keywords" class="form-control" value="{{ old('mc_keywords', $category->mc_keywords) }}" placeholder="topi, headwear, cap">
-                            <small class="text-muted">Digunakan untuk mencocokkan produk dari master katalog.</small>
-                        </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="is_active" value="1" id="catActiveSwitch{{ $category->id }}" {{ $category->is_active ? 'checked' : '' }}>
-                            <label class="form-check-label fw-semibold" for="catActiveSwitch{{ $category->id }}">Kategori Aktif di Kiosk</label>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-eiger fw-bold">Simpan Pengaturan</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    @endforeach
-</div>
-
-{{-- Product Visibility Table for Selected Category --}}
-@if($selectedCategory)
-<div class="card border-0 shadow-sm rounded-3">
-    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-        <div>
-            <h6 class="mb-0 fw-bold">
-                <i class="bi bi-eye me-2"></i>Visibilitas Produk Kategori: <span class="text-primary">{{ $selectedCategory->display_name }}</span> (SRS FR-CMS-03)
-            </h6>
-            <small class="text-muted">Staff toko dapat mengatur item yang ditampilkan atau disembunyikan pada layar kiosk AI Fit & Go.</small>
-        </div>
-        <span class="badge bg-secondary">{{ $categoryProducts->count() }} Produk Ditemukan</span>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th style="width: 70px;">Foto</th>
-                    <th>SKU & Nama Produk</th>
-                    <th>Kategori Master</th>
-                    <th>Harga & Stok</th>
-                    <th class="text-center" style="width: 200px;">Tampilkan di Kiosk?</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($categoryProducts as $product)
-                <tr>
-                    <td>
-                        @if($product->image_url)
-                            <img src="{{ $product->image_url }}" alt="{{ $product->name }}" class="rounded object-fit-cover shadow-sm" style="width: 50px; height: 50px;">
-                        @else
-                            <div class="bg-light rounded d-flex align-items-center justify-content-center text-muted border" style="width: 50px; height: 50px;">
-                                <i class="bi bi-image"></i>
-                            </div>
-                        @endif
-                    </td>
-                    <td>
-                        <div class="fw-bold text-dark">{{ $product->name }}</div>
-                        <div class="small text-muted font-monospace"><i class="bi bi-upc me-1"></i>{{ $product->sku }}</div>
-                    </td>
-                    <td>
-                        <span class="badge bg-light text-dark border">{{ $product->category ?: '-' }}</span>
-                    </td>
-                    <td>
-                        <div class="fw-bold text-dark">Rp {{ number_format($product->price ?? 0, 0, ',', '.') }}</div>
-                        <div class="small text-muted">Stok: <span class="fw-semibold">{{ $product->stock ?? 0 }}</span> unit</div>
-                    </td>
-                    <td class="text-center">
-                        <form action="{{ route('admin.fit-and-go.items.visibility') }}" method="POST">
-                            @csrf
-                            <input type="hidden" name="product_id" value="{{ $product->id }}">
-                            <input type="hidden" name="category_code" value="{{ $selectedCategory->code }}">
-                            <input type="hidden" name="is_visible" value="{{ $product->is_fit_visible ? 0 : 1 }}">
-                            <button type="submit" class="btn btn-sm {{ $product->is_fit_visible ? 'btn-success' : 'btn-outline-secondary' }} px-3">
-                                @if($product->is_fit_visible)
-                                    <i class="bi bi-eye-fill me-1"></i>Tampil
-                                @else
-                                    <i class="bi bi-eye-slash-fill me-1"></i>Sembunyi
-                                @endif
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="5" class="text-center py-5 text-muted">
-                        <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
-                        Tidak ada produk yang cocok dengan kata kunci kategori ini (<code>{{ $selectedCategory->mc_keywords }}</code>).
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
-@endif
 @endif
 
 @endsection
