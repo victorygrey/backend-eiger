@@ -14,7 +14,11 @@ class RfidTagController extends Controller
     public function index(Request $request)
     {
         $tags = RfidTag::when($request->filled('search'), function ($q) use ($request) {
-                $q->where('uid', 'like', "%{$request->search}%");
+                $term = "%{$request->search}%";
+                $q->where(function ($sub) use ($term) {
+                    $sub->where('uid', 'like', $term)
+                        ->orWhere('name', 'like', $term);
+                });
             })
             ->latest()
             ->paginate(10)

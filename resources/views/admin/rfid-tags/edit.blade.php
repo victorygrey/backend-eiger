@@ -28,10 +28,17 @@
                 <div class="col-md-6">
                     <label class="form-label">UID <span class="text-danger">*</span></label>
                     <input type="text" name="uid" value="{{ old('uid', $rfidTag->uid) }}"
-                        class="form-control @error('uid') is-invalid @enderror" required>
+                        class="form-control font-monospace @error('uid') is-invalid @enderror" required>
                     @error('uid') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="col-md-6">
+                    <label class="form-label">Nama / Label Tag <span class="text-muted">(opsional)</span></label>
+                    <input type="text" name="name" value="{{ old('name', $rfidTag->name) }}"
+                        class="form-control @error('name') is-invalid @enderror"
+                        placeholder="Contoh: RFID Jaket Gunung Setiabudi">
+                    @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+                <div class="col-md-12">
                     <label class="form-label">Produk <span class="text-muted">(opsional)</span></label>
                     <select name="product_id" class="form-select @error('product_id') is-invalid @enderror">
                         <option value="">-- Belum dipetakan --</option>

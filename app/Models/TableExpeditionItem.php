@@ -39,6 +39,14 @@ class TableExpeditionItem extends Model
     }
 
     /**
+     * Get the master RFID tag info (name & product link) by UID.
+     */
+    public function rfidTag(): BelongsTo
+    {
+        return $this->belongsTo(RfidTag::class, 'rfid_tag', 'uid');
+    }
+
+    /**
      * Get similar products collection resolved from similar_product_ids.
      */
     public function getSimilarProductsAttribute()

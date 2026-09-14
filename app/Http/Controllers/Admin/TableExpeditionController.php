@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\FitAndGoActivity;
 use App\Models\Product;
+use App\Models\RfidTag;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
 use Illuminate\Http\RedirectResponse;
@@ -18,7 +19,7 @@ class TableExpeditionController extends Controller
      */
     public function index(): View
     {
-        $items = TableExpeditionItem::with(['product.zone'])
+        $items = TableExpeditionItem::with(['product.zone', 'rfidTag'])
             ->latest('id')
             ->get();
 
@@ -30,18 +31,24 @@ class TableExpeditionController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $availableRfidTags = RfidTag::with('product')
+            ->orderBy('name')
+            ->orderBy('uid')
+            ->get();
+
         $standbyTitle = TableExpeditionConfig::get('standby_title', 'EIGER Table Expedition Hub');
         $standbySubtitle = TableExpeditionConfig::get('standby_subtitle', 'Letakkan produk ber-tag RFID di atas meja untuk melihat spesifikasi detail dan komparasi.');
         $rawInstructions = TableExpeditionConfig::get('usage_instructions', []);
         $instructions = is_array($rawInstructions) ? $rawInstructions : (json_decode($rawInstructions, true) ?: []);
 
         return view('admin.table-expedition.index', [
-            'items'           => $items,
-            'products'        => $products,
-            'activities'      => $activities,
-            'standbyTitle'    => $standbyTitle,
-            'standbySubtitle' => $standbySubtitle,
-            'instructions'    => $instructions,
+            'items'             => $items,
+            'products'          => $products,
+            'activities'        => $activities,
+            'availableRfidTags' => $availableRfidTags,
+            'standbyTitle'      => $standbyTitle,
+            'standbySubtitle'   => $standbySubtitle,
+            'instructions'      => $instructions,
         ]);
     }
 

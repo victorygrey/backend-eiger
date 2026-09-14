@@ -7,6 +7,7 @@ use App\Models\FitAndGoActivity;
 use App\Models\LedAmbienceItem;
 use App\Models\LedAmbienceScene;
 use App\Models\Product;
+use App\Models\RfidTag;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -20,7 +21,7 @@ class LedAmbienceController extends Controller
     {
         $currentTab = $request->query('tab', 'rfid');
 
-        $rfidItems = LedAmbienceItem::with(['product.zone', 'scene'])
+        $rfidItems = LedAmbienceItem::with(['product.zone', 'scene', 'rfidTag'])
             ->latest('id')
             ->get();
 
@@ -36,12 +37,15 @@ class LedAmbienceController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+
         return view('admin.led-ambience.index', [
-            'currentTab' => $currentTab,
-            'rfidItems'  => $rfidItems,
-            'scenes'     => $scenes,
-            'products'   => $products,
-            'activities' => $activities,
+            'currentTab'        => $currentTab,
+            'rfidItems'         => $rfidItems,
+            'scenes'            => $scenes,
+            'products'          => $products,
+            'activities'        => $activities,
+            'availableRfidTags' => $availableRfidTags,
         ]);
     }
 

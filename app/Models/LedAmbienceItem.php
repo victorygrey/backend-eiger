@@ -34,4 +34,12 @@ class LedAmbienceItem extends Model
     {
         return $this->belongsTo(LedAmbienceScene::class, 'scene_id');
     }
+
+    /**
+     * Get the master RFID tag info (name & product link) by UID.
+     */
+    public function rfidTag(): BelongsTo
+    {
+        return $this->belongsTo(RfidTag::class, 'rfid_tag', 'uid');
+    }
 }

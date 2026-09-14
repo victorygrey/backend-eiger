@@ -146,8 +146,12 @@
             </thead>
             <tbody>
                 @forelse($rfidItems as $item)
-                <tr>
                     <td class="ps-3">
+                        @if($item->rfidTag && $item->rfidTag->name)
+                            <div class="fw-semibold text-primary small d-flex align-items-center gap-1 mb-1">
+                                <i class="bi bi-tag-fill"></i> {{ $item->rfidTag->name }}
+                            </div>
+                        @endif
                         <div class="font-monospace fw-bold text-dark">{{ $item->rfid_tag }}</div>
                         @if($item->notes)
                             <small class="text-muted">{{ $item->notes }}</small>
@@ -224,8 +228,34 @@
                                 </div>
                                 <div class="modal-body">
                                     <div class="mb-3">
-                                        <label class="form-label fw-semibold">Tag RFID (EPC) <span class="text-danger">*</span></label>
-                                        <input type="text" name="rfid_tag" class="form-control font-monospace" value="{{ old('rfid_tag', $item->rfid_tag) }}" required>
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label class="form-label fw-semibold mb-0">Tag RFID (EPC) <span class="text-danger">*</span></label>
+                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none toggle-rfid-manual-btn" style="font-size: 0.78rem;">
+                                                <i class="bi bi-pencil-square"></i> Input Manual
+                                            </button>
+                                        </div>
+                                        <div class="rfid-select-wrap">
+                                            <select name="rfid_tag" class="form-select font-monospace rfid-select-field" required>
+                                                <option value="">-- Pilih dari Master RFID Tags --</option>
+                                                @php $foundCurrent = false; @endphp
+                                                @foreach($availableRfidTags as $rt)
+                                                    @if($rt->uid === $item->rfid_tag) @php $foundCurrent = true; @endphp @endif
+                                                    <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}" @selected($rt->uid === $item->rfid_tag)>
+                                                        {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
+                                                    </option>
+                                                @endforeach
+                                                @if(!$foundCurrent && $item->rfid_tag)
+                                                    <option value="{{ $item->rfid_tag }}" selected>
+                                                        {{ $item->rfid_tag }} (Tag saat ini / Kustom)
+                                                    </option>
+                                                @endif
+                                            </select>
+                                            <div class="form-text small">Pilih tag dari master atau klik "Input Manual" untuk kode kustom.</div>
+                                        </div>
+                                        <div class="rfid-manual-wrap d-none mt-2">
+                                            <input type="text" class="form-control font-monospace rfid-manual-field" value="{{ old('rfid_tag', $item->rfid_tag) }}" placeholder="E280116060000204..." disabled>
+                                            <div class="form-text small">Masukkan kode hex EPC/UID secara manual jika belum didaftarkan di master.</div>
+                                        </div>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label fw-semibold">Produk EIGER <span class="text-danger">*</span></label>
@@ -324,9 +354,27 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Tag RFID (EPC) <span class="text-danger">*</span></label>
-                        <input type="text" name="rfid_tag" class="form-control font-monospace" placeholder="E280116060000204..." required>
-                        <small class="text-muted">Masukkan kode hex EPC tag RFID yang terpasang pada fisik produk.</small>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label fw-semibold mb-0">Tag RFID (EPC) <span class="text-danger">*</span></label>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none toggle-rfid-manual-btn" style="font-size: 0.78rem;">
+                                <i class="bi bi-pencil-square"></i> Input Manual
+                            </button>
+                        </div>
+                        <div class="rfid-select-wrap">
+                            <select name="rfid_tag" class="form-select font-monospace rfid-select-field" required>
+                                <option value="">-- Pilih dari Master RFID Tags ({{ $availableRfidTags->count() }} terdaftar) --</option>
+                                @foreach($availableRfidTags as $rt)
+                                    <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}">
+                                        {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="form-text small">Pilih tag RFID dari master RFID tags (nama atau UID).</div>
+                        </div>
+                        <div class="rfid-manual-wrap d-none mt-2">
+                            <input type="text" class="form-control font-monospace rfid-manual-field" placeholder="E280116060000204..." disabled>
+                            <div class="form-text small">Masukkan kode hex EPC/UID secara manual jika belum didaftarkan di master.</div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Produk EIGER Terkait <span class="text-danger">*</span></label>
@@ -615,3 +663,70 @@
 @endif
 
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // 1. Auto-select product when RFID tag is picked from master dropdown
+    document.querySelectorAll('.rfid-select-field').forEach(function (selectEl) {
+        selectEl.addEventListener('change', function () {
+            const selectedOpt = this.options[this.selectedIndex];
+            const productId = selectedOpt ? selectedOpt.getAttribute('data-product-id') : null;
+            if (productId) {
+                const form = this.closest('form');
+                if (form) {
+                    const prodSelect = form.querySelector('select[name="product_id"]');
+                    if (prodSelect) {
+                        prodSelect.value = productId;
+                    }
+                }
+            }
+        });
+    });
+
+    // 2. Toggle manual RFID input vs master select
+    document.querySelectorAll('.toggle-rfid-manual-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const parent = this.closest('.mb-3');
+            if (!parent) return;
+            const selectWrap = parent.querySelector('.rfid-select-wrap');
+            const manualWrap = parent.querySelector('.rfid-manual-wrap');
+            const selectField = parent.querySelector('.rfid-select-field');
+            const manualField = parent.querySelector('.rfid-manual-field');
+
+            const isManualActive = !manualWrap.classList.contains('d-none');
+
+            if (isManualActive) {
+                // Switch back to master select
+                manualWrap.classList.add('d-none');
+                manualField.setAttribute('disabled', 'disabled');
+                manualField.removeAttribute('name');
+                manualField.removeAttribute('required');
+
+                selectWrap.classList.remove('d-none');
+                selectField.removeAttribute('disabled');
+                selectField.setAttribute('name', 'rfid_tag');
+                selectField.setAttribute('required', 'required');
+
+                this.innerHTML = '<i class="bi bi-pencil-square"></i> Input Manual';
+            } else {
+                // Switch to manual input
+                selectWrap.classList.add('d-none');
+                selectField.setAttribute('disabled', 'disabled');
+                selectField.removeAttribute('name');
+                selectField.removeAttribute('required');
+
+                manualWrap.classList.remove('d-none');
+                manualField.removeAttribute('disabled');
+                manualField.setAttribute('name', 'rfid_tag');
+                manualField.setAttribute('required', 'required');
+                manualField.focus();
+
+                this.innerHTML = '<i class="bi bi-list-ul"></i> Pilih dari Master';
+            }
+        });
+    });
+});
+</script>
+@endpush
+

@@ -24,6 +24,7 @@ class RfidTag extends Model
      */
     protected $fillable = [
         'uid',
+        'name',
         'product_id',
     ];
 

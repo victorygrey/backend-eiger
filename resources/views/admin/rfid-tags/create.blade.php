@@ -35,6 +35,17 @@
                     </div>
                     @error('uid') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
+
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">Nama / Label RFID <span class="text-muted">(Opsional)</span></label>
+                    <input type="text" name="name" value="{{ old('name') }}"
+                        class="form-control @error('name') is-invalid @enderror"
+                        placeholder="Contoh: RFID Jaket Gunung Setiabudi, Tag Meja Ekspedisi 1">
+                    <div class="form-text text-muted">
+                        Beri nama atau penanda fisik untuk mempermudah identifikasi RFID ini saat dihubungkan ke LED Ambience atau Table Expedition.
+                    </div>
+                    @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
             </div>
             <div class="mt-4 d-flex gap-2">
                 <button class="btn btn-eiger"><i class="bi bi-save me-1"></i>Simpan</button>

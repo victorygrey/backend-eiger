@@ -24,7 +24,7 @@
             <div class="col-12 col-md-8">
                 <div class="input-group">
                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                    <input type="text" name="search" class="form-control" placeholder="Cari UID RFID..." value="{{ request('search') }}">
+                    <input type="text" name="search" class="form-control" placeholder="Cari berdasarkan UID atau Nama RFID..." value="{{ request('search') }}">
                 </div>
             </div>
             <div class="col-12 col-md-4 d-flex gap-2">
@@ -45,7 +45,9 @@
                     <tr>
                         <th class="ps-3" style="width: 70px;">#</th>
                         <th>UID RFID</th>
-                        <th class="pe-3" style="width: 260px;">Tanggal Terscan</th>
+                        <th>Nama / Label Tag</th>
+                        <th style="width: 220px;">Tanggal Terscan</th>
+                        <th class="pe-3 text-end" style="width: 120px;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -60,7 +62,17 @@
                                     <code class="fw-semibold fs-6 text-dark font-monospace">{{ $tag->uid }}</code>
                                 </div>
                             </td>
-                            <td class="pe-3">
+                            <td>
+                                @if($tag->name)
+                                    <div class="fw-bold text-dark">{{ $tag->name }}</div>
+                                @else
+                                    <span class="text-muted fst-italic small">Belum diberi nama</span>
+                                @endif
+                                @if($tag->product)
+                                    <small class="text-muted d-block font-monospace"><i class="bi bi-box-seam me-1"></i>{{ $tag->product->sku }} — {{ $tag->product->name }}</small>
+                                @endif
+                            </td>
+                            <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <i class="bi bi-clock-history text-secondary fs-5"></i>
                                     <div>
@@ -69,9 +81,21 @@
                                     </div>
                                 </div>
                             </td>
+                            <td class="pe-3 text-end">
+                                <div class="btn-group-actions">
+                                    <a href="{{ route('admin.rfid-tags.edit', $tag) }}" class="btn btn-sm btn-outline-warning btn-icon" title="Edit Tag">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
+                                    <form action="{{ route('admin.rfid-tags.destroy', $tag) }}" method="POST" class="d-inline"
+                                        onsubmit="return confirm('Yakin hapus RFID Tag {{ $tag->uid }}?')">
+                                        @csrf @method('DELETE')
+                                        <button class="btn btn-sm btn-outline-danger btn-icon" title="Hapus"><i class="bi bi-trash-fill"></i></button>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="3">
+                        <tr><td colspan="5">
                             @include('admin.partials.empty-state', [
                                 'icon'        => 'bi-broadcast',
                                 'title'       => 'Belum ada RFID Tag',

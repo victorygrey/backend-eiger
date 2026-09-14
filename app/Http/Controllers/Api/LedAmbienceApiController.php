@@ -89,7 +89,7 @@ class LedAmbienceApiController extends Controller
 
         // 2. Fallback to general rfid_tags table if not explicitly mapped
         if (!$item) {
-            $generalTag = RfidTag::with('product.zone')->where('epc', $rfidTag)->first();
+            $generalTag = RfidTag::with('product.zone')->where('uid', $rfidTag)->first();
             if ($generalTag && $generalTag->product) {
                 // Find matching scene by category or activity
                 $matchedScene = LedAmbienceScene::active()->where('scene_type', 'active')->first();

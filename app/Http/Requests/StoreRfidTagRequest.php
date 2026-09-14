@@ -18,6 +18,7 @@ class StoreRfidTagRequest extends FormRequest
     {
         return [
             'uid'        => ['required', 'string', 'max:100', 'regex:/\A[0-9A-Fa-f]+\z/', 'unique:rfid_tags,uid'],
+            'name'       => ['nullable', 'string', 'max:255'],
             'product_id' => ['nullable', 'integer', 'exists:products,id', 'unique:rfid_tags,product_id'],
         ];
     }
