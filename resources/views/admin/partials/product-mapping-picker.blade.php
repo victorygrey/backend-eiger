@@ -72,7 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (item && typeof item === 'object') {
                 const label = item.name || item.attributeCode || item.code || item.sku || item.url || item.type || '';
                 const value = item.value ?? item.description ?? item.size ?? item.color ?? '';
-                row.textContent = [label, typeof value === 'object' ? JSON.stringify(value) : value].filter(Boolean).join(': ');
+                row.textContent = [label, typeof value === 'object' ? JSON.stringify(value) : value]
+                    .filter(part => part !== null && part !== '').join(': ');
             }
             block.appendChild(row);
         });
