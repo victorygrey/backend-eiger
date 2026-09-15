@@ -129,6 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = document.getElementById('variants-tbody');
     const btnAdd = document.getElementById('btn-add-variant');
     let variantIndex = {{ count($existingVariants) }};
+    function escapeVariantAttribute(value) {
+        return String(value ?? '').replaceAll('&', '&amp;').replaceAll('"', '&quot;')
+            .replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+    }
 
     // Modal picker references
     const modalEl = document.getElementById('modal-variant-photo-picker');
@@ -146,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isNaN(val) && val > 0) total += val;
         });
         const parentStockInput = document.querySelector('input[name="stock"]');
-        if (parentStockInput && total > 0) {
+        if (parentStockInput) {
             parentStockInput.value = total;
         }
     }
@@ -205,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.style.cssText = 'cursor: pointer; width: 68px; height: 68px; transition: all 0.15s;';
             item.title = `Pilih foto ini (Foto ${idx + 1})`;
             item.innerHTML = `
-                <img src="${url}" alt="PIM ${idx + 1}" class="w-100 h-100 rounded" style="object-fit: contain;" loading="lazy"
+                <img src="${escapeVariantAttribute(url)}" alt="PIM ${idx + 1}" class="w-100 h-100 rounded" style="object-fit: contain;" loading="lazy"
                      onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2260%22%20height%3D%2260%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%239ca3af%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-size%3D%229%22%3EImg%3C%2Ftext%3E%3C%2Fsvg%3E';">
                 ${isMatch ? '<span class="position-absolute top-0 end-0 badge bg-primary p-1" style="font-size: 8px;"><i class="bi bi-check-lg"></i></span>' : ''}
             `;
@@ -283,19 +287,19 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.dataset.index = variantIndex;
         tr.innerHTML = `
             <td>
-                <input type="text" name="variants[${variantIndex}][sku]" value="${defaultSku}"
+                <input type="text" name="variants[${variantIndex}][sku]" value="${escapeVariantAttribute(defaultSku)}"
                     class="form-control form-control-sm font-monospace fw-bold variant-sku-input" placeholder="SKU Varian 12 Digit" required>
                 <input type="hidden" name="variants[${variantIndex}][name]" value="" class="variant-name">
             </td>
             <td class="text-center align-middle">
                 <div class="position-relative d-inline-block variant-photo-box" data-index="${variantIndex}">
-                    <img src="${coverPhoto || 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%239ca3af%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-size%3D%228%22%3ENo%20Img%3C%2Ftext%3E%3C%2Fsvg%3E'}"
+                    <img src="${escapeVariantAttribute(coverPhoto || 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%239ca3af%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-size%3D%228%22%3ENo%20Img%3C%2Ftext%3E%3C%2Fsvg%3E')}"
                          alt="Foto Varian"
                          class="rounded border bg-white shadow-sm variant-thumb cursor-pointer"
                          style="width: 40px; height: 40px; object-fit: contain; cursor: pointer; padding: 1px;"
                          title="Klik untuk memilih foto varian ini"
                          onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%23fee2e2%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%23ef4444%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-size%3D%228%22%3EErr%3C%2Ftext%3E%3C%2Fsvg%3E';">
-                    <input type="hidden" name="variants[${variantIndex}][image]" value="${coverPhoto}" class="variant-image-input">
+                    <input type="hidden" name="variants[${variantIndex}][image]" value="${escapeVariantAttribute(coverPhoto)}" class="variant-image-input">
                     <button type="button" class="btn btn-sm btn-dark position-absolute bottom-0 end-0 p-0 d-flex align-items-center justify-content-center btn-trigger-photo-modal"
                             style="width: 16px; height: 16px; font-size: 8px; border-radius: 50%; opacity: 0.85;"
                             title="Pilih foto dari PIM">
@@ -312,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     class="form-control form-control-sm variant-size-input" placeholder="Ukuran">
             </td>
             <td>
-                <input type="number" name="variants[${variantIndex}][price]" value="${parentPrice}"
+                <input type="number" name="variants[${variantIndex}][price]" value="${escapeVariantAttribute(parentPrice)}"
                     step="0.01" min="0" class="form-control form-control-sm text-end" placeholder="0">
             </td>
             <td>
@@ -375,19 +379,19 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.dataset.index = variantIndex;
             tr.innerHTML = `
                 <td>
-                    <input type="text" name="variants[${variantIndex}][sku]" value="${v.sku || ''}"
+                    <input type="text" name="variants[${variantIndex}][sku]" value="${escapeVariantAttribute(v.sku)}"
                         class="form-control form-control-sm font-monospace fw-bold variant-sku-input" placeholder="SKU 12-Digit" required>
-                    <input type="hidden" name="variants[${variantIndex}][name]" value="${v.name || ''}" class="variant-name">
+                    <input type="hidden" name="variants[${variantIndex}][name]" value="${escapeVariantAttribute(v.name)}" class="variant-name">
                 </td>
                 <td class="text-center align-middle">
                     <div class="position-relative d-inline-block variant-photo-box" data-index="${variantIndex}">
-                        <img src="${vImg || 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%239ca3af%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-size%3D%228%22%3ENo%20Img%3C%2Ftext%3E%3C%2Fsvg%3E'}"
+                        <img src="${escapeVariantAttribute(vImg || 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%239ca3af%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-size%3D%228%22%3ENo%20Img%3C%2Ftext%3E%3C%2Fsvg%3E')}"
                              alt="Foto Varian"
                              class="rounded border bg-white shadow-sm variant-thumb cursor-pointer"
                              style="width: 40px; height: 40px; object-fit: contain; cursor: pointer; padding: 1px;"
                              title="Klik untuk memilih foto varian ini"
                              onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%23fee2e2%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%23ef4444%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-size%3D%228%22%3EErr%3C%2Ftext%3E%3C%2Fsvg%3E';">
-                        <input type="hidden" name="variants[${variantIndex}][image]" value="${vImg}" class="variant-image-input">
+                        <input type="hidden" name="variants[${variantIndex}][image]" value="${escapeVariantAttribute(vImg)}" class="variant-image-input">
                         <button type="button" class="btn btn-sm btn-dark position-absolute bottom-0 end-0 p-0 d-flex align-items-center justify-content-center btn-trigger-photo-modal"
                                 style="width: 16px; height: 16px; font-size: 8px; border-radius: 50%; opacity: 0.85;"
                                 title="Pilih foto dari PIM">
@@ -396,19 +400,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </td>
                 <td>
-                    <input type="text" name="variants[${variantIndex}][color]" value="${v.color || ''}"
+                    <input type="text" name="variants[${variantIndex}][color]" value="${escapeVariantAttribute(v.color)}"
                         class="form-control form-control-sm variant-color-input" placeholder="Warna">
                 </td>
                 <td>
-                    <input type="text" name="variants[${variantIndex}][size]" value="${v.size || ''}"
+                    <input type="text" name="variants[${variantIndex}][size]" value="${escapeVariantAttribute(v.size)}"
                         class="form-control form-control-sm variant-size-input" placeholder="Ukuran">
                 </td>
                 <td>
-                    <input type="number" name="variants[${variantIndex}][price]" value="${v.price || 0}"
+                    <input type="number" name="variants[${variantIndex}][price]" value="${escapeVariantAttribute(v.price || 0)}"
                         step="0.01" min="0" class="form-control form-control-sm text-end">
                 </td>
                 <td>
-                    <input type="number" name="variants[${variantIndex}][stock]" value="${v.stock || 0}"
+                    <input type="number" name="variants[${variantIndex}][stock]" value="${escapeVariantAttribute(v.stock || 0)}"
                         min="0" class="form-control form-control-sm text-center variant-stock">
                 </td>
                 <td class="text-center">

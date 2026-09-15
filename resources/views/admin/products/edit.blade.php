@@ -24,6 +24,7 @@
     <div class="card-body">
         <form action="{{ route('admin.products.update', $product) }}" method="POST">
             @csrf
+            <input type="hidden" name="variants_submitted" value="1">
             @include('admin.products._pim')
             @method('PUT')
 

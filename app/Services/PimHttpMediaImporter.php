@@ -39,6 +39,13 @@ class PimHttpMediaImporter
                     if ($total > 10485760 || $received > 10485760) throw new \RuntimeException('PIM image exceeds 10 MiB');
                 },
             ])->get($url);
+            // Some HTTP adapters return the body without writing the sink.
+            // Preserve the same size limit before using that body.
+            if (filesize($temp) === 0 && $response->body() !== '') {
+                $body = $response->body();
+                if (strlen($body) > 10485760) throw new \RuntimeException('PIM image exceeds 10 MiB');
+                file_put_contents($temp, $body);
+            }
             $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($temp);
             $extension = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'][$mime] ?? null;
             $hash = hash_file('sha256', $temp);

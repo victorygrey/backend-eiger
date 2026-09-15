@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
 use App\Models\Zone;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
@@ -366,24 +367,21 @@ class ProductController extends Controller
         $variants = $data['variants'] ?? [];
         unset($data['variants']);
 
-        $product = Product::create($data);
-
-        if (! empty($variants)) {
+        DB::transaction(function () use ($data, $variants) {
+            $product = Product::create($data);
             foreach ($variants as $var) {
-                if (! empty($var['sku'])) {
-                    $product->variants()->create([
-                        'sku'   => $var['sku'],
-                        'name'  => $var['name'] ?? ($product->name . ' - ' . ($var['color'] ?? '') . ' - ' . ($var['size'] ?? '')),
-                        'color' => $var['color'] ?? null,
-                        'size'  => $var['size'] ?? null,
-                        'price' => $var['price'] ?? $product->price,
-                        'stock' => $var['stock'] ?? 0,
-                        'image' => $var['image'] ?? null,
-                    ]);
-                }
+                $product->variants()->create([
+                    'sku'   => $var['sku'],
+                    'name'  => ($var['name'] ?? null) ?: ($product->name . ' - ' . ($var['color'] ?? '') . ' - ' . ($var['size'] ?? '')),
+                    'color' => $var['color'] ?? null,
+                    'size'  => $var['size'] ?? null,
+                    'price' => $var['price'] ?? $product->price,
+                    'stock' => $var['stock'] ?? 0,
+                    'image' => ($var['image'] ?? null) ?: $product->image,
+                ]);
             }
-            $product->update(['stock' => $product->variants()->sum('stock')]);
-        }
+            if ($variants) $product->update(['stock' => $product->variants()->sum('stock')]);
+        });
 
         return redirect()->route('admin.products.index')
             ->with('success', 'Produk berhasil ditambahkan.');
@@ -409,34 +407,35 @@ class ProductController extends Controller
         $data['is_featured'] = $request->has('is_featured');
         $data['is_discontinued'] = $request->has('is_discontinued');
 
-        $variants = $data['variants'] ?? null;
+        $variants = $data['variants'] ?? ($request->boolean('variants_submitted') ? [] : null);
         unset($data['variants']);
+        DB::transaction(function () use ($product, $data, $variants) {
+            $product->update($data);
+            if ($variants === null) return;
 
-        $product->update($data);
-
-        if ($variants !== null) {
             $existingSku = [];
             foreach ($variants as $var) {
-                if (! empty($var['sku'])) {
-                    $existingSku[] = $var['sku'];
-                    $product->variants()->updateOrCreate(
-                        ['sku' => $var['sku']],
-                        [
-                            'name'  => $var['name'] ?? ($product->name . ' - ' . ($var['color'] ?? '') . ' - ' . ($var['size'] ?? '')),
-                            'color' => $var['color'] ?? null,
-                            'size'  => $var['size'] ?? null,
-                            'price' => $var['price'] ?? $product->price,
-                            'stock' => $var['stock'] ?? 0,
-                            'image' => $var['image'] ?? null,
-                        ]
-                    );
-                }
+                $existingSku[] = $var['sku'];
+                $existingImage = $product->variants()->where('sku', $var['sku'])->value('image');
+                $product->variants()->updateOrCreate(
+                    ['sku' => $var['sku']],
+                    [
+                        'name'  => ($var['name'] ?? null) ?: ($product->name . ' - ' . ($var['color'] ?? '') . ' - ' . ($var['size'] ?? '')),
+                        'color' => $var['color'] ?? null,
+                        'size'  => $var['size'] ?? null,
+                        'price' => $var['price'] ?? $product->price,
+                        'stock' => $var['stock'] ?? 0,
+                        'image' => ($var['image'] ?? null) ?: ($existingImage ?: $product->image),
+                    ]
+                );
             }
-            if (! empty($existingSku)) {
+            if ($existingSku) {
                 $product->variants()->whereNotIn('sku', $existingSku)->delete();
+            } else {
+                $product->variants()->delete();
             }
             $product->update(['stock' => $product->variants()->sum('stock')]);
-        }
+        });
 
         return redirect()->route('admin.products.index')
             ->with('success', 'Produk berhasil diperbarui.');

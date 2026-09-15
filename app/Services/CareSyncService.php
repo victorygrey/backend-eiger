@@ -241,7 +241,7 @@ class CareSyncService
                 $vPrice = isset($vItem['price']) ? (float) $vItem['price'] : (float) $parent->price;
                 $vStock = isset($vItem['stock']) ? (int) $vItem['stock'] : 0;
 
-                \App\Models\ProductVariant::updateOrCreate(
+                $variant = \App\Models\ProductVariant::updateOrCreate(
                     ['sku' => $vSku],
                     [
                         'product_id' => $parent->id,
@@ -252,6 +252,12 @@ class CareSyncService
                         'stock'      => $vStock,
                     ]
                 );
+                // CARE owns price and stock; PIM owns the image. A CARE variant may
+                // arrive after its parent was enriched by PIM, so fill only empty
+                // variant images from the stable parent cover.
+                if (!$variant->image && $parent->image) {
+                    $variant->update(['image' => $parent->image]);
+                }
                 $variantCount++;
             }
 

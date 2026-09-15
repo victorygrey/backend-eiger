@@ -31,6 +31,10 @@ class CareIntegrationWebTest extends TestCase
 
     public function test_care_web_sync_triggers_and_redirects(): void
     {
+        Product::factory()->create([
+            'sku' => '910012408',
+            'image' => '/api/pim-media/cover.jpg',
+        ]);
         Http::fake([
             '*/api/server/pricing_details*' => Http::response([
                 'data' => [
@@ -68,6 +72,7 @@ class CareIntegrationWebTest extends TestCase
             'sku' => '910012408001',
             'price' => 175000,
             'stock' => 25,
+            'image' => '/api/pim-media/cover.jpg',
         ]);
     }
 

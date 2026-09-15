@@ -13,7 +13,7 @@ class RfidTagController extends Controller
 {
     public function index(Request $request)
     {
-        $tags = RfidTag::when($request->filled('search'), function ($q) use ($request) {
+        $tags = RfidTag::with('product')->when($request->filled('search'), function ($q) use ($request) {
                 $term = "%{$request->search}%";
                 $q->where(function ($sub) use ($term) {
                     $sub->where('uid', 'like', $term)

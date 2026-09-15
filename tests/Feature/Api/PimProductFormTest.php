@@ -22,7 +22,7 @@ class PimProductFormTest extends TestCase
         $data['sku']='WRONG';$this->postJson('/admin/products',$data)->assertUnprocessable()->assertJsonValidationErrors('sku');
         $this->assertDatabaseCount('products',1);
     }
-    public function test_catalog_lookup_returns_material_zone_and_12digit_variants(): void {
+    public function test_catalog_lookup_returns_material_zone_and_scraped_article_variant(): void {
         \App\Models\Zone::create(['name' => 'Zone Tas & Aksesoris', 'code' => 'ACC']);
         $resp = $this->getJson('/admin/products/catalog-lookup?code=910004724');
         $resp->assertOk();
@@ -33,7 +33,7 @@ class PimProductFormTest extends TestCase
         $variants = $resp->json('variants');
         $this->assertNotEmpty($variants);
         foreach ($variants as $v) {
-            $this->assertSame(12, strlen($v['sku']), "SKU {$v['sku']} must be 12 digits");
+            $this->assertSame('910004724', $v['sku']);
             $this->assertFalse(str_contains($v['size'], ','), "Size {$v['size']} must not contain comma");
         }
     }

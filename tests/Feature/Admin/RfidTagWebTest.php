@@ -81,4 +81,21 @@ class RfidTagWebTest extends TestCase
             'uid' => 'E28011606000020499998888',
         ]);
     }
+
+    public function test_user_can_edit_and_delete_rfid_tag(): void
+    {
+        $tag = RfidTag::create(['uid' => 'E280116060000204ABCDEF12']);
+
+        $this->actingAs($this->admin)->get(route('admin.rfid-tags.index'))->assertOk();
+        $this->get(route('admin.rfid-tags.edit', $tag))->assertOk();
+        $this->put(route('admin.rfid-tags.update', $tag), [
+            'uid' => 'E280116060000204ABCDEF12',
+            'name' => 'Tag uji',
+        ])->assertRedirect(route('admin.rfid-tags.index'));
+        $this->assertDatabaseHas('rfid_tags', ['id' => $tag->id, 'name' => 'Tag uji']);
+
+        $this->delete(route('admin.rfid-tags.destroy', $tag))
+            ->assertRedirect(route('admin.rfid-tags.index'));
+        $this->assertDatabaseMissing('rfid_tags', ['id' => $tag->id]);
+    }
 }

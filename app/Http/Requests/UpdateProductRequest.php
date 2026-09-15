@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Models\ProductVariant;
 
 class UpdateProductRequest extends FormRequest
 {
@@ -37,7 +38,12 @@ class UpdateProductRequest extends FormRequest
             'is_featured'     => ['nullable', 'boolean'],
             'is_discontinued' => ['nullable', 'boolean'],
             'variants'        => ['nullable', 'array'],
-            'variants.*.sku'  => ['required_with:variants', 'string', 'max:100'],
+            'variants.*.sku'  => ['required_with:variants', 'string', 'max:100', 'distinct',
+                function (string $attribute, mixed $value, \Closure $fail) use ($productId) {
+                    if (ProductVariant::where('sku', $value)->where('product_id', '!=', $productId)->exists()) {
+                        $fail('SKU varian sudah terhubung ke produk lain.');
+                    }
+                }],
             'variants.*.name' => ['nullable', 'string', 'max:255'],
             'variants.*.color' => ['nullable', 'string', 'max:100'],
             'variants.*.size' => ['nullable', 'string', 'max:100'],

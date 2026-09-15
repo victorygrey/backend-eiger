@@ -49,7 +49,7 @@ class PimIntegrationTest extends TestCase
             $this->withToken('test-secret')->postJson('/api/integrations/pim/product', $this->payload())
                 ->assertOk()->assertJsonPath('data.synced', 1);
         }
-        $this->assertDatabaseCount('products', 1);
+        $this->assertDatabaseCount('products', 2);
         $this->assertDatabaseHas('products', [
             'id' => $product->id, 'name' => 'Jacket Black M', 'price' => 123456, 'stock' => 7,
             'material' => 'Nylon', 'description' => 'Windproof jacket', 'image' => 'https://example.com/variant.jpg',
@@ -66,6 +66,7 @@ class PimIntegrationTest extends TestCase
         $this->assertDatabaseCount('products', 0);
         $this->withHeader('X-Simulate-Atom-Failure', 'false')->postJson('/api/integrations/pim/product', $this->payload())->assertOk();
         $this->assertDatabaseHas('products', ['sku' => '910012408001', 'price' => 0, 'stock' => 0]);
+        $this->assertDatabaseHas('products', ['sku' => '910012408']);
     }
 
     public function test_cms_proxies_all_read_endpoints_and_publish_without_changing_contract(): void

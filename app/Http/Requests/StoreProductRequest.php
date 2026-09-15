@@ -34,7 +34,7 @@ class StoreProductRequest extends FormRequest
             'is_featured'     => ['nullable', 'boolean'],
             'is_discontinued' => ['nullable', 'boolean'],
             'variants'        => ['nullable', 'array'],
-            'variants.*.sku'  => ['required_with:variants', 'string', 'max:100'],
+            'variants.*.sku'  => ['required_with:variants', 'string', 'max:100', 'distinct', 'unique:product_variants,sku'],
             'variants.*.name' => ['nullable', 'string', 'max:255'],
             'variants.*.color' => ['nullable', 'string', 'max:100'],
             'variants.*.size' => ['nullable', 'string', 'max:100'],

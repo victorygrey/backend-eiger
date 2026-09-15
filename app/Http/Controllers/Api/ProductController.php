@@ -19,7 +19,7 @@ class ProductController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $products = Product::with(['zone'])
-            ->withCount([])
+            ->withCount('variants')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $query->where(function ($q) use ($request) {
                     $q->where('name', 'like', "%{$request->search}%")

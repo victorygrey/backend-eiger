@@ -136,10 +136,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::put('/zones/{zone}',         [ZoneController::class, 'update'])->name('zones.update');
     Route::delete('/zones/{zone}',      [ZoneController::class, 'destroy'])->name('zones.destroy');
 
-    // RFID Tags (Add & View only - no edit, no delete)
+    // RFID Tags
     Route::get('/rfid-tags',                 [RfidTagController::class, 'index'])->name('rfid-tags.index');
     Route::get('/rfid-tags/create',          [RfidTagController::class, 'create'])->name('rfid-tags.create');
     Route::post('/rfid-tags',                [RfidTagController::class, 'store'])->name('rfid-tags.store');
+    Route::get('/rfid-tags/{rfidTag}/edit',  [RfidTagController::class, 'edit'])->name('rfid-tags.edit');
+    Route::put('/rfid-tags/{rfidTag}',       [RfidTagController::class, 'update'])->name('rfid-tags.update');
+    Route::delete('/rfid-tags/{rfidTag}',    [RfidTagController::class, 'destroy'])->name('rfid-tags.destroy');
 
     // Sync Logs (read-only)
     Route::get('/sync-logs',                 [SyncLogController::class, 'index'])->name('sync-logs.index');

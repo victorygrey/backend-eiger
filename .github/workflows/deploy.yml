@@ -21,6 +21,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up PHP for tests
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_sqlite, fileinfo, gd
+          coverage: none
+
+      - name: Install test dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run CMS tests
+        env:
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        run: php artisan test --compact
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

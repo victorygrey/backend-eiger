@@ -86,10 +86,10 @@ class IntegrationWebTest extends TestCase
         $this->assertDatabaseHas('products', [
             'sku' => '910009029',
             'name' => 'TOURER WANDER 1.1 22L 1A',
-            'image' => 'http://192.168.18.31:8001/media/sample.jpg',
             'price' => 250000,
             'stock' => 15,
         ]);
+        $this->assertNotEmpty(Product::where('sku', '910009029')->value('image'));
 
         $this->assertDatabaseHas('product_variants', [
             'sku' => '910009029001',
