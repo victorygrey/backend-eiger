@@ -103,13 +103,16 @@ class TableExpeditionApiController extends Controller
         $availableSizes = $variants->pluck('size')->filter()->unique()->values()->all();
         $availableColors = $variants->pluck('color')->filter()->unique()->values()->all();
 
-        // Fallback features and details if not explicitly set
         if (empty($features)) {
-            $features = [
-                'Bahan dirancang khusus untuk kenyamanan dan ketahanan maksimal aktivitas luar ruang.',
-                'Konstruksi ergonomis mendukung pergerakan dinamis pengguna.',
-                'Dilengkapi logo dan grafis autentik khas EIGER Adventure.',
-            ];
+            if (!empty($product->technologies)) {
+                $features = array_map(fn($t) => ($t['name'] ?? 'TEKNOLOGI') . ': ' . ($t['description'] ?? ''), $product->technologies);
+            } else {
+                $features = [
+                    'Bahan dirancang khusus untuk kenyamanan dan ketahanan maksimal aktivitas luar ruang.',
+                    'Konstruksi ergonomis mendukung pergerakan dinamis pengguna.',
+                    'Dilengkapi logo dan grafis autentik khas EIGER Adventure.',
+                ];
+            }
         }
 
         if (empty($technicalDetails)) {
@@ -118,6 +121,17 @@ class TableExpeditionApiController extends Controller
                 'Zone'     => $product->zone?->name ?? 'General Outdoor',
                 'SKU'      => $product->sku,
             ];
+            foreach ($product->specifications as $spec) {
+                $technicalDetails[$spec['name'] ?? $spec['code']] = $spec['value'];
+            }
+            if ($product->weight) {
+                $technicalDetails['Berat'] = $product->weight . ' gram';
+            }
+            foreach ($product->custom_attributes_list as $ca) {
+                if (in_array(strtolower($ca['attributeCode']), ['waterproof', 'breathability', 'dimension', 'gender'])) {
+                    $technicalDetails[ucfirst(str_replace('_', ' ', $ca['attributeCode']))] = strip_tags($ca['value']);
+                }
+            }
         }
 
         if (empty($aiSummary)) {
@@ -170,6 +184,11 @@ class TableExpeditionApiController extends Controller
                     'category'         => $product->category,
                     'description'      => $product->description,
                     'zone'             => $product->zone?->name,
+                    'technologies'     => $product->technologies,
+                    'activities'       => $product->activities,
+                    'specifications'   => $product->specifications,
+                    'custom_attributes'=> $product->custom_attributes_list,
+                    'weight'           => $product->weight,
                     'available_sizes'  => $availableSizes,
                     'available_colors' => $availableColors,
                 ],

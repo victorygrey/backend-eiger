@@ -72,7 +72,14 @@
                                 <span class="badge-soft badge-gray-soft"><i class="bi bi-upc-scan me-1"></i>{{ $product->sku }}</span>
                             </td>
                             <td>
-                                <div class="fw-semibold text-dark">{{ $product->name }}</div>
+                                <div class="fw-semibold text-dark d-flex align-items-center flex-wrap gap-1">
+                                    <span>{{ $product->name }}</span>
+                                    @if(!empty($product->technologies) || !empty($product->pim_payload))
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-0 px-1" style="font-size: 0.65rem;" title="Master Enrichment PIM Lengkap">
+                                            <i class="bi bi-cpu"></i> PIM
+                                        </span>
+                                    @endif
+                                </div>
                                 @if($product->variants->isNotEmpty())
                                     <div class="mt-1">
                                         <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 small text-primary d-inline-flex align-items-center gap-1"

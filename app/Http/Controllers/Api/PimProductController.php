@@ -36,9 +36,37 @@ class PimProductController extends Controller
                 if ($attributes->has('long_description') || $attributes->has('short_description')) {
                     $values['description'] = $attributes->get('long_description') ?: $attributes->get('short_description');
                 }
-                if ($attributes->has('material')) $values['material'] = $attributes->get('material');
                 // CARE retains price, stock, zone and RFID ownership.
                 Product::updateOrCreate(['sku' => $variant['sku']], $values);
+            }
+
+            // Also ensure generic parent product exists and links variants
+            $genericSku = $detail['generic'] ?? null;
+            if ($genericSku) {
+                $parentValues = [
+                    'name' => $detail['name'] ?? ($detail['variant'][0]['name'] ?? 'EIGER Product'),
+                    'pim_payload' => $detail,
+                    'pim_image_payload' => $data['image'],
+                    'image' => $detail['mainImage'] ?? null,
+                ];
+                if ($attributes->has('long_description') || $attributes->has('short_description')) {
+                    $parentValues['description'] = $attributes->get('long_description') ?: $attributes->get('short_description');
+                }
+                if ($attributes->has('material')) $parentValues['material'] = $attributes->get('material');
+
+                $parent = Product::updateOrCreate(['sku' => $genericSku], $parentValues);
+
+                foreach ($detail['variant'] as $variant) {
+                    $parent->variants()->updateOrCreate(
+                        ['sku' => $variant['sku']],
+                        [
+                            'name'  => $variant['name'],
+                            'color' => $variant['color'] ?? null,
+                            'size'  => $variant['size'] ?? null,
+                            'image' => $media[$variant['sku']]['image'] ?? $parent->image,
+                        ]
+                    );
+                }
             }
             SyncLog::create([
                 'source' => 'pim', 'status' => 'success',
