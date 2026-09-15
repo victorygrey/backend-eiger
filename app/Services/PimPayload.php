@@ -7,6 +7,8 @@ use Illuminate\Validation\ValidationException;
 
 class PimPayload
 {
+    private const DUMMY_ACTIVITIES = ['Camping', 'Hiking', 'Running', 'Riding', 'Travelling'];
+
     public function validate(array $input): array
     {
         $rules = [
@@ -50,6 +52,7 @@ class PimPayload
         $product['customAtributes'] = collect(array_merge($product['customAttributes'] ?? [], $product['customAtributes'] ?? []))
             ->keyBy('attributeCode')->values()->all();
         unset($product['customAttributes']);
+        $product = $this->withDummyActivity($product);
         $image = $input['image'] + ['generic' => [], 'variant' => []];
         foreach ($image['generic'] as $row) {
             if ($row['sku'] !== $product['generic']) {
@@ -62,6 +65,43 @@ class PimPayload
             }
         }
         return ['product' => $product, 'image' => $image];
+    }
+
+    /**
+     * Supply stable demo activity master data without replacing a real PIM value.
+     */
+    public function withDummyActivity(array $product): array
+    {
+        $attributes = array_values($product['customAtributes'] ?? []);
+        $activityIndex = null;
+
+        foreach ($attributes as $index => $attribute) {
+            if (strcasecmp((string) ($attribute['attributeCode'] ?? ''), 'activity') === 0) {
+                $activityIndex = $index;
+                break;
+            }
+        }
+
+        if ($activityIndex === null) {
+            $attributes[] = [
+                'attributeCode' => 'activity',
+                'value' => self::dummyActivity((string) ($product['generic'] ?? $product['name'] ?? '')),
+            ];
+        } elseif (trim((string) ($attributes[$activityIndex]['value'] ?? '')) === '') {
+            $attributes[$activityIndex]['attributeCode'] = 'activity';
+            $attributes[$activityIndex]['value'] = self::dummyActivity((string) ($product['generic'] ?? $product['name'] ?? ''));
+        }
+
+        $product['customAtributes'] = $attributes;
+
+        return $product;
+    }
+
+    public static function dummyActivity(string $key): string
+    {
+        $index = (int) ((float) sprintf('%u', crc32($key)) % count(self::DUMMY_ACTIVITIES));
+
+        return self::DUMMY_ACTIVITIES[$index];
     }
 
     public function assets(array $product, array $image, string $sku): array

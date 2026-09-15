@@ -84,30 +84,7 @@
             </div>
         </div>
 
-        {{-- Card 2: Read-only master product details --}}
-        <div class="card border-0 shadow-sm rounded-3 mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
-                <div>
-                    <h6 class="mb-0 fw-bold"><i class="bi bi-cpu text-warning me-2"></i>Multimedia, Fitur & Spesifikasi Teknis</h6>
-                    <small class="text-muted">Detail diambil dari produk master PIM. Perubahan data dilakukan melalui menu Products.</small>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-12 text-muted small">Foto, media, teknologi, spesifikasi, custom attributes, dan varian produk terpilih ditampilkan pada panel detail katalog di atas.</div>
-
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Ringkasan AI (AI Summary Product Knowledge)</label>
-                        <textarea name="ai_summary" class="form-control @error('ai_summary') is-invalid @enderror" rows="3"
-                                  placeholder="Jaket ekspedisi teknis dirancang khusus untuk kondisi cuaca ekstrem di pegunungan tinggi dengan perlindungan maksimal dari angin kencang dan badai salju.">{{ old('ai_summary', $item->ai_summary ?? '') }}</textarea>
-                        @error('ai_summary')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <div class="form-text small">Ringkasan penjelasan produk yang dibacakan atau disajikan oleh asisten AI kepada pengunjung toko.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Card 3: Similar Products for Recommendation & Comparison (Dual-List Visual Picker) --}}
+        {{-- Similar Products for Recommendation & Comparison (Dual-List Visual Picker) --}}
         <div class="card border-0 shadow-sm rounded-3 mb-4">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div>

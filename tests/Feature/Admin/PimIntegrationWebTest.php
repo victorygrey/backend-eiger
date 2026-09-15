@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Product;
+use App\Services\PimPayload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -52,6 +53,7 @@ class PimIntegrationWebTest extends TestCase
             'sku' => '910009029',
             'name' => 'TOURER WANDER 1.1 22L 1A',
         ]);
+        $product['customAtributes'][] = ['attributeCode' => 'activity', 'value' => PimPayload::dummyActivity('910009029')];
         $this->assertSame($product, Product::where('sku', '910009029')->first()->pim_payload);
         $this->assertSame(250000, (int) $existing->fresh()->price);
         $this->assertSame(7, $existing->fresh()->stock);

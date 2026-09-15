@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Product;
 use App\Services\PimHttpMediaImporter;
+use App\Services\PimPayload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -53,6 +54,7 @@ class PimPayloadContractTest extends TestCase
         $payload = $this->payload();
         $this->withToken('test')->postJson('/api/integrations/pim/product', $payload)->assertOk();
         $saved = $existing->fresh();
+        $payload['product']['customAtributes'][] = ['attributeCode' => 'activity', 'value' => PimPayload::dummyActivity('P1')];
         $this->assertSame($payload['product'], $saved->pim_payload);
         $this->assertSame($payload['image'], $saved->pim_image_payload);
         $this->assertEquals(250000, $saved->price);
@@ -68,6 +70,20 @@ class PimPayloadContractTest extends TestCase
             ->assertJsonPath('data.pim_payload.technology.0.id', 'T1');
         $this->getJson('/api/products/'.$parent->id)->assertOk()
             ->assertJsonPath('data.variants.0.sku', 'P1-M');
+    }
+
+    public function test_blank_activity_attribute_gets_stable_dummy_and_real_value_is_preserved(): void
+    {
+        $service = app(PimPayload::class);
+        $base = $this->payload();
+        $base['product']['customAtributes'][] = ['attributeCode' => 'activity', 'value' => ''];
+        $normalized = $service->validate($base);
+        $activity = collect($normalized['product']['customAtributes'])->firstWhere('attributeCode', 'activity');
+        $this->assertContains($activity['value'], ['Camping', 'Hiking', 'Running', 'Riding', 'Travelling']);
+
+        $base['product']['customAtributes'][1]['value'] = 'Climbing';
+        $normalized = $service->validate($base);
+        $this->assertSame('Climbing', collect($normalized['product']['customAtributes'])->firstWhere('attributeCode', 'activity')['value']);
     }
 
     public function test_form_accepts_signed_url_and_legacy_attribute_spelling(): void

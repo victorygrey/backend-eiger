@@ -10,6 +10,7 @@ use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -73,40 +74,39 @@ class FitAndGoController extends Controller
     public function editDevice(Request $request, FitAndGoDevice $device): View
     {
         $currentTab = $request->query('tab', 'device');
+        if (!in_array($currentTab, ['device', 'catalog', 'activities'], true)) {
+            $currentTab = 'device';
+        }
         $selectedCat = $request->query('category', 'hat');
-        $searchQuery = trim($request->query('q', ''));
+        $selectedActivitySlug = $request->query('activity', 'camping');
 
         $categories = FitAndGoCategory::orderBy('sort_order')->get();
         $activeCategory = $categories->firstWhere('code', $selectedCat) ?? $categories->first();
+        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
+        $activeActivity = $activities->firstWhere('slug', $selectedActivitySlug) ?? $activities->first();
         $categoryProducts = collect();
+        $selectedCategoryProducts = collect();
+        $activityProducts = collect();
+        $selectedActivityProducts = collect();
 
         if ($activeCategory) {
-            $query = Product::where('is_discontinued', false)->where('pim_catalog_active', true);
+            $categoryProducts = $this->catalogProducts()
+                ->filter(fn (Product $product) => $this->matchesCategory($product, $activeCategory->code))
+                ->values();
+            $selectedIds = FitAndGoItemVisibility::where('device_id', $device->id)
+                ->where('category_code', $activeCategory->code)->where('is_visible', true)
+                ->orderBy('id')->pluck('product_id');
+            $selectedCategoryProducts = $selectedIds->map(fn ($id) => $categoryProducts->firstWhere('id', $id))->filter()->values();
+        }
 
-            if (!empty($searchQuery)) {
-                $query->where(function ($q) use ($searchQuery) {
-                    $q->where('name', 'like', "%{$searchQuery}%")
-                      ->orWhere('sku', 'like', "%{$searchQuery}%");
-                });
-            }
-
-            $rawProducts = $query->orderBy('name')->get();
-
-            // Only explicitly assigned products appear in this kiosk category.
-            $visibilities = FitAndGoItemVisibility::where('category_code', $activeCategory->code)
-                ->where(function ($q) use ($device) {
-                    $q->where('device_id', $device->id)
-                      ->orWhereNull('device_id');
-                })
-                ->orderBy('device_id', 'desc')
-                ->get()
-                ->unique('product_id')
-                ->pluck('is_visible', 'product_id');
-
-            $categoryProducts = $rawProducts->map(function ($p) use ($visibilities) {
-                $p->is_fit_visible = $visibilities->get($p->id, false);
-                return $p;
-            });
+        if ($activeActivity) {
+            $activityProducts = $this->catalogProducts()
+                ->filter(fn (Product $product) => $this->matchesActivity($product, $activeActivity))
+                ->values();
+            $selectedIds = DB::table('fit_and_go_device_activity_products')
+                ->where('device_id', $device->id)->where('activity_id', $activeActivity->id)
+                ->orderBy('sort_order')->pluck('product_id');
+            $selectedActivityProducts = $selectedIds->map(fn ($id) => $activityProducts->firstWhere('id', $id))->filter()->values();
         }
 
         return view('admin.fit-and-go.devices.edit', [
@@ -115,7 +115,11 @@ class FitAndGoController extends Controller
             'categories'       => $categories,
             'selectedCategory' => $activeCategory,
             'categoryProducts' => $categoryProducts,
-            'searchQuery'      => $searchQuery,
+            'selectedCategoryProducts' => $selectedCategoryProducts,
+            'activities' => $activities,
+            'selectedActivity' => $activeActivity,
+            'activityProducts' => $activityProducts,
+            'selectedActivityProducts' => $selectedActivityProducts,
         ]);
     }
 
@@ -275,6 +279,91 @@ class FitAndGoController extends Controller
         );
 
         return back()->with('success', 'Visibilitas produk AI Fit & Go berhasil diubah.');
+    }
+
+    public function syncDeviceCategoryProducts(Request $request, FitAndGoDevice $device, FitAndGoCategory $category): RedirectResponse
+    {
+        $validated = $request->validate([
+            'product_ids' => 'nullable|array|max:30',
+            'product_ids.*' => 'integer|distinct|exists:products,id',
+        ]);
+        $ids = array_values($validated['product_ids'] ?? []);
+
+        DB::transaction(function () use ($device, $category, $ids) {
+            FitAndGoItemVisibility::where('device_id', $device->id)
+                ->where('category_code', $category->code)->delete();
+            foreach ($ids as $id) {
+                FitAndGoItemVisibility::create([
+                    'device_id' => $device->id,
+                    'product_id' => $id,
+                    'category_code' => $category->code,
+                    'is_visible' => true,
+                ]);
+            }
+        });
+
+        return redirect()->route('admin.fit-and-go.devices.edit', [
+            'device' => $device, 'tab' => 'catalog', 'category' => $category->code,
+        ])->with('success', "Produk kategori {$category->display_name} untuk kiosk ini berhasil disimpan.");
+    }
+
+    public function syncDeviceActivityProducts(Request $request, FitAndGoDevice $device, FitAndGoActivity $activity): RedirectResponse
+    {
+        $validated = $request->validate([
+            'product_ids' => 'nullable|array|max:30',
+            'product_ids.*' => 'integer|distinct|exists:products,id',
+        ]);
+        $ids = array_values($validated['product_ids'] ?? []);
+
+        DB::transaction(function () use ($device, $activity, $ids) {
+            DB::table('fit_and_go_device_activity_products')
+                ->where('device_id', $device->id)->where('activity_id', $activity->id)->delete();
+            foreach ($ids as $order => $id) {
+                DB::table('fit_and_go_device_activity_products')->insert([
+                    'device_id' => $device->id,
+                    'activity_id' => $activity->id,
+                    'product_id' => $id,
+                    'sort_order' => $order,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        });
+
+        return redirect()->route('admin.fit-and-go.devices.edit', [
+            'device' => $device, 'tab' => 'activities', 'activity' => $activity->slug,
+        ])->with('success', "Produk aktivitas {$activity->name} untuk kiosk ini berhasil disimpan.");
+    }
+
+    private function catalogProducts()
+    {
+        return Product::with('zone')->where('is_discontinued', false)
+            ->where('pim_catalog_active', true)->whereRaw('LENGTH(sku) = 9')
+            ->orderBy('name')->get();
+    }
+
+    private function matchesCategory(Product $product, string $categoryCode): bool
+    {
+        $attributeCategory = collect($product->custom_attributes_list)
+            ->first(fn ($attribute) => strcasecmp((string) ($attribute['attributeCode'] ?? ''), 'category') === 0)['value'] ?? '';
+        $haystack = Str::lower(implode(' ', [$attributeCategory, $product->category, $product->name]));
+        $keywords = [
+            'hat' => ['hat', 'cap', 'topi', 'beanie', 'bucket', 'headwear'],
+            'apparel' => ['top', 'shirt', 'tee', 'jacket', 'parka', 'hood', 'kaos', 'baju', 'apparel', 'vest', 'jersey'],
+            'pants' => ['pants', 'pant', 'celana', 'short', 'bawahan', 'jogger'],
+            'footwear' => ['footwear', 'shoe', 'shoes', 'boot', 'sandal', 'sepatu', 'alas kaki'],
+        ];
+
+        return collect($keywords[$categoryCode] ?? [$categoryCode])->contains(fn ($keyword) => Str::contains($haystack, $keyword));
+    }
+
+    private function matchesActivity(Product $product, FitAndGoActivity $activity): bool
+    {
+        $value = collect($product->custom_attributes_list)
+            ->first(fn ($attribute) => strcasecmp((string) ($attribute['attributeCode'] ?? ''), 'activity') === 0)['value'] ?? '';
+
+        return Str::lower(trim((string) $value)) === Str::lower($activity->name)
+            || Str::slug((string) $value) === $activity->slug;
     }
 
     private function syncActivityProducts(Request $request, FitAndGoActivity $activity): void

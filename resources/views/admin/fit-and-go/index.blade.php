@@ -67,7 +67,7 @@
 @if($currentTab === 'devices')
 <div class="card border-0 shadow-sm rounded-3">
     <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold"><i class="bi bi-cpu me-2"></i>Daftar Perangkat Kiosk & GPU Workstation</h6>
+        <h6 class="mb-0 fw-bold"><i class="bi bi-display me-2"></i>Daftar Perangkat Kiosk</h6>
         <span class="badge bg-secondary">{{ $devices->count() }} Terdaftar</span>
     </div>
     <div class="table-responsive">
@@ -77,7 +77,6 @@
                     <th style="width: 60px;">ID</th>
                     <th>Nama & Kode Kiosk</th>
                     <th>Lokasi</th>
-                    <th>IP & GPU Endpoint</th>
                     <th>Status</th>
                     <th>Heartbeat Terakhir</th>
                     <th class="text-end" style="width: 200px;">Aksi</th>
@@ -99,14 +98,6 @@
                         <span class="badge bg-light text-dark border">
                             <i class="bi bi-geo-alt me-1"></i>{{ $device->location ?: 'Belum diatur' }}
                         </span>
-                    </td>
-                    <td>
-                        <div class="small">
-                            <i class="bi bi-hdd-network text-muted me-1"></i>{{ $device->ip_address ?: '-' }}
-                        </div>
-                        <div class="small text-muted font-monospace text-truncate" style="max-width: 280px;" title="{{ $device->gpu_endpoint }}">
-                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i>{{ $device->gpu_endpoint ?: 'Default Endpoint' }}
-                        </div>
                     </td>
                     <td>
                         @if($device->status === 'online' || $device->status === 'active')

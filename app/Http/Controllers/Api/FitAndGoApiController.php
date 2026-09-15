@@ -10,6 +10,7 @@ use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FitAndGoApiController extends Controller
 {
@@ -111,7 +112,7 @@ class FitAndGoApiController extends Controller
             $query->whereIn('id', $category
                 ? $this->visibleProductIds($category->code, $device)
                 : []);
-        } else {
+        } elseif (!$activityParam) {
             $query->whereIn('id', $this->visibleProductIds(null, $device));
         }
         if ($activityParam) {
@@ -119,9 +120,15 @@ class FitAndGoApiController extends Controller
                 ->where(function ($q) use ($activityParam) {
                     $q->where('slug', $activityParam)->orWhere('name', $activityParam);
                 })->first();
-            $query->whereIn('id', $activity
-                ? $activity->recommendedProducts()->pluck('products.id')
-                : []);
+            $activityProductIds = [];
+            if ($activity) {
+                $activityProductIds = $device
+                    ? DB::table('fit_and_go_device_activity_products')
+                        ->where('device_id', $device->id)->where('activity_id', $activity->id)
+                        ->orderBy('sort_order')->pluck('product_id')
+                    : $activity->recommendedProducts()->pluck('products.id');
+            }
+            $query->whereIn('id', $activityProductIds);
         }
 
         // Sort latest and limit (default 15 per SRS recommendation)

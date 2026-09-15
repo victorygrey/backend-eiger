@@ -89,6 +89,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/devices', [FitAndGoController::class, 'storeDevice'])->name('devices.store');
         Route::get('/devices/{device}/edit', [FitAndGoController::class, 'editDevice'])->name('devices.edit');
         Route::put('/devices/{device}', [FitAndGoController::class, 'updateDevice'])->name('devices.update');
+        Route::put('/devices/{device}/catalog/{category}', [FitAndGoController::class, 'syncDeviceCategoryProducts'])->name('devices.catalog.sync');
+        Route::put('/devices/{device}/activities/{activity}', [FitAndGoController::class, 'syncDeviceActivityProducts'])->name('devices.activities.sync');
         Route::post('/devices/{device}/ping', [FitAndGoController::class, 'pingDevice'])->name('devices.ping');
         Route::delete('/devices/{device}', [FitAndGoController::class, 'destroyDevice'])->name('devices.destroy');
 

@@ -31,47 +31,6 @@
             </div>
         </div>
 
-        {{-- Card 2: AI Workstation & Network --}}
-        <div class="card border-0 shadow-sm rounded-3 mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
-                <div>
-                    <h6 class="mb-0 fw-bold"><i class="bi bi-cpu text-primary me-2"></i>Workstation GPU & Sumber Kamera</h6>
-                    <small class="text-muted">Koneksi inferensi Virtual Try-On dan video input live customer.</small>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Alamat IP Kiosk (Local Network)</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light"><i class="bi bi-hdd-network text-muted"></i></span>
-                            <input type="text" name="ip_address" class="form-control font-monospace @error('ip_address') is-invalid @enderror"
-                                   value="{{ old('ip_address', $device->ip_address ?? '') }}" placeholder="192.168.18.50">
-                        </div>
-                        @error('ip_address')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">URL / Identifier Sumber Kamera</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light"><i class="bi bi-camera-video text-muted"></i></span>
-                            <input type="text" name="camera_source" class="form-control font-monospace"
-                                   value="{{ old('camera_source', $device->camera_source ?? '') }}" placeholder="rtsp://kamera-toko/live atau kamera-01">
-                        </div>
-                        <div class="form-text small">Alamat stream atau identifier kamera yang digunakan oleh kiosk ini.</div>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">GPU Inference Endpoint URL</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light font-monospace text-muted">HTTP/S</span>
-                            <input type="url" name="gpu_endpoint" class="form-control font-monospace @error('gpu_endpoint') is-invalid @enderror"
-                                   value="{{ old('gpu_endpoint', $device->gpu_endpoint ?? '') }}" placeholder="http://192.168.18.90:8000/api/v1/virtual-tryon">
-                        </div>
-                        @error('gpu_endpoint')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-                        <div class="form-text small">Endpoint API AI model inferensi yang memproses visual virtual try-on.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     {{-- RIGHT COLUMN: Status & Operational Info --}}
@@ -133,7 +92,7 @@
                 </p>
                 <ul class="small text-muted ps-3 mb-0">
                     <li><strong>Device Code:</strong> Identifier unik untuk pairing aplikasi Kiosk frontend.</li>
-                    <li><strong>GPU Endpoint:</strong> Pastikan workstation local TrueNAS/GPU online pada IP yang dapat dijangkau Kiosk.</li>
+                    <li><strong>Katalog Kiosk:</strong> Atur kategori dan EIGER Activity melalui tab konfigurasi pada bagian atas.</li>
                 </ul>
             </div>
         </div>

@@ -8,6 +8,7 @@ use App\Models\FitAndGoDevice;
 use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class FitAndGoWebTest extends TestCase
@@ -204,5 +205,35 @@ class FitAndGoWebTest extends TestCase
         $this->assertEquals([$product->id], $activity->recommendedProducts()->pluck('products.id')->all());
         $this->get(route('admin.fit-and-go.activities.edit', $activity))
             ->assertOk()->assertSee('recommended_product_ids[]');
+    }
+
+    public function test_kiosk_category_uses_filtered_dual_picker_and_saves_selection(): void
+    {
+        $device = FitAndGoDevice::create(['name' => 'Kiosk', 'device_code' => 'kiosk-filter', 'status' => 'online']);
+        $hat = Product::factory()->create(['sku' => '910000001', 'name' => 'Rimba Bucket Hat', 'pim_catalog_active' => true,
+            'pim_payload' => ['customAtributes' => [['attributeCode' => 'category', 'value' => 'Hat']]]]);
+        $pants = Product::factory()->create(['sku' => '910000002', 'name' => 'Cargo Pants', 'pim_catalog_active' => true,
+            'pim_payload' => ['customAtributes' => [['attributeCode' => 'category', 'value' => 'Pants']]]]);
+
+        $this->get(route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'catalog', 'category' => 'hat']))
+            ->assertOk()->assertSee('category-picker')->assertSee($hat->name)->assertDontSee($pants->name);
+        $this->put(route('admin.fit-and-go.devices.catalog.sync', [$device, FitAndGoCategory::where('code', 'hat')->first()]), ['product_ids' => [$hat->id]])
+            ->assertRedirect();
+        $this->assertDatabaseHas('fit_and_go_item_visibilities', ['device_id' => $device->id, 'product_id' => $hat->id, 'category_code' => 'hat', 'is_visible' => true]);
+    }
+
+    public function test_kiosk_activity_tab_saves_ordered_products_per_device(): void
+    {
+        $device = FitAndGoDevice::create(['name' => 'Kiosk', 'device_code' => 'kiosk-activity', 'status' => 'online']);
+        $activity = FitAndGoActivity::create(['name' => 'Camping', 'slug' => 'camping', 'sort_order' => 1, 'is_active' => true]);
+        $product = Product::factory()->create(['sku' => '910000003', 'name' => 'Camping Jacket', 'pim_catalog_active' => true,
+            'pim_payload' => ['customAtributes' => [['attributeCode' => 'activity', 'value' => 'Camping']]]]);
+
+        $this->get(route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'activities', 'activity' => 'camping']))
+            ->assertOk()->assertSee('EIGER Activity')->assertSee($product->name);
+        $this->put(route('admin.fit-and-go.devices.activities.sync', [$device, $activity]), ['product_ids' => [$product->id]])->assertRedirect();
+        $this->assertTrue(DB::table('fit_and_go_device_activity_products')->where([
+            'device_id' => $device->id, 'activity_id' => $activity->id, 'product_id' => $product->id,
+        ])->exists());
     }
 }

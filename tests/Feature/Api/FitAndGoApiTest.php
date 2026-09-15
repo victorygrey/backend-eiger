@@ -8,6 +8,7 @@ use App\Models\FitAndGoDevice;
 use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class FitAndGoApiTest extends TestCase
@@ -172,5 +173,19 @@ class FitAndGoApiTest extends TestCase
                 'status'      => 'online',
             ],
         ]);
+    }
+
+    public function test_activity_products_are_scoped_to_requested_device(): void
+    {
+        $device = FitAndGoDevice::where('device_code', 'fit-kiosk-01')->firstOrFail();
+        $activity = FitAndGoActivity::where('slug', 'mountaineering')->firstOrFail();
+        $product = Product::factory()->create(['sku' => '910000004', 'pim_catalog_active' => true, 'is_discontinued' => false]);
+        DB::table('fit_and_go_device_activity_products')->insert([
+            'device_id' => $device->id, 'activity_id' => $activity->id, 'product_id' => $product->id,
+            'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->getJson('/api/v1/fit-and-go/products?device_code=fit-kiosk-01&activity=mountaineering')
+            ->assertOk()->assertJson(['count' => 1])->assertJsonFragment(['sku' => '910000004']);
     }
 }
