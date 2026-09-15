@@ -116,6 +116,47 @@
                     </div>
                 </div>
             </div>
+            <div class="mt-3 border-top pt-3">
+                <label class="form-label small fw-bold text-muted mb-2"><i class="bi bi-images me-1 text-primary"></i>Media tambahan PIM</label>
+                <div id="pim-extra-media" class="small">
+                    @if(isset($product) && !empty($product->pim_payload['media']))
+                        @foreach($product->pim_payload['media'] as $group)
+                            @foreach($group['files'] ?? [] as $file)
+                                <div class="p-2 mb-2 border rounded-2 bg-light bg-opacity-50">
+                                    <strong>{{ $group['name'] ?? $group['attributeCode'] ?? 'Media' }}</strong>
+                                    <span class="badge bg-light text-dark ms-1">{{ $group['attributeCode'] ?? '' }}</span>
+                                    <div class="text-muted">{{ $file['description'] ?? '' }}</div>
+                                    <div class="font-monospace text-break">{{ $file['value'] ?? '' }}</div>
+                                </div>
+                            @endforeach
+                        @endforeach
+                    @else
+                        <span class="text-muted fst-italic">Belum ada media tambahan.</span>
+                    @endif
+                </div>
+            </div>
+            <div class="mt-3 border-top pt-3">
+                <label class="form-label small fw-bold text-muted mb-2"><i class="bi bi-diagram-3 me-1 text-primary"></i>Metadata varian PIM</label>
+                <div id="pim-variant-data" class="row g-2">
+                    @if(isset($product) && !empty($product->pim_payload['variant']))
+                        @foreach($product->pim_payload['variant'] as $variant)
+                            <div class="col-md-6">
+                                <div class="p-2 border rounded-2 bg-light bg-opacity-50 h-100 small">
+                                    <div class="fw-bold text-dark">{{ $variant['name'] ?? $variant['sku'] ?? 'Varian' }}</div>
+                                    <div class="font-monospace">{{ $variant['sku'] ?? '' }}</div>
+                                    <div>ECM SKU: {{ $variant['ecmsku'] ?? '—' }} · MOQ: {{ $variant['moq'] ?? '—' }}</div>
+                                    <div>Warna: {{ $variant['color'] ?? '—' }} · Ukuran: {{ $variant['size'] ?? '—' }}</div>
+                                    @foreach($variant['customAttributes'] ?? [] as $attribute)
+                                        <div><span class="text-muted">{{ $attribute['attributeCode'] ?? '' }}:</span> {{ $attribute['value'] ?? '—' }}</div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    @else
+                        <div class="col-12 text-muted fst-italic small">Belum ada metadata varian.</div>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
 
@@ -148,8 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const actContainer = el('pim-activity-container');
         const specContainer = el('pim-spec-container');
         const attrContainer = el('pim-attr-container');
+        const mediaContainer = el('pim-extra-media');
+        const variantContainer = el('pim-variant-data');
 
-        if (!p || (!p.technology?.length && !p.activity?.length && !p.specification?.length && !p.customAtributes?.length)) {
+        if (!p || (!p.technology?.length && !p.activity?.length && !p.specification?.length && !p.customAtributes?.length && !p.media?.length && !p.variant?.length)) {
             card.classList.add('d-none');
             return;
         }
@@ -227,6 +270,26 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 attrContainer.innerHTML = '<span class="text-muted small fst-italic p-2 d-block">Belum ada atribut kustom.</span>';
             }
+        }
+        if (mediaContainer) {
+            const files = (p.media || []).flatMap(group => (group.files || []).map(file => ({group, file})));
+            mediaContainer.innerHTML = files.length ? files.map(({group, file}) => `
+                <div class="p-2 mb-2 border rounded-2 bg-light bg-opacity-50">
+                    <strong>${escapeHtml(group.name || group.attributeCode || 'Media')}</strong>
+                    <span class="badge bg-light text-dark ms-1">${escapeHtml(group.attributeCode || '')}</span>
+                    <div class="text-muted">${escapeHtml(file.description || '')}</div>
+                    <div class="font-monospace text-break">${escapeHtml(file.value || '')}</div>
+                </div>`).join('') : '<span class="text-muted fst-italic">Belum ada media tambahan.</span>';
+        }
+        if (variantContainer) {
+            variantContainer.innerHTML = (p.variant || []).length ? p.variant.map(v => `
+                <div class="col-md-6"><div class="p-2 border rounded-2 bg-light bg-opacity-50 h-100 small">
+                    <div class="fw-bold text-dark">${escapeHtml(v.name || v.sku || 'Varian')}</div>
+                    <div class="font-monospace">${escapeHtml(v.sku || '')}</div>
+                    <div>ECM SKU: ${escapeHtml(v.ecmsku || '—')} · MOQ: ${escapeHtml(v.moq || '—')}</div>
+                    <div>Warna: ${escapeHtml(v.color || '—')} · Ukuran: ${escapeHtml(v.size || '—')}</div>
+                    ${(v.customAttributes || []).map(a => `<div><span class="text-muted">${escapeHtml(a.attributeCode || '')}:</span> ${escapeHtml(a.value || '—')}</div>`).join('')}
+                </div></div>`).join('') : '<div class="col-12 text-muted fst-italic small">Belum ada metadata varian.</div>';
         }
     }
 

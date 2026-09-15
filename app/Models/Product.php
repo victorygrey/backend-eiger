@@ -31,6 +31,7 @@ class Product extends Model
         'pim_media',
         'pim_payload',
         'pim_image_payload',
+        'pim_catalog_active',
     ];
 
     /**
@@ -42,6 +43,7 @@ class Product extends Model
         'pim_media'       => 'array',
         'pim_payload' => 'array',
         'pim_image_payload' => 'array',
+        'pim_catalog_active' => 'boolean',
         'price'           => 'decimal:2',
         'stock'           => 'integer',
         'is_featured'     => 'boolean',

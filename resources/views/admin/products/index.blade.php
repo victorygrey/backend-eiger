@@ -159,7 +159,7 @@
                                             <table class="table table-sm table-hover mb-0 align-middle">
                                                 <thead class="table-light small text-muted">
                                                     <tr>
-                                                        <th class="ps-3">SKU Varian (12 Digit)</th>
+                                                        <th class="ps-3">SKU Varian</th>
                                                         <th class="text-center" style="width: 60px;">Foto</th>
                                                         <th>Nama Varian</th>
                                                         <th>Warna</th>

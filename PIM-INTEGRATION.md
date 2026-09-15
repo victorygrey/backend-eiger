@@ -1,17 +1,19 @@
 # Integrasi PIM TrueNAS dan CMS
 
-Konfigurasi aktif pada 10 September 2026 memakai **HTTP**: PIM TrueNAS `http://192.168.18.31:8001` memublikasikan `{product, image}` ke CMS `/api/integrations/pim/product`. Form CMS membaca `/api/articles/{code}/product-payload` dan `/image-payload` tanpa memicu publish. Shared folder di bagian berikut adalah pilihan alternatif, bukan pengiriman aktif TrueNAS.
+Konfigurasi aktif pada 15 September 2026 memakai **HTTP**: PIM TrueNAS `http://192.168.18.31:8001` menyediakan `/api/articles/{code}/product-payload` dan `/image-payload`. Sinkronisasi manual CMS membaca seluruh katalog dari `/api/ui/articles`, lalu mengambil kedua payload tiap artikel. Publish PIM ke `/api/integrations/pim/product` masih tersedia. Shared folder di bagian berikut adalah pilihan alternatif.
+
+Katalog aktif berasal dari 60 artikel scraping. PIM menyajikan 928 foto lewat `/media/{sha256}.jpg`, dan CMS menyimpan salinan lokalnya lewat `/api/pim-media/{sha256}.jpg`. Data scraping hanya menyediakan SKU induk 9 digit; varian 12 digit pada CMS berasal dari CARE. Daftar admin menampilkan 60 SKU induk aktif, dengan varian CARE pada dropdown. Katalog demo PIM lama dipertahankan di database tetapi ditandai tidak aktif untuk daftar admin.
 
 ## Kontrak HTTP
 
 - `PIM_SIMULATOR_URL=http://192.168.18.31:8001`, `PIM_LEGACY_HTTP_ENABLED=true`, `PIM_COPY_HTTP_MEDIA=true`. Flag legacy masih menjadi sakelar endpoint penerima dan halaman QA.
 - Penerima memerlukan Bearer token yang sama dengan `PIM_INBOUND_TOKEN`; PIM menyimpannya sebagai `EIGER_ATOM_TOKEN`. Jangan menaruh token di dokumentasi.
 - Publish dan form memakai validasi yang sama. `customAtributes` mengikuti ejaan dokumen; input lama `customAttributes` dinormalisasi. Atribut varian tetap bernama `customAttributes`.
-- Setiap SKU menyimpan `pim_payload` dan `pim_image_payload` lengkap, termasuk berat, varian, media, teknologi, aktivitas dan spesifikasi. Core Product API mengembalikan kedua field ini. Nilai yang belum tersedia dari sumber tetap kosong atau nol, bukan contoh fiktif.
+- Setiap SKU menyimpan `pim_payload` dan `pim_image_payload` lengkap, termasuk berat, varian, media, teknologi, aktivitas dan spesifikasi. Produk generic juga menyimpan relasi varian dengan SKU, ECM SKU, MOQ dan seluruh `customAttributes` resmi. Core Product API mengembalikan field ini. Nilai yang belum tersedia dari sumber tetap kosong atau nol.
 - Harga, stok, zone, RFID dan flag CMS tidak diubah oleh publish. Form tetap mendukung pengeditan field CMS.
 - Gambar varian disalin ke `storage/app/pim-media`. Jika gambar utama varian tidak ada, gunakan gambar utama generic yang cocok, lalu `mainImage`. `image` dan `pim_media` menunjuk salinan lokal; kedua payload mempertahankan URL sumber.
 - URL hingga 8192 karakter diterima. Unduhan hanya dari direktori hash PIM atau host HTTPS persis yang terdaftar di `PIM_MEDIA_HOSTS`. Default mencakup `storage.eigeradventure.com` dan bucket S3 pada dokumen PIM. Redirect tidak diikuti; MIME, ukuran 10 MiB, dan checksum nama hash PIM diverifikasi. Media HTTP ini mendukung JPG/PNG/WebP; video file-drop tetap memakai scanner.
-- `media` tambahan seperti size chart dan gambar teknologi tersimpan di payload sumber, belum disalin oleh pengimpor galeri. URL bertanda tangan yang telah kedaluwarsa perlu payload baru dari PIM.
+- `media` tambahan seperti size chart dan gambar teknologi tersimpan di payload sumber serta `pim_media` sebagai referensi URL. Pengimpor HTTP hanya mengunduh gambar galeri. Sinkronisasi manual menjaga gambar lokal lama dan menyimpan URL PIM baru sebagai referensi. Katalog scraping memakai URL `/media/{sha256}.jpg` dari PIM TrueNAS yang dapat dijangkau CMS, sehingga foto galeri sekarang tersimpan secara fisik di CMS.
 - Semua unduhan selesai sebelum transaksi produk. Kegagalan salah satu media tidak memperbarui sebagian SKU.
 - HTML 404 pada endpoint lookup ditampilkan sebagai deployment PIM yang belum mendukung endpoint; JSON 404 berarti artikel tidak ditemukan.
 

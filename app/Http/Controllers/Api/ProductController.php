@@ -56,7 +56,7 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product retrieved successfully.',
-            'data'    => new ProductResource($product->load(['zone', 'rfidTag'])),
+            'data'    => new ProductResource($product->load(['zone', 'rfidTag', 'variants'])),
         ]);
     }
 

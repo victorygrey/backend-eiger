@@ -24,7 +24,8 @@ class PimProductController extends Controller
         foreach ($data['product']['variant'] as $variant) {
             $media[$variant['sku']] = $service->mediaValues($data['product'], $data['image'], $variant['sku']);
         }
-        $count = DB::transaction(function () use ($data, $media) {
+        $genericMedia = $service->mediaValues($data['product'], $data['image'], $data['product']['generic']);
+        $count = DB::transaction(function () use ($data, $media, $genericMedia) {
             $detail = $data['product'];
             $attributes = collect($detail['customAtributes'])->pluck('value', 'attributeCode');
             foreach ($detail['variant'] as $variant) {
@@ -32,6 +33,7 @@ class PimProductController extends Controller
                     'name' => $variant['name'],
                     'pim_payload' => $detail,
                     'pim_image_payload' => $data['image'],
+                    'pim_catalog_active' => true,
                 ]);
                 if ($attributes->has('long_description') || $attributes->has('short_description')) {
                     $values['description'] = $attributes->get('long_description') ?: $attributes->get('short_description');
@@ -47,7 +49,9 @@ class PimProductController extends Controller
                     'name' => $detail['name'] ?? ($detail['variant'][0]['name'] ?? 'EIGER Product'),
                     'pim_payload' => $detail,
                     'pim_image_payload' => $data['image'],
-                    'image' => $detail['mainImage'] ?? null,
+                    'pim_catalog_active' => true,
+                    'pim_media' => $genericMedia['pim_media'],
+                    'image' => $genericMedia['image'] ?? ($detail['mainImage'] ?? null),
                 ];
                 if ($attributes->has('long_description') || $attributes->has('short_description')) {
                     $parentValues['description'] = $attributes->get('long_description') ?: $attributes->get('short_description');
@@ -63,6 +67,9 @@ class PimProductController extends Controller
                             'name'  => $variant['name'],
                             'color' => $variant['color'] ?? null,
                             'size'  => $variant['size'] ?? null,
+                            'ecmsku' => $variant['ecmsku'] ?? null,
+                            'moq' => $variant['moq'] ?? null,
+                            'custom_attributes' => $variant['customAttributes'] ?? [],
                             'image' => $media[$variant['sku']]['image'] ?? $parent->image,
                         ]
                     );

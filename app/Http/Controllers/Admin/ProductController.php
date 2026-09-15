@@ -18,6 +18,10 @@ class ProductController extends Controller
     {
         $products = Product::with(['zone', 'variants'])
             ->withCount('variants')
+            ->whereRaw('LENGTH(sku) = 9')
+            ->where(function ($query) {
+                $query->whereNull('pim_payload')->orWhere('pim_catalog_active', true);
+            })
             ->when($request->filled('search'), function ($query) use ($request) {
                 $query->where(function ($q) use ($request) {
                     $q->where('name', 'like', "%{$request->search}%")
@@ -131,12 +135,8 @@ class ProductController extends Controller
         try {
             $pim = app(\App\Services\PimProductLookup::class)->get($code);
             if (!empty($pim['product'])) {
-                if (empty($result['name'])) {
-                    $result['name'] = $pim['product']['name'] ?? '';
-                }
-                if (empty($result['image'])) {
-                    $result['image'] = $pim['product']['mainImage'] ?? '';
-                }
+                $result['name'] = $pim['product']['name'] ?: $result['name'];
+                $result['image'] = $pim['product']['mainImage'] ?: $result['image'];
                 if (!empty($pim['product']['mainImage'])) {
                     $images[] = $pim['product']['mainImage'];
                 }
@@ -187,28 +187,18 @@ class ProductController extends Controller
                     }
                 }
 
-                // If variants are still empty, build from PIM variants expanding any comma-separated sizes
-                if (empty($result['variants'])) {
-                    $seq = 1;
-                    foreach ($pim['product']['variant'] ?? [] as $pv) {
-                        $color = $pv['color'] ?? 'BLACK';
-                        $rawSize = $pv['size'] ?? 'ALL';
-                        $sizes = str_contains($rawSize, ',') ? array_map('trim', explode(',', $rawSize)) : [$rawSize];
-                        foreach ($sizes as $sz) {
-                            if (empty($sz)) continue;
-                            $sku12 = sprintf('%s%03d', $code, $seq++);
-                            $result['variants'][] = [
-                                'sku' => $sku12,
-                                'name' => sprintf('%s - %s - %s', $result['name'], $color, $sz),
-                                'color' => $color,
-                                'size' => $sz,
-                                'price' => $result['price'],
-                                'stock' => 0,
-                                'image' => $result['image'] ?? '',
-                            ];
-                        }
-                    }
-                }
+                // PIM owns variant identity. Scraped size combinations are only a fallback.
+                $result['variants'] = array_map(fn ($pv) => [
+                    'sku' => (string) $pv['sku'],
+                    'name' => $pv['name'],
+                    'color' => $pv['color'] ?? '',
+                    'size' => $pv['size'] ?? '',
+                    'ecmsku' => $pv['ecmsku'] ?? null,
+                    'customAttributes' => $pv['customAttributes'] ?? [],
+                    'price' => $result['price'],
+                    'stock' => 0,
+                    'image' => $result['image'] ?? '',
+                ], $pim['product']['variant']);
 
                 // Attach raw PIM payloads and enrichment structures
                 $result['pim_payload'] = $pim['product'];

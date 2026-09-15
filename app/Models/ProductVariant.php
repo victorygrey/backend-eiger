@@ -20,11 +20,14 @@ class ProductVariant extends Model
         'stock',
         'image',
         'ecmsku',
+        'moq',
+        'custom_attributes',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'stock' => 'integer',
+        'custom_attributes' => 'array',
     ];
 
     /**

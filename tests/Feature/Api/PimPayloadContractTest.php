@@ -58,10 +58,16 @@ class PimPayloadContractTest extends TestCase
         $this->assertEquals(250000, $saved->price);
         $this->assertSame(5, $saved->stock);
         $this->assertSame('/api/pim-media/'.hash('sha256', $this->png).'.png', $saved->image);
+        $parent = Product::where('sku', 'P1')->firstOrFail();
+        $this->assertSame('1', $parent->variants()->first()->moq);
+        $this->assertSame('ECM1', $parent->variants()->first()->ecmsku);
+        $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
         $this->getJson('/api/products/'.$saved->id)->assertOk()
             ->assertJsonPath('data.pim_payload.weight', 725)
             ->assertJsonPath('data.pim_payload.variant.0.size', 'M')
             ->assertJsonPath('data.pim_payload.technology.0.id', 'T1');
+        $this->getJson('/api/products/'.$parent->id)->assertOk()
+            ->assertJsonPath('data.variants.0.sku', 'P1-M');
     }
 
     public function test_form_accepts_signed_url_and_legacy_attribute_spelling(): void
@@ -76,7 +82,8 @@ class PimPayloadContractTest extends TestCase
             'pim_image_payload_json' => json_encode($payload['image'])])->assertRedirect('/admin/products');
         $saved = Product::first();
         $this->assertSame('Real description', $saved->pim_payload['customAtributes'][0]['value']);
-        $this->assertCount(1, $saved->pim_media);
+        $this->assertCount(2, $saved->pim_media);
+        $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
         $this->assertFileExists($this->mediaDir.'/'.hash('sha256', $this->png).'.png');
     }
 
