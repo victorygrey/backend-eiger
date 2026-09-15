@@ -19,8 +19,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if ($appUrl = config('app.url')) {
-            \Illuminate\Support\Facades\URL::forceRootUrl($appUrl);
+        if ($this->app->runningInConsole()) {
+            if ($appUrl = config('app.url')) {
+                \Illuminate\Support\Facades\URL::forceRootUrl($appUrl);
+            }
+            return;
+        }
+
+        if ($host = request()->header('Host')) {
+            $proto = request()->header('X-Forwarded-Proto', request()->isSecure() ? 'https' : 'http');
+            \Illuminate\Support\Facades\URL::forceRootUrl("{$proto}://{$host}");
+            if ($proto === 'https') {
+                \Illuminate\Support\Facades\URL::forceScheme('https');
+            }
         }
     }
 }
