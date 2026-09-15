@@ -14,7 +14,7 @@
             <i class="bi bi-person-bounding-box text-warning me-2"></i>Konfigurasi AI Fit & Go
         </h4>
         <p class="text-muted small mb-0">
-            Kelola Kiosk Hardware, GPU Workstation Endpoint, Aktivitas Petualangan, dan Konfigurasi AI Fit & Go.
+            Kelola perangkat kiosk, kategori produk, dan rekomendasi EIGER Activity untuk AI Fit & Go.
         </p>
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -125,7 +125,7 @@
                             <a href="{{ route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'catalog']) }}" class="btn btn-outline-warning" title="Kelola Katalog & Visibilitas Produk">
                                 <i class="bi bi-tags-fill"></i>
                             </a>
-                            <a href="{{ route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'device']) }}" class="btn btn-outline-primary" title="Edit Parameter Hardware & Jaringan">
+                            <a href="{{ route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'device']) }}" class="btn btn-outline-primary" title="Edit Identitas Perangkat">
                                 <i class="bi bi-pencil-fill"></i>
                             </a>
                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteDeviceModal{{ $device->id }}" title="Hapus">

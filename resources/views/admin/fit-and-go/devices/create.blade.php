@@ -14,7 +14,7 @@
             <i class="bi bi-display text-warning me-2"></i>Tambah Perangkat Kiosk AI Fit & Go
         </h4>
         <p class="text-muted small mb-0">
-            Daftarkan unit kiosk fitting room baru beserta endpoint GPU Workstation dan kamera pendukung AI Virtual Try-On.
+            Daftarkan unit kiosk fitting room baru untuk konfigurasi katalog AI Fit & Go.
         </p>
     </div>
     <div class="d-flex gap-2">
