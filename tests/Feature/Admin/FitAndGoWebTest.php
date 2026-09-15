@@ -225,7 +225,7 @@ class FitAndGoWebTest extends TestCase
     public function test_kiosk_activity_tab_saves_ordered_products_per_device(): void
     {
         $device = FitAndGoDevice::create(['name' => 'Kiosk', 'device_code' => 'kiosk-activity', 'status' => 'online']);
-        $activity = FitAndGoActivity::create(['name' => 'Camping', 'slug' => 'camping', 'sort_order' => 1, 'is_active' => true]);
+        $activity = FitAndGoActivity::where('slug', 'camping')->firstOrFail();
         $product = Product::factory()->create(['sku' => '910000003', 'name' => 'Camping Jacket', 'pim_catalog_active' => true,
             'pim_payload' => ['customAtributes' => [['attributeCode' => 'activity', 'value' => 'Camping']]]]);
 
