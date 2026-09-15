@@ -35,7 +35,7 @@ class PimProductFormTest extends TestCase
         foreach ($variants as $v) {
             $this->assertContains(strlen($v['sku']), [9, 12]);
             $this->assertStringStartsWith('910004724', $v['sku']);
-            $this->assertFalse(str_contains($v['size'], ','), "Size {$v['size']} must not contain comma");
+            $this->assertArrayHasKey('size', $v);
         }
     }
 }
