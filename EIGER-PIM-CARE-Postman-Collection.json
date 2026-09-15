@@ -1,0 +1,136 @@
+{
+  "info": {
+    "_postman_id": "eiger-pim-care-apis",
+    "name": "EIGER PIM Simulator & CMS APIs",
+    "description": "Koleksi API lengkap untuk pengujian integrasi EIGER PIM Simulator (Port 8001), CARE Simulator (Port 8002), dan CMS Backend EIGER (Port 8000).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "pim_url", "value": "http://192.168.18.31:8001", "type": "string" },
+    { "key": "cms_url", "value": "http://192.168.18.31:8000", "type": "string" },
+    { "key": "cms_ngrok_url", "value": "https://cause-accompany-matchless.ngrok-free.dev", "type": "string" },
+    { "key": "sample_article", "value": "910012408", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. PIM Simulator (Direct)",
+      "item": [
+        {
+          "name": "GET Product Detail Payload (1:1 Document)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{pim_url}}/api/articles/{{sample_article}}/product-payload",
+              "host": ["{{pim_url}}"],
+              "path": ["api", "articles", "{{sample_article}}", "product-payload"]
+            },
+            "description": "Mengambil master data spesifikasi lengkap artikel generic (9 digit) persis 1:1 dokumen PIM Continuous Doc."
+          }
+        },
+        {
+          "name": "GET Product Image Payload",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{pim_url}}/api/articles/{{sample_article}}/image-payload",
+              "host": ["{{pim_url}}"],
+              "path": ["api", "articles", "{{sample_article}}", "image-payload"]
+            },
+            "description": "Mengambil mapping gambar generic dan variant."
+          }
+        },
+        {
+          "name": "GET Simulator State",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{pim_url}}/api/simulator/state",
+              "host": ["{{pim_url}}"],
+              "path": ["api", "simulator", "state"]
+            }
+          }
+        },
+        {
+          "name": "GET Publish List (Eligible Articles)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{pim_url}}/api/articles/publish-list",
+              "host": ["{{pim_url}}"],
+              "path": ["api", "articles", "publish-list"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. CMS Backend EIGER",
+      "item": [
+        {
+          "name": "Admin: Catalog Lookup (PIM + CARE Omni)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{cms_url}}/admin/products/catalog-lookup?code={{sample_article}}",
+              "host": ["{{cms_url}}"],
+              "path": ["admin", "products", "catalog-lookup"],
+              "query": [{ "key": "code", "value": "{{sample_article}}" }]
+            },
+            "description": "Menarik data produk dari PIM dan varian harga/stok dari CARE untuk form admin CMS. (Memerlukan session login admin)."
+          }
+        },
+        {
+          "name": "Public API: AI Fit & Go Search",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{cms_url}}/api/v1/fit-and-go/search?q={{sample_article}}",
+              "host": ["{{cms_url}}"],
+              "path": ["api", "v1", "fit-and-go", "search"],
+              "query": [{ "key": "q", "value": "{{sample_article}}" }]
+            },
+            "description": "Pencarian produk untuk virtual try-on Kiosk dengan data PIM Enrichment."
+          }
+        },
+        {
+          "name": "Public API: AI Fit & Go Products",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{cms_url}}/api/v1/fit-and-go/products?limit=15",
+              "host": ["{{cms_url}}"],
+              "path": ["api", "v1", "fit-and-go", "products"],
+              "query": [{ "key": "limit", "value": "15" }]
+            }
+          }
+        },
+        {
+          "name": "Public API: Table Expedition Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rfid_tag\": \"E2801160600002123456789A\"\n}"
+            },
+            "url": {
+              "raw": "{{cms_url}}/api/v1/table-expedition/scan",
+              "host": ["{{cms_url}}"],
+              "path": ["api", "v1", "table-expedition", "scan"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
