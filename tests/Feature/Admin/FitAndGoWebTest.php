@@ -103,6 +103,21 @@ class FitAndGoWebTest extends TestCase
         ]);
     }
 
+    public function test_existing_uppercase_device_identifier_can_be_edited(): void
+    {
+        $device = FitAndGoDevice::create([
+            'name' => 'Legacy Kiosk',
+            'device_code' => 'KIOSK-02',
+            'status' => 'online',
+        ]);
+        $this->put(route('admin.fit-and-go.devices.update', $device), [
+            'name' => 'Legacy Kiosk Updated',
+            'device_code' => 'KIOSK-02',
+            'status' => 'online',
+        ])->assertRedirect(route('admin.fit-and-go.index', ['tab' => 'devices']));
+        $this->assertDatabaseHas('fit_and_go_devices', ['id' => $device->id, 'name' => 'Legacy Kiosk Updated']);
+    }
+
     public function test_can_create_and_update_activity(): void
     {
         $createResp = $this->post(route('admin.fit-and-go.activities.store'), [

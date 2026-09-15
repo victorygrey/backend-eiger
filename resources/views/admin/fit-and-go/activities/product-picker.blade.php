@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const action = card.querySelector('button');
         action.className = 'btn btn-sm btn-outline-danger activity-remove-product';
         action.innerHTML = '<i class="bi bi-x-lg"></i>';
+        action.setAttribute('aria-label', 'Hapus ' + row.querySelector('strong').textContent);
         const input = document.createElement('input');
         input.type = 'hidden'; input.name = 'recommended_product_ids[]'; input.value = row.dataset.id;
         card.prepend(input);

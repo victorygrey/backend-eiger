@@ -70,10 +70,20 @@ document.addEventListener('DOMContentLoaded', () => {
             row.className = 'text-muted mb-1';
             if (typeof item === 'string') row.textContent = item;
             else if (item && typeof item === 'object') {
-                const label = item.name || item.attributeCode || item.code || item.sku || item.url || item.type || '';
-                const value = item.value ?? item.description ?? item.size ?? item.color ?? '';
-                row.textContent = [label, typeof value === 'object' ? JSON.stringify(value) : value]
-                    .filter(part => part !== null && part !== '').join(': ');
+                if (title === 'Media PIM') {
+                    row.textContent = [item.role, item.source, item.mime, item.url, item.source_url]
+                        .filter(part => part !== null && part !== undefined && part !== '').join(' · ');
+                } else if (title === 'Varian') {
+                    row.textContent = [item.sku, item.name, item.color && 'Warna ' + item.color,
+                        item.size && 'Ukuran ' + item.size, item.price != null && 'Rp ' + Number(item.price).toLocaleString('id-ID'),
+                        item.stock != null && 'Stok ' + item.stock]
+                        .filter(part => part !== null && part !== undefined && part !== '').join(' · ');
+                } else {
+                    const label = item.name || item.attributeCode || item.code || item.sku || item.url || item.type || '';
+                    const value = item.value ?? item.description ?? item.size ?? item.color ?? '';
+                    row.textContent = [label, typeof value === 'object' ? JSON.stringify(value) : value]
+                        .filter(part => part !== null && part !== '').join(': ');
+                }
             }
             block.appendChild(row);
         });

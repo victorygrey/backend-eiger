@@ -123,7 +123,7 @@ class FitAndGoController extends Controller
     {
         $validated = $request->validate([
             'name'          => 'required|string|max:100',
-            'device_code'   => 'required|regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/|max:50|unique:fit_and_go_devices,device_code,' . $device->id,
+            'device_code'   => 'required|regex:/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/|max:50|unique:fit_and_go_devices,device_code,' . $device->id,
             'location'      => 'nullable|string|max:100',
             'ip_address'    => 'nullable|ip',
             'gpu_endpoint'  => 'nullable|url|max:255',
