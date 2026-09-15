@@ -21,7 +21,7 @@
                                 <option value="">-- Pilih dari Master RFID Tags ({{ $availableRfidTags->count() }} terdaftar) --</option>
                                 @php $currentTag = old('rfid_tag', $item->rfid_tag ?? ''); @endphp
                                 @foreach($availableRfidTags as $rt)
-                                    <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}" @selected($rt->uid === $currentTag)>
+                                    <option value="{{ $rt->uid }}" @selected($rt->uid === $currentTag)>
                                         {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
                                     </option>
                                 @endforeach
@@ -42,16 +42,7 @@
 
                     <div class="col-12">
                         <label class="form-label fw-semibold">Produk EIGER Terkait <span class="text-danger">*</span></label>
-                        <select name="product_id" class="form-select @error('product_id') is-invalid @enderror" required>
-                            <option value="">-- Pilih Produk EIGER --</option>
-                            @php $selectedProdId = (int) old('product_id', $item->product_id ?? 0); @endphp
-                            @foreach($products as $prod)
-                                <option value="{{ $prod->id }}" @selected($prod->id === $selectedProdId)>
-                                    {{ $prod->name }} ({{ $prod->sku }}) - {{ $prod->zone?->name ?? 'Outdoor' }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('product_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        @include('admin.partials.product-mapping-picker')
                     </div>
 
                     <div class="col-12">
@@ -169,23 +160,7 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // 1. Auto-select product when RFID tag is picked from master dropdown
-    const selectEl = document.querySelector('.rfid-select-field');
-    if (selectEl) {
-        selectEl.addEventListener('change', function () {
-            const selectedOpt = this.options[this.selectedIndex];
-            const productId = selectedOpt ? selectedOpt.getAttribute('data-product-id') : null;
-            if (productId) {
-                const form = this.closest('form');
-                if (form) {
-                    const prodSelect = form.querySelector('select[name="product_id"]');
-                    if (prodSelect) prodSelect.value = productId;
-                }
-            }
-        });
-    }
-
-    // 2. Toggle manual RFID input vs master select
+    // Toggle manual RFID input vs master select
     const btn = document.querySelector('.toggle-rfid-manual-btn');
     if (btn) {
         btn.addEventListener('click', function () {

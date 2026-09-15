@@ -68,9 +68,6 @@
                                 @else
                                     <span class="text-muted fst-italic small">Belum diberi nama</span>
                                 @endif
-                                @if($tag->product)
-                                    <small class="text-muted d-block font-monospace"><i class="bi bi-box-seam me-1"></i>{{ $tag->product->sku }} — {{ $tag->product->name }}</small>
-                                @endif
                             </td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">

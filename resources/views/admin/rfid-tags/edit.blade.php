@@ -38,18 +38,7 @@
                         placeholder="Contoh: RFID Jaket Gunung Setiabudi">
                     @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
-                <div class="col-md-12">
-                    <label class="form-label">Produk <span class="text-muted">(opsional)</span></label>
-                    <select name="product_id" class="form-select @error('product_id') is-invalid @enderror">
-                        <option value="">-- Belum dipetakan --</option>
-                        @foreach($products as $product)
-                            <option value="{{ $product->id }}" {{ old('product_id', $rfidTag->product_id) == $product->id ? 'selected' : '' }}>
-                                {{ $product->sku }} — {{ $product->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('product_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
+                <div class="col-12 small text-muted">Pemetaan produk RFID diatur pada menu LED Ambience atau Table Expedition.</div>
             </div>
             <div class="mt-4 d-flex gap-2">
                 <button class="btn btn-eiger"><i class="bi bi-save me-1"></i>Simpan Perubahan</button>

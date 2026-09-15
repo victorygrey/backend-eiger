@@ -29,7 +29,7 @@ class LedAmbienceController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $products = Product::where('is_discontinued', false)
+        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)
             ->orderBy('name')
             ->get();
 
@@ -37,7 +37,7 @@ class LedAmbienceController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
         $idleScene = $scenes->firstWhere('scene_type', 'idle');
 
         return view('admin.led-ambience.index', [
@@ -57,10 +57,10 @@ class LedAmbienceController extends Controller
 
     public function createRfidItem(): View
     {
-        $products = Product::where('is_discontinued', false)->orderBy('name')->get();
+        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
         $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
         $scenes = LedAmbienceScene::orderBy('sort_order')->get();
-        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
 
         return view('admin.led-ambience.rfid-items.create', compact('products', 'activities', 'scenes', 'availableRfidTags'));
     }
@@ -88,10 +88,10 @@ class LedAmbienceController extends Controller
     public function editRfidItem(LedAmbienceItem $item): View
     {
         $item->load(['product.zone', 'scene', 'rfidTag']);
-        $products = Product::where('is_discontinued', false)->orderBy('name')->get();
+        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
         $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
         $scenes = LedAmbienceScene::orderBy('sort_order')->get();
-        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
 
         return view('admin.led-ambience.rfid-items.edit', compact('item', 'products', 'activities', 'scenes', 'availableRfidTags'));
     }

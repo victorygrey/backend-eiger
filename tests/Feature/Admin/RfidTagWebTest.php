@@ -87,7 +87,7 @@ class RfidTagWebTest extends TestCase
         $tag = RfidTag::create(['uid' => 'E280116060000204ABCDEF12']);
 
         $this->actingAs($this->admin)->get(route('admin.rfid-tags.index'))->assertOk();
-        $this->get(route('admin.rfid-tags.edit', $tag))->assertOk();
+        $this->get(route('admin.rfid-tags.edit', $tag))->assertOk()->assertDontSee('name="product_id"', false);
         $this->put(route('admin.rfid-tags.update', $tag), [
             'uid' => 'E280116060000204ABCDEF12',
             'name' => 'Tag uji',

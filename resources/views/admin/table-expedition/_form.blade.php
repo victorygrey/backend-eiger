@@ -3,22 +3,6 @@
     $selectedProdId = (int) old('product_id', $item->product_id ?? 0);
     $selectedAct = old('activity_slug', $item->activity_slug ?? '');
 
-    $featuresVal = old('features');
-    if ($featuresVal === null) {
-        $featuresVal = isset($item) && is_array($item->features) ? implode("\n", $item->features) : '';
-    }
-
-    $techVal = old('technical_details');
-    if ($techVal === null) {
-        $techStr = '';
-        if (isset($item) && is_array($item->technical_details)) {
-            foreach ($item->technical_details as $k => $v) {
-                $techStr .= is_string($k) ? "{$k}: {$v}\n" : "{$v}\n";
-            }
-        }
-        $techVal = trim($techStr);
-    }
-
     $oldSimilarIds = old('similar_product_ids', isset($item) ? ($item->similar_product_ids ?? []) : []);
     if (!is_array($oldSimilarIds)) {
         $oldSimilarIds = [];
@@ -51,7 +35,7 @@
                             <select name="rfid_tag" class="form-select font-monospace rfid-select-field @error('rfid_tag') is-invalid @enderror" required>
                                 <option value="">-- Pilih dari Master RFID Tags ({{ $availableRfidTags->count() }} terdaftar) --</option>
                                 @foreach($availableRfidTags as $rt)
-                                    <option value="{{ $rt->uid }}" data-product-id="{{ $rt->product_id ?? '' }}" @selected($rt->uid === $currentTag)>
+                                    <option value="{{ $rt->uid }}" @selected($rt->uid === $currentTag)>
                                         {{ $rt->name ? $rt->name . ' — ' : '' }}{{ $rt->uid }} {{ $rt->product ? '(' . $rt->product->name . ')' : '' }}
                                     </option>
                                 @endforeach
@@ -70,17 +54,9 @@
                         </div>
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="col-12">
                         <label class="form-label fw-semibold">Produk EIGER Terkait <span class="text-danger">*</span></label>
-                        <select name="product_id" id="main_product_select" class="form-select @error('product_id') is-invalid @enderror" required>
-                            <option value="">-- Pilih Produk EIGER --</option>
-                            @foreach($products as $prod)
-                                <option value="{{ $prod->id }}" @selected($prod->id === $selectedProdId)>
-                                    {{ $prod->name }} ({{ $prod->sku }}) - {{ $prod->zone?->name ?? 'Outdoor' }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('product_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        @include('admin.partials.product-mapping-picker')
                     </div>
 
                     <div class="col-md-6">
@@ -108,39 +84,17 @@
             </div>
         </div>
 
-        {{-- Card 2: Multimedia & Technical Details --}}
+        {{-- Card 2: Read-only master product details --}}
         <div class="card border-0 shadow-sm rounded-3 mb-4">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
                 <div>
                     <h6 class="mb-0 fw-bold"><i class="bi bi-cpu text-warning me-2"></i>Multimedia, Fitur & Spesifikasi Teknis</h6>
-                    <small class="text-muted">Konten detail yang ditampilkan pada layar Table Expedition saat produk diletakkan di atas meja.</small>
+                    <small class="text-muted">Detail diambil dari produk master PIM. Perubahan data dilakukan melalui menu Products.</small>
                 </div>
             </div>
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">URL Video Demo Produk (MP4 / WebM / Streaming URL)</label>
-                        <input type="url" name="video_url" class="form-control font-monospace @error('video_url') is-invalid @enderror"
-                               value="{{ old('video_url', $item->video_url ?? '') }}" placeholder="https://cdn.eigeradventure.com/videos/expedition-jacket.mp4">
-                        @error('video_url')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <div class="form-text small">Video yang diputar otomatis pada frame demonstrasi produk saat tag RFID terbaca.</div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Fitur Utama</label>
-                        <textarea name="features" class="form-control font-monospace small @error('features') is-invalid @enderror" rows="5"
-                                  placeholder="Teknologi Tropic Waterproof&#10;Resleting tahan air YKK&#10;Ventilasi ketiak dengan resleting&#10;Tudung kepala dapat diatur">{{ $featuresVal }}</textarea>
-                        @error('features')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <div class="form-text small">Tuliskan 1 poin fitur per baris (tekan Enter untuk baris baru).</div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Spesifikasi Teknis (Format: Label: Nilai)</label>
-                        <textarea name="technical_details" class="form-control font-monospace small @error('technical_details') is-invalid @enderror" rows="5"
-                                  placeholder="Material: 3-Layer GORE-TEX&#10;Berat: 480 gram&#10;Waterproof Rating: 28.000 mm&#10;Breathability: RET < 9&#10;Garansi: 1 Tahun">{{ $techVal }}</textarea>
-                        @error('technical_details')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <div class="form-text small">Gunakan tanda titik dua (<code>Label: Nilai</code>) di setiap baris.</div>
-                    </div>
+                    <div class="col-12 text-muted small">Foto, media, teknologi, spesifikasi, custom attributes, dan varian produk terpilih ditampilkan pada panel detail katalog di atas.</div>
 
                     <div class="col-12">
                         <label class="form-label fw-semibold">Ringkasan AI (AI Summary Product Knowledge)</label>
@@ -350,26 +304,7 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // 1. Auto-select product when RFID tag is picked from master dropdown
-    const selectEl = document.querySelector('.rfid-select-field');
-    if (selectEl) {
-        selectEl.addEventListener('change', function () {
-            const selectedOpt = this.options[this.selectedIndex];
-            const productId = selectedOpt ? selectedOpt.getAttribute('data-product-id') : null;
-            if (productId) {
-                const form = this.closest('form');
-                if (form) {
-                    const prodSelect = form.querySelector('select[name="product_id"]');
-                    if (prodSelect) {
-                        prodSelect.value = productId;
-                        prodSelect.dispatchEvent(new Event('change'));
-                    }
-                }
-            }
-        });
-    }
-
-    // 2. Toggle manual RFID input vs master select
+    // Toggle manual RFID input vs master select
     const btn = document.querySelector('.toggle-rfid-manual-btn');
     if (btn) {
         btn.addEventListener('click', function () {

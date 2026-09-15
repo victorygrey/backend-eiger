@@ -174,4 +174,20 @@ class FitAndGoWebTest extends TestCase
             'is_visible'    => 1,
         ]);
     }
+
+    public function test_activity_recommendations_are_selected_manually(): void
+    {
+        $product = Product::factory()->create(['is_discontinued' => false]);
+        $response = $this->post(route('admin.fit-and-go.activities.store'), [
+            'name' => 'City Walking',
+            'slug' => 'city-walking',
+            'recommended_product_ids' => [$product->id],
+            'is_active' => 1,
+        ]);
+        $response->assertRedirect();
+        $activity = FitAndGoActivity::where('slug', 'city-walking')->firstOrFail();
+        $this->assertEquals([$product->id], $activity->recommendedProducts()->pluck('products.id')->all());
+        $this->get(route('admin.fit-and-go.activities.edit', $activity))
+            ->assertOk()->assertSee('recommended_product_ids[]');
+    }
 }

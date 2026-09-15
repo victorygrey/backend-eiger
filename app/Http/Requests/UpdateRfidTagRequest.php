@@ -24,7 +24,6 @@ class UpdateRfidTagRequest extends FormRequest
         return [
             'uid'        => ['sometimes', 'required', 'string', 'max:100', 'regex:/\A[0-9A-Fa-f]+\z/', Rule::unique('rfid_tags', 'uid')->ignore($tagId)],
             'name'       => ['nullable', 'string', 'max:255'],
-            'product_id' => ['sometimes', 'nullable', 'integer', 'exists:products,id', Rule::unique('rfid_tags', 'product_id')->ignore($tagId)],
         ];
     }
 

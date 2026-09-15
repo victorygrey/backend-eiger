@@ -57,7 +57,11 @@ class TableExpeditionApiTest extends TestCase
             'pim_payload' => [
                 'category' => 'Mountaineering',
                 'material' => 'Polyester 600D, Ripstop Nylon',
+                'technology' => [['name' => 'Airflow', 'description' => 'Ventilasi optimal']],
+                'specification' => [['name' => 'Capacity', 'value' => '45L']],
+                'customAtributes' => [['attributeCode' => 'waterproof', 'value' => 'Ya']],
             ],
+            'pim_media' => [['type' => 'video', 'url' => 'https://example.com/master-rhinos.mp4']],
         ]);
 
         ProductVariant::create([
@@ -102,7 +106,7 @@ class TableExpeditionApiTest extends TestCase
                 'is_mapped_table'  => true,
                 'activity_slug'    => 'mountaineering',
                 'ideal_for'        => 'Ekspedisi 3-5 Hari',
-                'video_url'        => 'https://example.com/rhinos.mp4',
+                'video_url'        => 'https://example.com/master-rhinos.mp4',
                 'ai_summary'       => 'Carrier tangguh dengan kenyamanan maksimal untuk jalur pendakian berat.',
                 'product'          => [
                     'id'   => $product->id,
@@ -112,8 +116,9 @@ class TableExpeditionApiTest extends TestCase
             ],
         ]);
 
-        $this->assertCount(3, $response->json('data.features'));
+        $this->assertCount(1, $response->json('data.features'));
         $this->assertEquals('45L', $response->json('data.technical_details.Capacity'));
+        $this->assertEquals('Ya', $response->json('data.technical_details.waterproof'));
         $this->assertContains('M', $response->json('data.variants.sizes'));
         $this->assertContains('Olive', $response->json('data.variants.colors'));
         $this->assertCount(1, $response->json('data.similar_products'));

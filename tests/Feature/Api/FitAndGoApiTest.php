@@ -92,7 +92,7 @@ class FitAndGoApiTest extends TestCase
 
     public function test_api_products_filter_and_visibility(): void
     {
-        // Product 1: Apparel (visible)
+        // Product 1: explicitly assigned to category and activity
         $prod1 = Product::create([
             'sku'         => 'JKT-001',
             'name'        => 'Jaket Eiger Torrent',
@@ -110,6 +110,15 @@ class FitAndGoApiTest extends TestCase
             'stock'       => 12,
         ]);
 
+        $this->getJson('/api/v1/fit-and-go/products?category=apparel&activity=mountaineering')
+            ->assertJson(['count' => 0]);
+
+        FitAndGoItemVisibility::create([
+            'product_id'    => $prod1->id,
+            'category_code' => 'apparel',
+            'is_visible'    => true,
+        ]);
+        FitAndGoActivity::where('slug', 'mountaineering')->first()->recommendedProducts()->sync([$prod1->id]);
         FitAndGoItemVisibility::create([
             'product_id'    => $prod2->id,
             'category_code' => 'apparel',
@@ -129,12 +138,17 @@ class FitAndGoApiTest extends TestCase
 
     public function test_api_search(): void
     {
-        Product::create([
+        $product = Product::create([
             'sku'      => 'SRCH-001',
             'name'     => 'Special Polar Vest',
             'category' => 'Apparel',
             'price'    => 350000,
             'stock'    => 3,
+        ]);
+        FitAndGoItemVisibility::create([
+            'product_id' => $product->id,
+            'category_code' => 'apparel',
+            'is_visible' => true,
         ]);
 
         $response = $this->getJson('/api/v1/fit-and-go/search?q=Polar');

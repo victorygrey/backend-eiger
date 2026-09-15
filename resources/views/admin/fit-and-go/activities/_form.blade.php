@@ -46,7 +46,7 @@
                         <input type="text" name="care_mc_level_2" class="form-control @error('care_mc_level_2') is-invalid @enderror"
                                value="{{ old('care_mc_level_2', $activity->care_mc_level_2 ?? '') }}" placeholder="Contoh: Hiking, Riding, Climbing">
                         @error('care_mc_level_2')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <div class="form-text small">Kategori MC Level 2 pada sistem ERP/CARE EIGER untuk pencocokan otomatis produk.</div>
+                        <div class="form-text small">Referensi kategori CARE; rekomendasi produk dipilih manual di bawah.</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">URL Gambar Banner / Ikon Aktivitas</label>
@@ -116,6 +116,7 @@
         </div>
     </div>
 </div>
+@include('admin.fit-and-go.activities.product-picker')
 
 {{-- Bottom Action Bar --}}
 <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">

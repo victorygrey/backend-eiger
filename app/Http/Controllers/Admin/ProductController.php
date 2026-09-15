@@ -55,6 +55,32 @@ class ProductController extends Controller
         catch (\Throwable $e) { return response()->json(['message' => 'PIM tidak dapat dihubungi atau payload belum tersedia.'], 502); }
     }
 
+    public function mappingPreview(Product $product)
+    {
+        $product->load(['zone', 'variants']);
+        return response()->json([
+            'id' => $product->id,
+            'sku' => $product->sku,
+            'name' => $product->name,
+            'image' => $product->image,
+            'images' => $this->collectAvailableImages($product),
+            'price' => (float) $product->price,
+            'stock' => $product->stock,
+            'category' => $product->category,
+            'zone' => $product->zone?->name,
+            'description' => $product->description,
+            'material' => $product->material,
+            'technologies' => $product->technologies,
+            'activities' => $product->activities,
+            'specifications' => $product->specifications,
+            'custom_attributes' => $product->custom_attributes_list,
+            'weight' => $product->weight,
+            'media' => $product->pim_media ?? [],
+            'variants' => $product->variants->map->only(['sku', 'name', 'color', 'size', 'price', 'stock'])->all(),
+            'edit_url' => route('admin.products.edit', $product),
+        ]);
+    }
+
     /**
      * Unified Catalog Lookup from PIM, CARE, and Scraping data.
      */

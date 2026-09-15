@@ -187,9 +187,12 @@
     <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
         <div>
             <h6 class="mb-0 fw-bold"><i class="bi bi-compass me-2"></i>Daftar Aktivitas EIGER (SRS Halaman 10)</h6>
-            <small class="text-muted">Aktivitas diambil dari Care MC Level 2 dan masing-masing memiliki foto representatif.</small>
+            <small class="text-muted">Lima aktivitas awal; produk rekomendasi dipilih manual per aktivitas.</small>
         </div>
-        <span class="badge bg-secondary">{{ $activities->count() }} Aktivitas</span>
+        <div class="d-flex align-items-center gap-2">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ route('admin.fit-and-go.index', ['tab' => 'activities', 'show_inactive' => $showInactive ? 0 : 1]) }}">{{ $showInactive ? 'Lihat Aktif' : 'Lihat Semua' }}</a>
+            <span class="badge bg-secondary">{{ $activities->count() }} Aktivitas</span>
+        </div>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">

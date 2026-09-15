@@ -83,10 +83,20 @@ class TableExpeditionWebTest extends TestCase
 
         $item = TableExpeditionItem::where('rfid_tag', 'E28011606000020468900002')->first();
         $this->assertNotNull($item);
-        $this->assertCount(3, $item->features);
-        $this->assertContains('Waterproof 10000mm', $item->features);
-        $this->assertEquals('450g', $item->technical_details['Weight'] ?? null);
+        $this->assertEmpty($item->features);
+        $this->assertEmpty($item->technical_details);
         $this->assertEquals([$similarProduct->id], $item->similar_product_ids);
+    }
+
+    public function test_mapping_form_shows_visual_catalog_and_read_only_master_details(): void
+    {
+        Product::factory()->create(['is_discontinued' => false, 'name' => 'EIGER Visual Product']);
+        $this->get(route('admin.table-expedition.create'))
+            ->assertOk()
+            ->assertSee('mapping-product-option')
+            ->assertSee('EIGER Visual Product')
+            ->assertDontSee('name="features"', false)
+            ->assertDontSee('name="technical_details"', false);
     }
 
     public function test_cannot_create_duplicate_rfid(): void
@@ -131,7 +141,7 @@ class TableExpeditionWebTest extends TestCase
 
         $item->refresh();
         $this->assertEquals('Updated Ideal For Expeditions', $item->ideal_for);
-        $this->assertEquals(['Updated Feature A', 'Updated Feature B'], $item->features);
+        $this->assertEquals(['Feature 1'], $item->features);
     }
 
     public function test_can_delete_rfid_mapping(): void

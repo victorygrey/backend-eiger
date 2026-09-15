@@ -29,15 +29,15 @@ class FitAndGoSeeder extends Seeder
         // 2. Initial EIGER Activities (SRS Hal 10: data activity dari Care MC Level 2 + gambar)
         $activities = [
             [
-                'name'            => 'Mountaineering',
-                'slug'            => 'mountaineering',
-                'care_mc_level_2' => 'A04001',
-                'image'           => 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
-                'description'     => 'Ekspedisi pendakian gunung dan medan teknis ekstrem.',
-                'sort_order'      => 1,
+                'name'            => 'Running',
+                'slug'            => 'running',
+                'care_mc_level_2' => 'A03006',
+                'image'           => 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=800&q=80',
+                'description'     => 'Aktivitas lari dan olahraga luar ruang.',
+                'sort_order'      => 3,
             ],
             [
-                'name'            => 'Hiking & Trekking',
+                'name'            => 'Hiking',
                 'slug'            => 'hiking',
                 'care_mc_level_2' => 'A03001',
                 'image'           => 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&w=800&q=80',
@@ -45,12 +45,12 @@ class FitAndGoSeeder extends Seeder
                 'sort_order'      => 2,
             ],
             [
-                'name'            => 'Riding / Motorsport',
+                'name'            => 'Riding',
                 'slug'            => 'riding',
                 'care_mc_level_2' => 'A03008',
                 'image'           => 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80',
                 'description'     => 'Petualangan touring dan berkendara roda dua jarak jauh.',
-                'sort_order'      => 3,
+                'sort_order'      => 4,
             ],
             [
                 'name'            => 'Camping',
@@ -58,23 +58,15 @@ class FitAndGoSeeder extends Seeder
                 'care_mc_level_2' => 'A02001',
                 'image'           => 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&w=800&q=80',
                 'description'     => 'Rekreasi bermalam di alam terbuka dan api unggun.',
-                'sort_order'      => 4,
+                'sort_order'      => 1,
             ],
             [
-                'name'            => 'Tactical Outdoor',
-                'slug'            => 'tactical',
-                'care_mc_level_2' => 'A06001',
-                'image'           => 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80',
-                'description'     => 'Perlengkapan tahan banting dengan fungsi modular tangguh.',
-                'sort_order'      => 5,
-            ],
-            [
-                'name'            => '1989 Lifestyle',
-                'slug'            => 'lifestyle',
+                'name'            => 'Travelling',
+                'slug'            => 'travelling',
                 'care_mc_level_2' => 'A01001',
                 'image'           => 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80',
-                'description'     => 'Gaya hidup kasual autentik bernuansa petualangan khas EIGER 1989.',
-                'sort_order'      => 6,
+                'description'     => 'Perjalanan dan eksplorasi kota maupun alam.',
+                'sort_order'      => 5,
             ],
         ];
 

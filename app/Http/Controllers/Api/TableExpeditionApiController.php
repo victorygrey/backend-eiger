@@ -71,9 +71,6 @@ class TableExpeditionApiController extends Controller
         if ($item && $item->product) {
             $product = $item->product;
             $idealFor = $item->ideal_for;
-            $videoUrl = $item->video_url;
-            $features = $item->features ?: [];
-            $technicalDetails = $item->technical_details ?: [];
             $aiSummary = $item->ai_summary;
             $similarProducts = $item->similar_products;
 
@@ -103,34 +100,27 @@ class TableExpeditionApiController extends Controller
         $availableSizes = $variants->pluck('size')->filter()->unique()->values()->all();
         $availableColors = $variants->pluck('color')->filter()->unique()->values()->all();
 
-        if (empty($features)) {
-            if (!empty($product->technologies)) {
-                $features = array_map(fn($t) => ($t['name'] ?? 'TEKNOLOGI') . ': ' . ($t['description'] ?? ''), $product->technologies);
-            } else {
-                $features = [
-                    'Bahan dirancang khusus untuk kenyamanan dan ketahanan maksimal aktivitas luar ruang.',
-                    'Konstruksi ergonomis mendukung pergerakan dinamis pengguna.',
-                    'Dilengkapi logo dan grafis autentik khas EIGER Adventure.',
-                ];
-            }
+        $features = array_values(array_filter(array_map(
+            fn ($technology) => trim(($technology['name'] ?? $technology['code'] ?? '') . ': ' . ($technology['description'] ?? '')),
+            $product->technologies
+        )));
+        $technicalDetails = ['SKU' => $product->sku];
+        if ($product->material) $technicalDetails['Material'] = $product->material;
+        if ($product->zone?->name) $technicalDetails['Zone'] = $product->zone->name;
+        if ($product->weight) $technicalDetails['Berat'] = $product->weight . ' gram';
+        foreach ($product->specifications as $spec) {
+            $label = $spec['name'] ?? $spec['code'] ?? null;
+            if ($label && isset($spec['value'])) $technicalDetails[$label] = $spec['value'];
         }
-
-        if (empty($technicalDetails)) {
-            $technicalDetails = [
-                'Material' => $product->material ?: 'Polyester / Technical Fabric',
-                'Zone'     => $product->zone?->name ?? 'General Outdoor',
-                'SKU'      => $product->sku,
-            ];
-            foreach ($product->specifications as $spec) {
-                $technicalDetails[$spec['name'] ?? $spec['code']] = $spec['value'];
-            }
-            if ($product->weight) {
-                $technicalDetails['Berat'] = $product->weight . ' gram';
-            }
-            foreach ($product->custom_attributes_list as $ca) {
-                if (in_array(strtolower($ca['attributeCode']), ['waterproof', 'breathability', 'dimension', 'gender'])) {
-                    $technicalDetails[ucfirst(str_replace('_', ' ', $ca['attributeCode']))] = strip_tags($ca['value']);
-                }
+        foreach ($product->custom_attributes_list as $attribute) {
+            $label = $attribute['attributeCode'] ?? $attribute['name'] ?? null;
+            if ($label && isset($attribute['value'])) $technicalDetails[$label] = strip_tags((string) $attribute['value']);
+        }
+        foreach ($product->pim_media ?? [] as $media) {
+            $url = is_string($media) ? $media : ($media['url'] ?? $media['value'] ?? null);
+            if (is_string($url) && (preg_match('/\.(mp4|webm)(\?|$)/i', $url) || (is_array($media) && stripos((string) ($media['type'] ?? ''), 'video') !== false))) {
+                $videoUrl = $url;
+                break;
             }
         }
 
@@ -188,6 +178,8 @@ class TableExpeditionApiController extends Controller
                     'activities'       => $product->activities,
                     'specifications'   => $product->specifications,
                     'custom_attributes'=> $product->custom_attributes_list,
+                    'media'            => $product->pim_media ?? [],
+                    'image_payload'    => $product->pim_image_payload ?? [],
                     'weight'           => $product->weight,
                     'available_sizes'  => $availableSizes,
                     'available_colors' => $availableColors,
@@ -261,10 +253,13 @@ class TableExpeditionApiController extends Controller
             'name'        => $prod1->name,
             'sku'         => $prod1->sku,
             'price'       => (float) $prod1->price,
-            'material'    => $prod1->material ?: 'Technical Fabric',
+            'material'    => $prod1->material,
             'zone'        => $prod1->zone?->name,
             'image'       => $prod1->image,
             'description' => $prod1->description,
+            'technologies' => $prod1->technologies,
+            'specifications' => $prod1->specifications,
+            'custom_attributes' => $prod1->custom_attributes_list,
         ];
 
         $data2 = [
@@ -272,10 +267,13 @@ class TableExpeditionApiController extends Controller
             'name'        => $prod2->name,
             'sku'         => $prod2->sku,
             'price'       => (float) $prod2->price,
-            'material'    => $prod2->material ?: 'Technical Fabric',
+            'material'    => $prod2->material,
             'zone'        => $prod2->zone?->name,
             'image'       => $prod2->image,
             'description' => $prod2->description,
+            'technologies' => $prod2->technologies,
+            'specifications' => $prod2->specifications,
+            'custom_attributes' => $prod2->custom_attributes_list,
         ];
 
         return response()->json([

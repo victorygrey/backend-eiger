@@ -22,8 +22,17 @@ class TableExpeditionController extends Controller
         $items = TableExpeditionItem::with(['product.zone', 'rfidTag'])
             ->latest('id')
             ->get();
+        $mediaVideoCount = $items->filter(function ($item) {
+            foreach ($item->product?->pim_media ?? [] as $media) {
+                $url = is_string($media) ? $media : ($media['url'] ?? $media['value'] ?? null);
+                if (is_string($url) && (preg_match('/\.(mp4|webm)(\?|$)/i', $url) || (is_array($media) && stripos((string) ($media['type'] ?? ''), 'video') !== false))) {
+                    return true;
+                }
+            }
+            return false;
+        })->count();
 
-        $products = Product::where('is_discontinued', false)
+        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)
             ->orderBy('name')
             ->get();
 
@@ -31,7 +40,7 @@ class TableExpeditionController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $availableRfidTags = RfidTag::with('product')
+        $availableRfidTags = RfidTag::query()
             ->orderBy('name')
             ->orderBy('uid')
             ->get();
@@ -43,6 +52,7 @@ class TableExpeditionController extends Controller
 
         return view('admin.table-expedition.index', [
             'items'             => $items,
+            'mediaVideoCount'   => $mediaVideoCount,
             'products'          => $products,
             'activities'        => $activities,
             'availableRfidTags' => $availableRfidTags,
@@ -54,9 +64,9 @@ class TableExpeditionController extends Controller
 
     public function create(): View
     {
-        $products = Product::where('is_discontinued', false)->orderBy('name')->get();
+        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
         $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
-        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
 
         return view('admin.table-expedition.create', compact('products', 'activities', 'availableRfidTags'));
     }
@@ -71,9 +81,6 @@ class TableExpeditionController extends Controller
             'product_id'          => 'required|exists:products,id',
             'activity_slug'       => 'nullable|string|max:50',
             'ideal_for'           => 'nullable|string|max:255',
-            'video_url'           => 'nullable|url|max:500',
-            'features'            => 'nullable|string',
-            'technical_details'   => 'nullable|string',
             'ai_summary'          => 'nullable|string',
             'similar_product_ids' => 'nullable|array|max:5',
             'similar_product_ids.*' => 'integer|exists:products,id',
@@ -84,26 +91,6 @@ class TableExpeditionController extends Controller
         $validated['rfid_tag'] = trim(strtoupper($validated['rfid_tag']));
         $validated['is_active'] = $request->boolean('is_active', true);
 
-        // Convert features from newline-separated string to array
-        if (!empty($validated['features'])) {
-            $validated['features'] = array_values(array_filter(array_map('trim', explode("\n", $validated['features']))));
-        }
-
-        // Convert technical details from newline-separated string to array
-        if (!empty($validated['technical_details'])) {
-            $lines = array_filter(array_map('trim', explode("\n", $validated['technical_details'])));
-            $details = [];
-            foreach ($lines as $line) {
-                if (str_contains($line, ':')) {
-                    [$k, $v] = explode(':', $line, 2);
-                    $details[trim($k)] = trim($v);
-                } else {
-                    $details[] = $line;
-                }
-            }
-            $validated['technical_details'] = $details;
-        }
-
         TableExpeditionItem::create($validated);
 
         return redirect()->route('admin.table-expedition.index')
@@ -113,9 +100,9 @@ class TableExpeditionController extends Controller
     public function edit(TableExpeditionItem $item): View
     {
         $item->load(['product.zone', 'rfidTag']);
-        $products = Product::where('is_discontinued', false)->orderBy('name')->get();
+        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
         $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
-        $availableRfidTags = RfidTag::with('product')->orderBy('name')->orderBy('uid')->get();
+        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
 
         return view('admin.table-expedition.edit', compact('item', 'products', 'activities', 'availableRfidTags'));
     }
@@ -130,9 +117,6 @@ class TableExpeditionController extends Controller
             'product_id'          => 'required|exists:products,id',
             'activity_slug'       => 'nullable|string|max:50',
             'ideal_for'           => 'nullable|string|max:255',
-            'video_url'           => 'nullable|url|max:500',
-            'features'            => 'nullable|string',
-            'technical_details'   => 'nullable|string',
             'ai_summary'          => 'nullable|string',
             'similar_product_ids' => 'nullable|array|max:5',
             'similar_product_ids.*' => 'integer|exists:products,id',
@@ -142,26 +126,6 @@ class TableExpeditionController extends Controller
 
         $validated['rfid_tag'] = trim(strtoupper($validated['rfid_tag']));
         $validated['is_active'] = $request->boolean('is_active');
-
-        // Convert features
-        if (isset($validated['features'])) {
-            $validated['features'] = array_values(array_filter(array_map('trim', explode("\n", $validated['features']))));
-        }
-
-        // Convert technical details
-        if (isset($validated['technical_details'])) {
-            $lines = array_filter(array_map('trim', explode("\n", $validated['technical_details'])));
-            $details = [];
-            foreach ($lines as $line) {
-                if (str_contains($line, ':')) {
-                    [$k, $v] = explode(':', $line, 2);
-                    $details[trim($k)] = trim($v);
-                } else {
-                    $details[] = $line;
-                }
-            }
-            $validated['technical_details'] = $details;
-        }
 
         $item->update($validated);
 

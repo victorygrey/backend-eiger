@@ -90,7 +90,7 @@
         <div class="stat-card">
             <div class="d-flex align-items-center justify-content-between">
                 <div>
-                    <div class="stat-value text-secondary">{{ $items->whereNotNull('video_url')->count() }}</div>
+                    <div class="stat-value text-secondary">{{ $mediaVideoCount }}</div>
                     <div class="stat-label">Dengan Video Demo</div>
                 </div>
                 <div class="stat-icon bg-secondary-subtle text-secondary">
@@ -126,6 +126,7 @@
             </thead>
             <tbody>
                 @forelse($items as $item)
+                <tr>
                     <td class="ps-3">
                         @if($item->rfidTag && $item->rfidTag->name)
                             <div class="fw-semibold text-primary small d-flex align-items-center gap-1 mb-1">
@@ -161,10 +162,10 @@
                     </td>
                     <td>
                         <div class="small">
-                            <i class="bi bi-check2-circle text-success me-1"></i>{{ count($item->features ?: []) }} Fitur
+                            <i class="bi bi-check2-circle text-success me-1"></i>{{ count($item->product?->technologies ?: []) }} Fitur
                         </div>
                         <div class="small text-muted">
-                            <i class="bi bi-tools text-secondary me-1"></i>{{ count($item->technical_details ?: []) }} Spesifikasi
+                            <i class="bi bi-tools text-secondary me-1"></i>{{ count($item->product?->specifications ?: []) }} Spesifikasi
                         </div>
                     </td>
                     <td>
@@ -186,6 +187,7 @@
                             <span class="badge badge-gray-soft">Nonaktif</span>
                         @endif
                     </td>
+                    <td class="pe-3 text-end">
                         <div class="btn-group btn-group-sm">
                             <a href="{{ route('admin.table-expedition.edit', $item) }}" class="btn btn-outline-primary" title="Edit Mapping">
                                 <i class="bi bi-pencil-fill"></i>

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRfidTagRequest;
 use App\Http\Requests\UpdateRfidTagRequest;
-use App\Models\Product;
 use App\Models\RfidTag;
 use Illuminate\Http\Request;
 
@@ -13,7 +12,7 @@ class RfidTagController extends Controller
 {
     public function index(Request $request)
     {
-        $tags = RfidTag::with('product')->when($request->filled('search'), function ($q) use ($request) {
+        $tags = RfidTag::query()->when($request->filled('search'), function ($q) use ($request) {
                 $term = "%{$request->search}%";
                 $q->where(function ($sub) use ($term) {
                     $sub->where('uid', 'like', $term)
@@ -42,8 +41,7 @@ class RfidTagController extends Controller
 
     public function edit(RfidTag $rfidTag)
     {
-        $products = Product::orderBy('name')->get();
-        return view('admin.rfid-tags.edit', compact('rfidTag', 'products'));
+        return view('admin.rfid-tags.edit', compact('rfidTag'));
     }
 
     public function update(UpdateRfidTagRequest $request, RfidTag $rfidTag)

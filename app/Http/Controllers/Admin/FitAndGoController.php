@@ -26,12 +26,16 @@ class FitAndGoController extends Controller
         }
 
         $devices = FitAndGoDevice::withCount('itemVisibilities')->orderBy('id')->get();
-        $activities = FitAndGoActivity::orderBy('sort_order')->get();
+        $showInactive = $request->boolean('show_inactive');
+        $activities = FitAndGoActivity::query()
+            ->when(!$showInactive, fn ($q) => $q->where('is_active', true))
+            ->orderBy('sort_order')->get();
 
         return view('admin.fit-and-go.index', [
             'currentTab' => $currentTab,
             'devices'    => $devices,
             'activities' => $activities,
+            'showInactive' => $showInactive,
         ]);
     }
 
@@ -48,11 +52,11 @@ class FitAndGoController extends Controller
     {
         $validated = $request->validate([
             'name'          => 'required|string|max:100',
-            'device_code'   => 'required|string|max:50|unique:fit_and_go_devices,device_code',
+            'device_code'   => 'required|regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/|max:50|unique:fit_and_go_devices,device_code',
             'location'      => 'nullable|string|max:100',
             'ip_address'    => 'nullable|ip',
             'gpu_endpoint'  => 'nullable|url|max:255',
-            'camera_source' => 'nullable|string|max:100',
+            'camera_source' => 'nullable|string|max:255',
             'status'        => 'required|in:online,offline,active,maintenance',
             'is_active'     => 'nullable|boolean',
         ]);
@@ -77,18 +81,7 @@ class FitAndGoController extends Controller
         $categoryProducts = collect();
 
         if ($activeCategory) {
-            $keywords = array_filter(array_map('trim', explode(',', strtolower($activeCategory->mc_keywords ?? ''))));
-
-            $query = Product::query();
-            if (!empty($keywords)) {
-                $query->where(function ($q) use ($keywords) {
-                    foreach ($keywords as $kw) {
-                        $q->orWhere('name', 'like', "%{$kw}%")
-                          ->orWhere('description', 'like', "%{$kw}%")
-                          ->orWhere('pim_payload', 'like', "%{$kw}%");
-                    }
-                });
-            }
+            $query = Product::where('is_discontinued', false)->where('pim_catalog_active', true);
 
             if (!empty($searchQuery)) {
                 $query->where(function ($q) use ($searchQuery) {
@@ -99,7 +92,7 @@ class FitAndGoController extends Controller
 
             $rawProducts = $query->orderBy('name')->get();
 
-            // Load device-specific visibilities first, falling back to global settings
+            // Only explicitly assigned products appear in this kiosk category.
             $visibilities = FitAndGoItemVisibility::where('category_code', $activeCategory->code)
                 ->where(function ($q) use ($device) {
                     $q->where('device_id', $device->id)
@@ -111,7 +104,7 @@ class FitAndGoController extends Controller
                 ->pluck('is_visible', 'product_id');
 
             $categoryProducts = $rawProducts->map(function ($p) use ($visibilities) {
-                $p->is_fit_visible = $visibilities->get($p->id, true);
+                $p->is_fit_visible = $visibilities->get($p->id, false);
                 return $p;
             });
         }
@@ -130,11 +123,11 @@ class FitAndGoController extends Controller
     {
         $validated = $request->validate([
             'name'          => 'required|string|max:100',
-            'device_code'   => 'required|string|max:50|unique:fit_and_go_devices,device_code,' . $device->id,
+            'device_code'   => 'required|regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/|max:50|unique:fit_and_go_devices,device_code,' . $device->id,
             'location'      => 'nullable|string|max:100',
             'ip_address'    => 'nullable|ip',
             'gpu_endpoint'  => 'nullable|url|max:255',
-            'camera_source' => 'nullable|string|max:100',
+            'camera_source' => 'nullable|string|max:255',
             'status'        => 'required|in:online,offline,active,maintenance',
             'is_active'     => 'nullable|boolean',
         ]);
@@ -172,26 +165,33 @@ class FitAndGoController extends Controller
 
     public function createActivity(): View
     {
-        return view('admin.fit-and-go.activities.create');
+        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
+        $selectedProductIds = [];
+        return view('admin.fit-and-go.activities.create', compact('products', 'selectedProductIds'));
     }
 
     public function storeActivity(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'name'            => 'required|string|max:100',
-            'slug'            => 'nullable|string|max:50|unique:fit_and_go_activities,slug',
+            'slug'            => 'nullable|regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/|max:50|unique:fit_and_go_activities,slug',
             'care_mc_level_2' => 'nullable|string|max:50',
             'image'           => 'nullable|url|max:500',
             'description'     => 'nullable|string|max:500',
             'sort_order'      => 'nullable|integer|min:0',
             'is_active'       => 'nullable|boolean',
+            'recommended_product_ids' => 'nullable|array',
+            'recommended_product_ids.*' => 'integer|distinct|exists:products,id',
         ]);
 
-        $validated['slug'] = $validated['slug'] ?: Str::slug($validated['name']);
+        $validated['slug'] = $validated['slug'] ?? Str::slug($validated['name']);
+        $request->merge(['slug' => $validated['slug']]);
+        $request->validate(['slug' => 'required|regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/|max:50|unique:fit_and_go_activities,slug']);
         $validated['is_active'] = $request->boolean('is_active', true);
         $validated['sort_order'] = $validated['sort_order'] ?? 0;
 
-        FitAndGoActivity::create($validated);
+        $activity = FitAndGoActivity::create($validated);
+        $this->syncActivityProducts($request, $activity);
 
         return redirect()->route('admin.fit-and-go.index', ['tab' => 'activities'])
             ->with('success', "Aktivitas {$validated['name']} berhasil ditambahkan.");
@@ -199,23 +199,28 @@ class FitAndGoController extends Controller
 
     public function editActivity(FitAndGoActivity $activity): View
     {
-        return view('admin.fit-and-go.activities.edit', compact('activity'));
+        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
+        $selectedProductIds = $activity->recommendedProducts()->pluck('products.id')->all();
+        return view('admin.fit-and-go.activities.edit', compact('activity', 'products', 'selectedProductIds'));
     }
 
     public function updateActivity(Request $request, FitAndGoActivity $activity): RedirectResponse
     {
         $validated = $request->validate([
             'name'            => 'required|string|max:100',
-            'slug'            => 'required|string|max:50|unique:fit_and_go_activities,slug,' . $activity->id,
+            'slug'            => 'required|regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/|max:50|unique:fit_and_go_activities,slug,' . $activity->id,
             'care_mc_level_2' => 'nullable|string|max:50',
             'image'           => 'nullable|url|max:500',
             'description'     => 'nullable|string|max:500',
             'sort_order'      => 'nullable|integer|min:0',
             'is_active'       => 'nullable|boolean',
+            'recommended_product_ids' => 'nullable|array',
+            'recommended_product_ids.*' => 'integer|distinct|exists:products,id',
         ]);
 
         $validated['is_active'] = $request->boolean('is_active');
         $activity->update($validated);
+        $this->syncActivityProducts($request, $activity);
 
         return redirect()->route('admin.fit-and-go.index', ['tab' => 'activities'])
             ->with('success', "Aktivitas {$activity->name} berhasil diperbarui.");
@@ -254,7 +259,7 @@ class FitAndGoController extends Controller
         $validated = $request->validate([
             'device_id'     => 'nullable|exists:fit_and_go_devices,id',
             'product_id'    => 'required|exists:products,id',
-            'category_code' => 'required|string',
+            'category_code' => 'required|exists:fit_and_go_categories,code',
             'is_visible'    => 'required|boolean',
         ]);
 
@@ -270,5 +275,14 @@ class FitAndGoController extends Controller
         );
 
         return back()->with('success', 'Visibilitas produk AI Fit & Go berhasil diubah.');
+    }
+
+    private function syncActivityProducts(Request $request, FitAndGoActivity $activity): void
+    {
+        $sync = [];
+        foreach ($request->input('recommended_product_ids') ?? [] as $order => $id) {
+            $sync[$id] = ['sort_order' => $order];
+        }
+        $activity->recommendedProducts()->sync($sync);
     }
 }

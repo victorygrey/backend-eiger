@@ -166,6 +166,12 @@ class LedAmbienceApiController extends Controller
                     'image'       => $product->image,
                     'description' => $product->description,
                     'zone'        => $product->zone?->name,
+                    'material'    => $product->material,
+                    'technologies' => $product->technologies,
+                    'specifications' => $product->specifications,
+                    'custom_attributes' => $product->custom_attributes_list,
+                    'media' => $product->pim_media ?? [],
+                    'image_payload' => $product->pim_image_payload ?? [],
                 ] : null,
                 'scene'         => $scene ? [
                     'id'             => $scene->id,

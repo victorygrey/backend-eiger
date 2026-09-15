@@ -16,11 +16,11 @@
                         @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-5">
-                        <label class="form-label fw-semibold">Kode Perangkat (Device Code) <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Slug URL / Device Identifier <span class="text-danger">*</span></label>
                         <input type="text" name="device_code" class="form-control font-monospace @error('device_code') is-invalid @enderror"
-                               value="{{ old('device_code', $device->device_code ?? '') }}" placeholder="KIOSK-01" required>
+                               value="{{ old('device_code', $device->device_code ?? '') }}" placeholder="fit-kiosk-01" required>
                         @error('device_code')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <div class="form-text small">Kode unik identifikasi unit perangkat di toko.</div>
+                        <div class="form-text small">Gunakan huruf kecil, angka, dan tanda hubung. URL konfigurasi: <code>{{ url('/api/v1/fit-and-go/config') }}?device_code={{ old('device_code', $device->device_code ?? 'fit-kiosk-01') }}</code></div>
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold">Lokasi Penempatan Meja / Fitting Room</label>
@@ -51,13 +51,13 @@
                         @error('ip_address')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Sumber Kamera (Camera Source / RTSP)</label>
+                        <label class="form-label fw-semibold">URL / Identifier Sumber Kamera</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-camera-video text-muted"></i></span>
                             <input type="text" name="camera_source" class="form-control font-monospace"
-                                   value="{{ old('camera_source', $device->camera_source ?? '') }}" placeholder="rtsp://... atau /dev/video0">
+                                   value="{{ old('camera_source', $device->camera_source ?? '') }}" placeholder="rtsp://kamera-toko/live atau kamera-01">
                         </div>
-                        <div class="form-text small">URL stream RTSP atau device node kamera webcam / depth sensor.</div>
+                        <div class="form-text small">Alamat stream atau identifier kamera yang digunakan oleh kiosk ini.</div>
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold">GPU Inference Endpoint URL</label>

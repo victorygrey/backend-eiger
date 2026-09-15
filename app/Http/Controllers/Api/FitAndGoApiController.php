@@ -86,9 +86,8 @@ class FitAndGoApiController extends Controller
     }
 
     /**
-     * Get recommended / catalog products filtered by category and/or activity.
-     * SRS Algorithm recommendation: intersection of selected category and activity,
-     * sorted 15 latest products (FR-CMS-03).
+     * Get manually assigned kiosk products, optionally intersected with the
+     * curated recommendations for an activity.
      * GET /api/v1/fit-and-go/products
      */
     public function products(Request $request): JsonResponse
@@ -96,67 +95,34 @@ class FitAndGoApiController extends Controller
         $categoryParam = $request->query('category');
         $activityParam = $request->query('activity');
         $deviceCode = $request->query('device_code');
-        $limit = min((int) $request->query('limit', 15), 50);
+        $limit = max(1, min((int) $request->query('limit', 15), 50));
 
         $device = null;
         if ($deviceCode) {
             $device = FitAndGoDevice::where('device_code', $deviceCode)->first();
         }
 
-        $query = Product::query();
-
-        // 1. Filter by Category
-        $categoryCode = null;
+        $query = Product::query()->where('is_discontinued', false)->where('pim_catalog_active', true);
         if ($categoryParam) {
-            $cat = FitAndGoCategory::where('code', $categoryParam)
-                ->orWhere('display_name', 'like', "%{$categoryParam}%")
-                ->first();
-
-            if ($cat) {
-                $categoryCode = $cat->code;
-                $keywords = array_filter(array_map('trim', explode(',', strtolower($cat->mc_keywords ?? ''))));
-                if (!empty($keywords)) {
-                    $query->where(function ($q) use ($keywords) {
-                        foreach ($keywords as $kw) {
-                            $q->orWhere('name', 'like', "%{$kw}%")
-                              ->orWhere('description', 'like', "%{$kw}%")
-                              ->orWhere('pim_payload', 'like', "%{$kw}%");
-                        }
-                    });
-                }
-            }
+            $category = FitAndGoCategory::where('is_active', true)
+                ->where(function ($q) use ($categoryParam) {
+                    $q->where('code', $categoryParam)->orWhere('display_name', $categoryParam);
+                })->first();
+            $query->whereIn('id', $category
+                ? $this->visibleProductIds($category->code, $device)
+                : []);
+        } else {
+            $query->whereIn('id', $this->visibleProductIds(null, $device));
         }
-
-        // 2. Filter by Activity
         if ($activityParam) {
-            $act = FitAndGoActivity::where('slug', $activityParam)
-                ->orWhere('name', 'like', "%{$activityParam}%")
-                ->first();
-
-            if ($act) {
-                $terms = array_filter([$act->name, $act->slug, $act->care_mc_level_2]);
-                $query->where(function ($q) use ($terms) {
-                    foreach ($terms as $term) {
-                        $q->orWhere('name', 'like', "%{$term}%")
-                          ->orWhere('description', 'like', "%{$term}%")
-                          ->orWhere('pim_payload', 'like', "%{$term}%");
-                    }
-                });
-            }
+            $activity = FitAndGoActivity::where('is_active', true)
+                ->where(function ($q) use ($activityParam) {
+                    $q->where('slug', $activityParam)->orWhere('name', $activityParam);
+                })->first();
+            $query->whereIn('id', $activity
+                ? $activity->recommendedProducts()->pluck('products.id')
+                : []);
         }
-
-        // 3. Exclude hidden products (Store staff visibility control - FR-CMS-03)
-        $hiddenQuery = FitAndGoItemVisibility::where('is_visible', false);
-        if ($categoryCode) {
-            $hiddenQuery->where('category_code', $categoryCode);
-        }
-        if ($device) {
-            $hiddenQuery->where(function ($q) use ($device) {
-                $q->where('device_id', $device->id)
-                  ->orWhereNull('device_id');
-            });
-        }
-        $query->whereNotIn('id', $hiddenQuery->pluck('product_id'));
 
         // Sort latest and limit (default 15 per SRS recommendation)
         $products = $query->latest('id')
@@ -205,7 +171,7 @@ class FitAndGoApiController extends Controller
     {
         $q = trim($request->query('q', ''));
         $deviceCode = $request->query('device_code');
-        $limit = min((int) $request->query('limit', 15), 50);
+        $limit = max(1, min((int) $request->query('limit', 15), 50));
 
         if (empty($q)) {
             return response()->json([
@@ -220,7 +186,7 @@ class FitAndGoApiController extends Controller
             $device = FitAndGoDevice::where('device_code', $deviceCode)->first();
         }
 
-        $query = Product::query()
+        $query = Product::query()->where('pim_catalog_active', true)->where('is_discontinued', false)
             ->where(function ($sub) use ($q) {
                 $sub->where('name', 'like', "%{$q}%")
                     ->orWhere('sku', 'like', "%{$q}%")
@@ -228,15 +194,7 @@ class FitAndGoApiController extends Controller
                     ->orWhere('pim_payload', 'like', "%{$q}%");
             });
 
-        // Exclude hidden products
-        $hiddenQuery = FitAndGoItemVisibility::where('is_visible', false);
-        if ($device) {
-            $hiddenQuery->where(function ($sub) use ($device) {
-                $sub->where('device_id', $device->id)
-                    ->orWhereNull('device_id');
-            });
-        }
-        $query->whereNotIn('id', $hiddenQuery->pluck('product_id'));
+        $query->whereIn('id', $this->visibleProductIds(null, $device));
 
         $products = $query->latest('id')->limit($limit)->get();
 
@@ -267,6 +225,23 @@ class FitAndGoApiController extends Controller
                 ];
             }),
         ]);
+    }
+
+    private function visibleProductIds(?string $categoryCode, ?FitAndGoDevice $device): array
+    {
+        $rows = FitAndGoItemVisibility::query()
+            ->when($categoryCode, fn ($q) => $q->where('category_code', $categoryCode))
+            ->where(function ($q) use ($device) {
+                $q->whereNull('device_id');
+                if ($device) {
+                    $q->orWhere('device_id', $device->id);
+                }
+            })
+            ->orderByRaw('CASE WHEN device_id IS NULL THEN 0 ELSE 1 END DESC')
+            ->latest('id')->get();
+
+        return $rows->unique(fn ($row) => $row->category_code . ':' . $row->product_id)
+            ->where('is_visible', true)->pluck('product_id')->unique()->values()->all();
     }
 
     /**

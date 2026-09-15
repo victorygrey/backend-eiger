@@ -119,9 +119,7 @@
                         </div>
                     @endif
                 </div>
-                <div class="small text-muted text-truncate mb-3" title="{{ $category->mc_keywords }}">
-                    Kata Kunci: <em>{{ $category->mc_keywords }}</em>
-                </div>
+                <div class="small text-muted mb-3">Produk kategori dipilih manual per kiosk.</div>
                 <div class="mt-auto">
                     <a href="{{ route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'catalog', 'category' => $category->code]) }}"
                        class="btn btn-sm w-100 {{ $selectedCategory && $selectedCategory->code === $category->code ? 'btn-primary fw-bold' : 'btn-outline-secondary' }}">
@@ -157,11 +155,6 @@
                             <input type="url" name="background_image" class="form-control font-monospace" value="{{ old('background_image', $category->background_image) }}" placeholder="https://...">
                             <small class="text-muted">Gambar latar belakang saat pengunjung memilih kategori ini di Kiosk.</small>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Kata Kunci Filter Katalog (Pisahkan dengan koma)</label>
-                            <input type="text" name="mc_keywords" class="form-control" value="{{ old('mc_keywords', $category->mc_keywords) }}" placeholder="topi, headwear, cap">
-                            <small class="text-muted">Digunakan untuk mencocokkan produk dari master katalog.</small>
-                        </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="is_active" value="1" id="catActiveSwitch{{ $category->id }}" {{ $category->is_active ? 'checked' : '' }}>
                             <label class="form-check-label fw-semibold" for="catActiveSwitch{{ $category->id }}">Kategori Aktif di Kiosk</label>
@@ -191,7 +184,7 @@
             </small>
         </div>
         <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary">{{ $categoryProducts->count() }} Produk Ditemukan</span>
+            <span class="badge bg-primary">{{ $categoryProducts->where('is_fit_visible', true)->count() }} Produk Dipilih</span>
             <form method="GET" action="{{ route('admin.fit-and-go.devices.edit', $device) }}" class="d-flex gap-1">
                 <input type="hidden" name="tab" value="catalog">
                 <input type="hidden" name="category" value="{{ $selectedCategory->code }}">
@@ -252,7 +245,7 @@
                                 @if($product->is_fit_visible)
                                     <i class="bi bi-eye-fill me-1"></i>Tampil di Kiosk
                                 @else
-                                    <i class="bi bi-eye-slash-fill me-1"></i>Sembunyi di Kiosk
+                                    <i class="bi bi-plus-lg me-1"></i>Tambahkan ke Kategori
                                 @endif
                             </button>
                         </form>
@@ -265,7 +258,7 @@
                         @if(!empty($searchQuery))
                             Tidak ada produk yang cocok dengan pencarian "<strong>{{ $searchQuery }}</strong>".
                         @else
-                            Tidak ada produk yang cocok dengan kata kunci kategori ini (<code>{{ $selectedCategory->mc_keywords }}</code>).
+                            Belum ada produk di katalog. Tambahkan produk melalui menu Products.
                         @endif
                     </td>
                 </tr>
