@@ -60,6 +60,46 @@ class Product extends Model
     }
 
     /**
+     * Get product technologies from PIM payload.
+     */
+    public function getTechnologiesAttribute(): array
+    {
+        return $this->pim_payload['technology'] ?? [];
+    }
+
+    /**
+     * Get product activities from PIM payload.
+     */
+    public function getActivitiesAttribute(): array
+    {
+        return $this->pim_payload['activity'] ?? [];
+    }
+
+    /**
+     * Get product specifications from PIM payload.
+     */
+    public function getSpecificationsAttribute(): array
+    {
+        return $this->pim_payload['specification'] ?? [];
+    }
+
+    /**
+     * Get product custom attributes from PIM payload.
+     */
+    public function getCustomAttributesListAttribute(): array
+    {
+        return $this->pim_payload['customAtributes'] ?? [];
+    }
+
+    /**
+     * Get product weight from PIM payload.
+     */
+    public function getWeightAttribute(): ?int
+    {
+        return isset($this->pim_payload['weight']) ? (int) $this->pim_payload['weight'] : null;
+    }
+
+    /**
      * Get image URL accessor.
      */
     public function getImageUrlAttribute(): ?string

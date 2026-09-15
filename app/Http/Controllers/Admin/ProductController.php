@@ -209,6 +209,17 @@ class ProductController extends Controller
                         }
                     }
                 }
+
+                // Attach raw PIM payloads and enrichment structures
+                $result['pim_payload'] = $pim['product'];
+                $result['pim_image_payload'] = $pim['image'] ?? null;
+                $result['technology'] = $pim['product']['technology'] ?? [];
+                $result['activity'] = $pim['product']['activity'] ?? [];
+                $result['specification'] = $pim['product']['specification'] ?? [];
+                $result['customAtributes'] = $pim['product']['customAtributes'] ?? [];
+                if (!empty($pim['product']['weight'])) {
+                    $result['weight'] = (int) $pim['product']['weight'];
+                }
             }
         } catch (\Throwable $e) {
             // ignore PIM lookup failure

@@ -67,6 +67,12 @@ class PimPayload
     public function assets(array $product, array $image, string $sku): array
     {
         $assets = collect($image['variant'] ?? [])->firstWhere('sku', $sku)['image'] ?? [];
+        if (empty($assets)) {
+            $generic = collect($image['generic'] ?? [])->firstWhere('sku', $product['generic'])['image'] ?? [];
+            if (!empty($generic)) {
+                $assets = $generic;
+            }
+        }
         if (!collect($assets)->contains('type', 'main_image')) {
             $generic = collect($image['generic'] ?? [])->firstWhere('sku', $product['generic'])['image'] ?? [];
             $main = collect($generic)->firstWhere('type', 'main_image');

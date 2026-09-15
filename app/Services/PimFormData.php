@@ -17,10 +17,16 @@ class PimFormData
         } catch (\JsonException $e) {
             throw ValidationException::withMessages(['pim_payload_json' => 'Payload PIM harus berupa JSON yang valid.']);
         }
-        $service = app(PimPayload::class);
-        $payload = $service->validate($input);
-        if (!collect($payload['product']['variant'])->contains('sku', $data['sku'] ?? '')) {
-            throw ValidationException::withMessages(['sku' => 'Pilih SKU yang terdapat dalam payload PIM.']);
+        $genericSku = (string) ($payload['product']['generic'] ?? '');
+        $currentSku = (string) ($data['sku'] ?? '');
+        $variantSkus = collect($payload['product']['variant'] ?? [])->pluck('sku')->map(fn($s) => (string)$s)->all();
+
+        $skuMatches = $currentSku === $genericSku
+            || in_array($currentSku, $variantSkus, true)
+            || (!empty($genericSku) && str_starts_with($currentSku, $genericSku));
+
+        if (!$skuMatches) {
+            throw ValidationException::withMessages(['sku' => 'SKU harus sesuai dengan kode generic (' . $genericSku . ') atau salah satu SKU varian dalam payload PIM.']);
         }
         return array_merge($data, [
             'pim_payload' => $payload['product'],
