@@ -92,8 +92,26 @@ class PimPayload
                 : ['url' => $asset['url'], 'role' => $role];
         }, $assets);
         return [
-            'pim_media' => $media,
+            'pim_media' => array_merge($media, $this->supplementalMedia($product)),
             'image' => collect($media)->firstWhere('role', 'main_image')['url'] ?? ($media[0]['url'] ?? null),
         ];
+    }
+
+    public function supplementalMedia(array $product): array
+    {
+        $media = [];
+        foreach ($product['media'] ?? [] as $group) {
+            foreach ($group['files'] ?? [] as $file) {
+                $media[] = ['url' => $file['value'], 'role' => $group['attributeCode'],
+                    'description' => $file['description'] ?? '', 'sku' => $product['generic']];
+            }
+        }
+        foreach ($product['technology'] ?? [] as $technology) {
+            if (!empty($technology['image'])) {
+                $media[] = ['url' => $technology['image'], 'role' => 'technology',
+                    'description' => $technology['name'] ?? '', 'sku' => $product['generic']];
+            }
+        }
+        return $media;
     }
 }

@@ -70,86 +70,9 @@ class PimController extends Controller
 
     public function sync(Request $request)
     {
-        $startedAt = now();
-        $baseUrl = rtrim(config('pim.url', 'http://192.168.18.31:8001'), '/');
-
-        try {
-            $response = Http::timeout(config('pim.timeout', 15))->get($baseUrl . '/api/articles/publish-list', [
-                'limit' => 100,
-            ]);
-
-            if (! $response->successful()) {
-                return redirect()->route('admin.pim.index')->with('error', 'Gagal menghubungi PIM API (HTTP ' . $response->status() . ').');
-            }
-
-            $articles = $response->json('data.data') ?? [];
-            if (empty($articles)) {
-                return redirect()->route('admin.pim.index')->with('error', 'Tidak ada artikel ditemukan di PIM.');
-            }
-
-            $createdCount = 0;
-            $updatedCount = 0;
-
-            DB::beginTransaction();
-
-            foreach ($articles as $art) {
-                $sku = (string) ($art['sap_id'] ?? '');
-                if (! $sku) continue;
-
-                $name = $art['name'] ?? ('SKU ' . $sku);
-                $image = $art['thumbnails_image'] ?? null;
-
-                $product = Product::where('sku', $sku)->first();
-
-                if (! $product) {
-                    Product::create([
-                        'sku' => $sku,
-                        'name' => $name,
-                        'image' => $image,
-                        'price' => 0,
-                        'stock' => 0,
-                    ]);
-                    $createdCount++;
-                } else {
-                    $updates = [];
-                    if ($product->name !== $name && ! empty($name)) {
-                        $updates['name'] = $name;
-                    }
-                    if (! empty($image) && empty($product->image)) {
-                        $updates['image'] = $image;
-                    }
-                    if (! empty($updates)) {
-                        $product->update($updates);
-                        $updatedCount++;
-                    }
-                }
-            }
-
-            DB::commit();
-
-            $msg = sprintf('Sinkronisasi katalog PIM berhasil. Total: %d artikel diproses (%d baru, %d diperbarui).', count($articles), $createdCount, $updatedCount);
-
-            SyncLog::create([
-                'source' => 'pim-web',
-                'status' => 'success',
-                'message' => $msg,
-                'created_at' => $startedAt,
-            ]);
-
-            return redirect()->route('admin.pim.index')->with('success', $msg);
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-
-            SyncLog::create([
-                'source' => 'pim-web',
-                'status' => 'failed',
-                'message' => 'Sinkronisasi PIM gagal: ' . $e->getMessage(),
-                'created_at' => $startedAt,
-            ]);
-
-            return redirect()->route('admin.pim.index')->with('error', 'Terjadi kesalahan saat sinkronisasi PIM: ' . $e->getMessage());
-        }
+        $result = app(\App\Services\PimCatalogSync::class)->run('web');
+        return redirect()->route('admin.pim.index')
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     public function scan(Request $request, \App\Services\PimFolderImporter $importer)

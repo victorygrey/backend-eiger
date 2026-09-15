@@ -21,9 +21,12 @@ class ProductVariantResource extends JsonResource
             'name'       => $this->name,
             'color'      => $this->color,
             'size'       => $this->size,
+            'ecmsku'     => $this->ecmsku,
+            'moq'        => $this->moq,
+            'custom_attributes' => $this->custom_attributes ?? [],
             'price'      => $this->price,
             'stock'      => $this->stock,
-            'image'      => $this->image,
+            'image'      => str_starts_with($this->image ?? '', '/api/pim-media/') ? url($this->image) : $this->image,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

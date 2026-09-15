@@ -1,4 +1,4 @@
-<div class="border rounded-3 p-3 mb-4 bg-light bg-opacity-50" id="pim-product-form"
+<div class="mb-3" id="pim-product-form"
     data-lookup="{{ route('admin.products.pim-lookup') }}"
     data-catalog-lookup="{{ route('admin.products.catalog-lookup') }}">
     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -24,109 +24,6 @@
     <div id="pim-feedback" role="status" class="small mb-2"></div>
 
     <div id="pim-gallery" class="d-flex gap-2 overflow-auto my-2"></div>
-
-    <!-- PIM Enrichment Card: Technology, Activity, Specification, Custom Attributes -->
-    <div id="pim-enrichment-card" class="card border-0 shadow-sm rounded-3 mt-3 mb-3 {{ (isset($product) && !empty($product->pim_payload)) ? '' : 'd-none' }}" style="background: #ffffff;">
-        <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between">
-            <span class="fw-bold small text-dark"><i class="bi bi-stars text-warning me-2"></i>PIM Enrichment Master Data</span>
-            <span class="badge bg-primary bg-opacity-10 text-primary small" id="pim-enrichment-status">Terverifikasi 1:1 PIM</span>
-        </div>
-        <div class="card-body p-3">
-            <div class="row g-3">
-                <!-- Column 1: Technology & Activities -->
-                <div class="col-md-6 border-end">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-cpu me-1 text-primary"></i>Teknologi Produk (Technologies)</label>
-                        <div id="pim-tech-container" class="d-flex flex-column gap-2">
-                            @if(isset($product) && !empty($product->technologies))
-                                @foreach($product->technologies as $tech)
-                                    <div class="p-2 border rounded-2 bg-light bg-opacity-50">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span class="badge bg-primary text-white fw-bold">{{ $tech['name'] ?? 'TEKNOLOGI' }}</span>
-                                        </div>
-                                        <div class="small text-muted mt-1">{{ $tech['description'] ?? '' }}</div>
-                                    </div>
-                                @endforeach
-                            @else
-                                <span class="text-muted small fst-italic">Belum ada data teknologi.</span>
-                            @endif
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-activity me-1 text-danger"></i>Aktivitas & Ketahanan (Activities & Ratings)</label>
-                        <div id="pim-activity-container" class="d-flex flex-column gap-2">
-                            @if(isset($product) && !empty($product->activities))
-                                @foreach($product->activities as $act)
-                                    <div class="p-2 border rounded-2 bg-light bg-opacity-50">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span class="fw-semibold small text-dark">{{ $act['name'] ?? 'Aktivitas' }}</span>
-                                            @if(isset($act['rating']) && $act['rating'] > 0)
-                                                <span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>{{ $act['desc_rating'] ?? ($act['rating'] . '/5') }}</span>
-                                            @endif
-                                        </div>
-                                        <div class="small text-muted">{{ $act['description'] ?? '' }}</div>
-                                    </div>
-                                @endforeach
-                            @else
-                                <span class="text-muted small fst-italic">Belum ada data aktivitas.</span>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Column 2: Specifications & Custom Attributes -->
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-rulers me-1 text-success"></i>Spesifikasi Fisik (Specifications)</label>
-                        <div id="pim-spec-container" class="row g-2">
-                            @if(isset($product) && !empty($product->specifications))
-                                @foreach($product->specifications as $spec)
-                                    <div class="col-6">
-                                        <div class="p-2 border rounded-2 bg-light bg-opacity-50 text-center">
-                                            <div class="text-muted text-uppercase" style="font-size: 0.72rem;">{{ $spec['name'] ?? $spec['code'] }}</div>
-                                            <div class="fw-bold small text-dark">{{ $spec['value'] ?? '-' }}</div>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            @else
-                                <div class="col-12"><span class="text-muted small fst-italic">Belum ada data spesifikasi.</span></div>
-                            @endif
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-tags me-1 text-info"></i>Atribut Tambahan (Custom Attributes)</label>
-                        <div id="pim-attr-container" class="table-responsive border rounded-2 bg-light bg-opacity-25" style="max-height: 180px;">
-                            <table class="table table-sm table-borderless mb-0 small">
-                                <tbody>
-                                    @if(isset($product) && !empty($product->custom_attributes_list))
-                                        @foreach($product->custom_attributes_list as $ca)
-                                            <tr class="border-bottom border-light">
-                                                <th class="text-muted ps-2 py-1" style="width: 40%;">{{ $ca['attributeCode'] ?? '' }}</th>
-                                                <td class="text-dark pe-2 py-1 fw-semibold">{{ strip_tags($ca['value'] ?? '-') }}</td>
-                                            </tr>
-                                        @endforeach
-                                    @else
-                                        <tr><td class="text-muted ps-2 py-1 fst-italic">Belum ada atribut kustom.</td></tr>
-                                    @endif
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <details class="mt-2">
-        <summary class="small text-muted mb-2">Lihat payload mentah PIM (Opsional / Debugging)</summary>
-        <label class="form-label small" for="pim-payload">Detail produk (JSON)</label>
-        <textarea id="pim-payload" name="pim_payload_json" class="form-control font-monospace mb-2 small" rows="6">{{ old('pim_payload_json', isset($product) && $product->pim_payload ? json_encode($product->pim_payload, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) : '') }}</textarea>
-        <label class="form-label small" for="pim-images">Image to Channel (JSON)</label>
-        <textarea id="pim-images" name="pim_image_payload_json" class="form-control font-monospace small" rows="5">{{ old('pim_image_payload_json', isset($product) && $product->pim_image_payload ? json_encode($product->pim_image_payload, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) : '') }}</textarea>
-    </details>
-    @error('pim_payload_json') <div class="text-danger small">{{ $message }}</div> @enderror
 </div>
 
 <script>
@@ -148,8 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const actContainer = el('pim-activity-container');
         const specContainer = el('pim-spec-container');
         const attrContainer = el('pim-attr-container');
+        const mediaContainer = el('pim-extra-media');
+        const variantContainer = el('pim-variant-data');
 
-        if (!p || (!p.technology?.length && !p.activity?.length && !p.specification?.length && !p.customAtributes?.length)) {
+        if (!p || (!p.technology?.length && !p.activity?.length && !p.specification?.length && !p.customAtributes?.length && !p.media?.length && !p.variant?.length)) {
             card.classList.add('d-none');
             return;
         }
@@ -227,6 +126,26 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 attrContainer.innerHTML = '<span class="text-muted small fst-italic p-2 d-block">Belum ada atribut kustom.</span>';
             }
+        }
+        if (mediaContainer) {
+            const files = (p.media || []).flatMap(group => (group.files || []).map(file => ({group, file})));
+            mediaContainer.innerHTML = files.length ? files.map(({group, file}) => `
+                <div class="p-2 mb-2 border rounded-2 bg-light bg-opacity-50">
+                    <strong>${escapeHtml(group.name || group.attributeCode || 'Media')}</strong>
+                    <span class="badge bg-light text-dark ms-1">${escapeHtml(group.attributeCode || '')}</span>
+                    <div class="text-muted">${escapeHtml(file.description || '')}</div>
+                    <div class="font-monospace text-break">${escapeHtml(file.value || '')}</div>
+                </div>`).join('') : '<span class="text-muted fst-italic">Belum ada media tambahan.</span>';
+        }
+        if (variantContainer) {
+            variantContainer.innerHTML = (p.variant || []).length ? p.variant.map(v => `
+                <div class="col-md-6"><div class="p-2 border rounded-2 bg-light bg-opacity-50 h-100 small">
+                    <div class="fw-bold text-dark">${escapeHtml(v.name || v.sku || 'Varian')}</div>
+                    <div class="font-monospace">${escapeHtml(v.sku || '')}</div>
+                    <div>ECM SKU: ${escapeHtml(v.ecmsku || '—')} · MOQ: ${escapeHtml(v.moq || '—')}</div>
+                    <div>Warna: ${escapeHtml(v.color || '—')} · Ukuran: ${escapeHtml(v.size || '—')}</div>
+                    ${(v.customAttributes || []).map(a => `<div><span class="text-muted">${escapeHtml(a.attributeCode || '')}:</span> ${escapeHtml(a.value || '—')}</div>`).join('')}
+                </div></div>`).join('') : '<div class="col-12 text-muted fst-italic small">Belum ada metadata varian.</div>';
         }
     }
 
