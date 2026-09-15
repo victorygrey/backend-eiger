@@ -147,6 +147,8 @@ class CareSyncService
             // Separate items into Parent Articles (9-digit or standalone) and Variants (12-digit)
             $parentItems = [];
             $variantItems = [];
+            $explicitParentPrices = [];
+            $variantPrices = [];
 
             foreach ($items as $item) {
                 $sku = (string) ($item['sku'] ?? '');
@@ -165,6 +167,7 @@ class CareSyncService
                 $sku = $pItem['sku'];
                 $name = $pItem['name'] ?? null;
                 $price = isset($pItem['price']) ? (float) $pItem['price'] : null;
+                if ($price !== null) $explicitParentPrices[$sku] = true;
                 $stock = isset($pItem['stock']) ? (int) $pItem['stock'] : null;
 
                 $product = Product::where('sku', $sku)->first();
@@ -239,6 +242,10 @@ class CareSyncService
                 }
 
                 $vPrice = isset($vItem['price']) ? (float) $vItem['price'] : (float) $parent->price;
+                if (isset($vItem['price'])) {
+                    $variantPrices[$parentSku] = isset($variantPrices[$parentSku])
+                        ? min($variantPrices[$parentSku], $vPrice) : $vPrice;
+                }
                 $vStock = isset($vItem['stock']) ? (int) $vItem['stock'] : 0;
 
                 $variant = \App\Models\ProductVariant::updateOrCreate(
@@ -276,9 +283,13 @@ class CareSyncService
             // 4. Update parent products total stock from variants
             foreach (Product::has('variants')->get() as $p) {
                 $totalStock = $p->variants()->sum('stock');
-                if ((int) $p->stock !== $totalStock) {
-                    $p->update(['stock' => $totalStock]);
+                $updates = [];
+                if ((int) $p->stock !== $totalStock) $updates['stock'] = $totalStock;
+                if (isset($variantPrices[$p->sku]) && !isset($explicitParentPrices[$p->sku])
+                    && (float) $p->price !== $variantPrices[$p->sku]) {
+                    $updates['price'] = $variantPrices[$p->sku];
                 }
+                if ($updates) $p->update($updates);
             }
 
             $status  = 'success';

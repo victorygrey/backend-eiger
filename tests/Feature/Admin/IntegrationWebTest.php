@@ -41,20 +41,18 @@ class IntegrationWebTest extends TestCase
     public function test_sync_all_triggers_both_pim_and_care(): void
     {
         Http::fake([
-            '*/api/articles/publish-list*' => Http::response([
-                'status' => true,
-                'message' => 'Success',
-                'data' => [
-                    'data' => [
-                        [
-                            'sap_id' => '910009029',
-                            'name' => 'TOURER WANDER 1.1 22L 1A',
-                            'mc_name' => 'Tas',
-                            'thumbnails_image' => 'http://192.168.18.31:8001/media/sample.jpg',
-                        ],
-                    ],
-                    'pagination' => ['total' => 1],
-                ],
+            '*/api/ui/articles*' => Http::response([
+                'data' => [['sap_id' => '910009029']],
+                'pagination' => ['total_pages' => 1],
+            ], 200),
+            '*/api/articles/910009029/product-payload' => Http::response([
+                'generic' => '910009029',
+                'name' => 'TOURER WANDER 1.1 22L 1A',
+                'mainImage' => 'https://example.com/cover.jpg',
+                'variant' => [['sku' => '910009029', 'name' => 'TOURER WANDER 1.1 22L 1A']],
+            ], 200),
+            '*/api/articles/910009029/image-payload' => Http::response([
+                'generic' => [], 'variant' => [],
             ], 200),
             '*/api/server/pricing_details*' => Http::response([
                 'data' => [
@@ -86,10 +84,11 @@ class IntegrationWebTest extends TestCase
         $this->assertDatabaseHas('products', [
             'sku' => '910009029',
             'name' => 'TOURER WANDER 1.1 22L 1A',
+            'image' => 'https://example.com/cover.jpg',
             'price' => 250000,
             'stock' => 15,
         ]);
-        $this->assertNotEmpty(Product::where('sku', '910009029')->value('image'));
+        $this->assertSame('https://example.com/cover.jpg', Product::where('sku', '910009029')->value('image'));
 
         $this->assertDatabaseHas('product_variants', [
             'sku' => '910009029001',
