@@ -86,6 +86,8 @@
                     @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
+                @include('admin.products._pim_enrichment')
+
                 <div class="col-md-6">
                     <div class="form-check form-switch">
                         <input type="checkbox" name="is_featured" value="1" id="is_featured"
