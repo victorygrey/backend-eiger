@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\SyncLog;
+use App\Services\PimCareProductMapper;
 use App\Services\PimPayload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PimProductController extends Controller
 {
-    public function store(Request $request, PimPayload $service)
+    public function store(Request $request, PimPayload $service, PimCareProductMapper $mapper)
     {
         abort_unless(config('pim.legacy_http_enabled'), 404);
         $token = config('pim.inbound_token');
@@ -25,42 +26,44 @@ class PimProductController extends Controller
             $media[$variant['sku']] = $service->mediaValues($data['product'], $data['image'], $variant['sku']);
         }
         $genericMedia = $service->mediaValues($data['product'], $data['image'], $data['product']['generic']);
-        $count = DB::transaction(function () use ($data, $media, $genericMedia) {
+        $catalog = $mapper->map($data['product'], $data['image']);
+        $count = DB::transaction(function () use ($data, $media, $genericMedia, $catalog) {
             $detail = $data['product'];
-            $attributes = collect($detail['customAtributes'])->pluck('value', 'attributeCode');
-            foreach ($detail['variant'] as $variant) {
-                $values = array_merge($media[$variant['sku']], [
-                    'name' => $variant['name'],
-                    'pim_payload' => $detail,
-                    'pim_image_payload' => $data['image'],
-                    'pim_catalog_active' => true,
-                ]);
-                if ($attributes->has('long_description') || $attributes->has('short_description')) {
-                    $values['description'] = $attributes->get('long_description') ?: $attributes->get('short_description');
+            foreach ($detail['variant'] as $pimVariant) {
+                $existingLegacyProduct = Product::where('sku', $pimVariant['sku'])->first();
+                if ($existingLegacyProduct && $existingLegacyProduct->sku !== $detail['generic']) {
+                    $existingLegacyProduct->update(array_merge($media[$pimVariant['sku']], [
+                        'name' => $pimVariant['name'],
+                        'description' => $catalog['description'],
+                        'pim_payload' => $detail,
+                        'pim_image_payload' => $data['image'],
+                        'pim_catalog_active' => true,
+                    ]));
                 }
-                // CARE retains price, stock, zone and RFID ownership.
-                Product::updateOrCreate(['sku' => $variant['sku']], $values);
             }
 
-            // Also ensure generic parent product exists and links variants
             $genericSku = $detail['generic'] ?? null;
             if ($genericSku) {
                 $parentValues = [
-                    'name' => $detail['name'] ?? ($detail['variant'][0]['name'] ?? 'EIGER Product'),
+                    'name' => $catalog['name'] ?: ($detail['variant'][0]['name'] ?? 'EIGER Product'),
+                    'zone_id' => $catalog['zone_id'],
+                    'material' => $catalog['material'],
+                    'description' => $catalog['description'],
                     'pim_payload' => $detail,
                     'pim_image_payload' => $data['image'],
                     'pim_catalog_active' => true,
                     'pim_media' => $genericMedia['pim_media'],
                     'image' => $genericMedia['image'] ?? ($detail['mainImage'] ?? null),
                 ];
-                if ($attributes->has('long_description') || $attributes->has('short_description')) {
-                    $parentValues['description'] = $attributes->get('long_description') ?: $attributes->get('short_description');
+                if ($catalog['care_found']) {
+                    $parentValues['price'] = $catalog['price'];
+                    $parentValues['stock'] = $catalog['stock'];
                 }
-                if ($attributes->has('material')) $parentValues['material'] = $attributes->get('material');
-
                 $parent = Product::updateOrCreate(['sku' => $genericSku], $parentValues);
 
-                foreach ($detail['variant'] as $variant) {
+                $syncedSkus = [];
+                foreach ($catalog['variants'] as $variant) {
+                    $syncedSkus[] = $variant['sku'];
                     $parent->variants()->updateOrCreate(
                         ['sku' => $variant['sku']],
                         [
@@ -70,17 +73,25 @@ class PimProductController extends Controller
                             'ecmsku' => $variant['ecmsku'] ?? null,
                             'moq' => $variant['moq'] ?? null,
                             'custom_attributes' => $variant['customAttributes'] ?? [],
-                            'image' => $media[$variant['sku']]['image'] ?? $parent->image,
+                            'price' => $variant['price'] ?? $parent->price,
+                            'stock' => $variant['stock'] ?? 0,
+                            'image' => $variant['image'] ?? ($media[$variant['sku']]['image'] ?? $parent->image),
                         ]
                     );
                 }
+                if ($catalog['care_found']) {
+                    $syncedSkus === []
+                        ? $parent->variants()->delete()
+                        : $parent->variants()->whereNotIn('sku', $syncedSkus)->delete();
+                }
+
             }
             SyncLog::create([
                 'source' => 'pim', 'status' => 'success',
-                'message' => 'PIM article '.$detail['generic'].': '.count($detail['variant']).' variants synchronized.',
+                'message' => 'PIM article '.$detail['generic'].': '.count($catalog['variants']).' CARE variants synchronized.',
                 'synced_at' => now(),
             ]);
-            return count($detail['variant']);
+            return count($catalog['variants']);
         });
         return response()->json(['status' => true, 'message' => 'PIM products synchronized', 'data' => ['synced' => $count]]);
     }

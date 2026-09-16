@@ -71,6 +71,13 @@ class ProductEnrichmentService
     {
         $desc = $description ?? '';
 
+        if (preg_match('/(?:kombinasi bahan|terbuat dari|menggunakan bahan)\s+(.+?)(?=\s+(?:yang|untuk|dengan)|[.,]|$)/i', $desc, $m)) {
+            $candidate = trim(preg_replace('/\s+dan\s+/i', ' & ', $m[1]));
+            if ($candidate !== '' && strlen($candidate) <= 60) {
+                return ucwords(strtolower($candidate));
+            }
+        }
+
         // 1. Explicit pattern "Material : X" or "Bahan : X"
         if (preg_match('/(?:Material|Bahan)\s*:\s*([^.\r\n,]+)/i', $desc, $m)) {
             $candidate = trim($m[1]);
@@ -146,11 +153,8 @@ class ProductEnrichmentService
      */
     public static function resolveZoneId(string $name, string $category = '', ?string $gender = null): ?int
     {
-        if (static::$cachedZones === null) {
-            static::$cachedZones = Zone::all();
-        }
-
-        $zones = static::$cachedZones;
+        // Zones are editable master data; always use the current mapping.
+        $zones = Zone::all();
         if ($zones->isEmpty()) {
             return null;
         }

@@ -24,6 +24,22 @@ class PimProductFormTest extends TestCase
     }
     public function test_catalog_lookup_returns_material_zone_and_scraped_article_variant(): void {
         \App\Models\Zone::create(['name' => 'Zone Tas & Aksesoris', 'code' => 'ACC']);
+        config(['pim.url' => 'http://pim.test', 'services.care.url' => 'http://care.test']);
+        Http::fake([
+            'pim.test/*' => Http::response(['message' => 'not found'], 404),
+            'care.test/api/health' => Http::response(['status' => 'ok']),
+            'care.test/api/server/pricing_details*' => Http::response(['data' => [
+                ['skucode' => '910004724', 'articleprice' => 699000, 'loccode' => '2022'],
+                ['skucode' => '910004724001', 'articleprice' => 699000, 'loccode' => '2022'],
+            ]]),
+            'care.test/api/server/stocks*' => Http::response(['data' => [
+                ['skucode' => '910004724', 'stock' => 8, 'loccode' => '2022'],
+                ['skucode' => '910004724001', 'stock' => 8, 'loccode' => '2022'],
+            ]]),
+            'care.test/api/products' => Http::response(['data' => [
+                ['sku' => '910004724001', 'name' => 'DENALI-NR - BLACK - ALL'],
+            ]]),
+        ]);
         $resp = $this->getJson('/admin/products/catalog-lookup?code=910004724');
         $resp->assertOk();
         $resp->assertJsonPath('sku', '910004724');
@@ -33,7 +49,7 @@ class PimProductFormTest extends TestCase
         $variants = $resp->json('variants');
         $this->assertNotEmpty($variants);
         foreach ($variants as $v) {
-            $this->assertContains(strlen($v['sku']), [9, 12]);
+            $this->assertSame(12, strlen($v['sku']));
             $this->assertStringStartsWith('910004724', $v['sku']);
             $this->assertArrayHasKey('size', $v);
         }

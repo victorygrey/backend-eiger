@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Product;
+use App\Models\Zone;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -15,6 +16,12 @@ class PimIntegrationTest extends TestCase
     {
         parent::setUp();
         config(['pim.legacy_http_enabled' => true, 'pim.copy_http_media' => false]);
+        Http::fake([
+            '*/api/health' => Http::response(['status' => 'ok']),
+            '*/api/server/pricing_details*' => Http::response(['data' => []]),
+            '*/api/server/stocks*' => Http::response(['data' => []]),
+            '*/api/products' => Http::response(['data' => []]),
+        ]);
     }
 
     private function payload(): array
@@ -65,8 +72,8 @@ class PimIntegrationTest extends TestCase
             ->postJson('/api/integrations/pim/product', $this->payload())->assertStatus(500);
         $this->assertDatabaseCount('products', 0);
         $this->withHeader('X-Simulate-Atom-Failure', 'false')->postJson('/api/integrations/pim/product', $this->payload())->assertOk();
-        $this->assertDatabaseHas('products', ['sku' => '910012408001', 'price' => 0, 'stock' => 0]);
         $this->assertDatabaseHas('products', ['sku' => '910012408']);
+        $this->assertDatabaseHas('product_variants', ['sku' => '910012408001', 'price' => 0, 'stock' => 0]);
     }
 
     public function test_cms_proxies_all_read_endpoints_and_publish_without_changing_contract(): void
@@ -138,11 +145,77 @@ class PimIntegrationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.synced', 1);
 
-        $this->assertDatabaseHas('products', [
+        $this->assertDatabaseHas('product_variants', [
             'sku' => '910012408001',
             'name' => 'ACROSS 1.6 WINDPROOF V3 - BLK - M',
-            'description' => 'Long windproof jacket desc',
             'image' => $longUrl,
         ]);
+        $this->assertDatabaseHas('products', [
+            'sku' => '910012408',
+            'description' => 'Long windproof jacket desc',
+        ]);
+    }
+
+    public function test_inbound_pim_publish_enriches_article_with_care_price_stock_and_real_variants(): void
+    {
+        config([
+            'pim.inbound_token' => 'test-secret',
+            'services.care.url' => 'http://care.test',
+            'services.care.store_code' => '2022',
+        ]);
+        $zone = Zone::create(['name' => 'Zone Sepatu & Alas Kaki', 'code' => 'SHOES']);
+        Http::fake([
+            'care.test/api/health' => Http::response(['status' => 'ok']),
+            'care.test/api/server/pricing_details*' => Http::response(['data' => [
+                ['skucode' => '910006090', 'articleprice' => '519200.00', 'loccode' => '2022'],
+                ['skucode' => '910006090001', 'articleprice' => '519200.00', 'loccode' => '2022'],
+                ['skucode' => '910006090002', 'articleprice' => '519200.00', 'loccode' => '2022'],
+            ]]),
+            'care.test/api/server/stocks*' => Http::response(['data' => [
+                ['skucode' => '910006090', 'stock' => 41, 'loccode' => '2022'],
+                ['skucode' => '910006090001', 'stock' => 17, 'loccode' => '2022'],
+                ['skucode' => '910006090002', 'stock' => 24, 'loccode' => '2022'],
+            ]]),
+            'care.test/api/products' => Http::response(['data' => [
+                ['sku' => '910006090001', 'name' => 'CHELINE - CREAM - 36'],
+                ['sku' => '910006090002', 'name' => 'CHELINE - CREAM - 37'],
+            ]]),
+        ]);
+
+        $payload = [
+            'product' => [
+                'generic' => '910006090',
+                'name' => 'CHELINE',
+                'mainImage' => 'https://example.com/cheline.jpg',
+                'customAtributes' => [
+                    ['attributeCode' => 'long_description', 'value' => 'Sepatu dengan kombinasi bahan kulit suede dan poliester yang water-repellent.'],
+                    ['attributeCode' => 'category', 'value' => 'Shoes'],
+                ],
+                // Simulator PIM supplies article-level color/size metadata here.
+                'variant' => [[
+                    'sku' => '910006090', 'name' => 'CHELINE', 'color' => 'CREAM', 'size' => '36, 37',
+                ]],
+            ],
+            'image' => ['generic' => [], 'variant' => []],
+        ];
+
+        $this->withToken('test-secret')->postJson('/api/integrations/pim/product', $payload)
+            ->assertOk()
+            ->assertJsonPath('data.synced', 2);
+
+        $this->assertDatabaseHas('products', [
+            'sku' => '910006090',
+            'price' => 519200,
+            'stock' => 41,
+            'zone_id' => $zone->id,
+            'material' => 'Kulit Suede & Poliester',
+        ]);
+        $this->assertDatabaseHas('product_variants', [
+            'sku' => '910006090001', 'color' => 'CREAM', 'size' => '36', 'price' => 519200, 'stock' => 17,
+        ]);
+        $this->assertDatabaseHas('product_variants', [
+            'sku' => '910006090002', 'color' => 'CREAM', 'size' => '37', 'price' => 519200, 'stock' => 24,
+        ]);
+        $this->assertDatabaseCount('products', 1);
     }
 }
