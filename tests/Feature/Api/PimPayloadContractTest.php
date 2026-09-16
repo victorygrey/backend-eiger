@@ -91,6 +91,7 @@ class PimPayloadContractTest extends TestCase
     public function test_existing_pim_variant_url_uses_the_public_cms_media_copy(): void
     {
         $hash = hash('sha256', $this->png);
+        File::ensureDirectoryExists($this->mediaDir);
         file_put_contents($this->mediaDir.'/'.$hash.'.png', $this->png);
 
         $product = Product::factory()->create();
