@@ -22,6 +22,23 @@ class AuthenticationTest extends TestCase
         $response->assertSee('Masuk ke Sistem');
     }
 
+    public function test_expired_login_form_redirects_to_a_fresh_login_page(): void
+    {
+        $this->app['env'] = 'production';
+
+        $response = $this->post(route('login'), [
+            'email'    => 'superadmin',
+            'password' => 'password',
+        ]);
+
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHas(
+            'status',
+            'Sesi login telah kedaluwarsa. Silakan masukkan kembali akun Anda.'
+        );
+        $this->assertGuest();
+    }
+
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->create([

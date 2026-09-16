@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,5 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (TokenMismatchException $exception, Request $request) {
+            if ($request->isMethod('post') && $request->is('login')) {
+                return redirect()->route('login')->with(
+                    'status',
+                    'Sesi login telah kedaluwarsa. Silakan masukkan kembali akun Anda.'
+                );
+            }
+        });
     })->create();
