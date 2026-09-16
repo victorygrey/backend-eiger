@@ -31,9 +31,14 @@ class CareIntegrationWebTest extends TestCase
 
     public function test_care_web_sync_triggers_and_redirects(): void
     {
-        Product::factory()->create([
+        $product = Product::factory()->create([
             'sku' => '910012408',
             'image' => '/api/pim-media/cover.jpg',
+        ]);
+        $product->variants()->create([
+            'sku' => '910012408',
+            'name' => 'Obsolete article-level variant',
+            'size' => 'S, M, L',
         ]);
         Http::fake([
             '*/api/server/pricing_details*' => Http::response([
@@ -74,6 +79,7 @@ class CareIntegrationWebTest extends TestCase
             'stock' => 25,
             'image' => '/api/pim-media/cover.jpg',
         ]);
+        $this->assertDatabaseMissing('product_variants', ['sku' => '910012408']);
     }
 
     public function test_api_care_sync_endpoint_returns_json(): void

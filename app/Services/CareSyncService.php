@@ -149,6 +149,7 @@ class CareSyncService
             $variantItems = [];
             $explicitParentPrices = [];
             $variantPrices = [];
+            $careVariantSkusByParent = [];
 
             foreach ($items as $item) {
                 $sku = (string) ($item['sku'] ?? '');
@@ -213,6 +214,7 @@ class CareSyncService
             foreach ($variantItems as $vItem) {
                 $vSku = $vItem['sku'];
                 $parentSku = substr($vSku, 0, 9);
+                $careVariantSkusByParent[$parentSku][] = $vSku;
                 $parent = Product::where('sku', $parentSku)->first();
 
                 if (! $parent) {
@@ -266,6 +268,14 @@ class CareSyncService
                     $variant->update(['image' => $parent->image]);
                 }
                 $variantCount++;
+            }
+
+            // CARE is authoritative for sellable variants. Remove obsolete PIM
+            // article-level rows (for example a 9-digit SKU with comma-separated
+            // sizes) and variants that no longer exist in CARE.
+            foreach ($careVariantSkusByParent as $parentSku => $careVariantSkus) {
+                $parent = Product::where('sku', $parentSku)->first();
+                $parent?->variants()->whereNotIn('sku', $careVariantSkus)->delete();
             }
 
             // 3. Clean up any 12-digit variant items previously left directly in the products table
