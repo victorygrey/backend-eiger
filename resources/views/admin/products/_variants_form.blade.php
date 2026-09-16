@@ -29,7 +29,7 @@
                     @forelse($existingVariants as $index => $v)
                         @php
                             $vPhoto = $v['image'] ?? '';
-                            $displayPhoto = $vPhoto ?: $parentCover;
+                            $displayPhoto = \App\Support\PimMediaUrl::toPublicUrl($vPhoto ?: $parentCover);
                         @endphp
                         <tr class="variant-row" data-index="{{ $index }}">
                             <td>

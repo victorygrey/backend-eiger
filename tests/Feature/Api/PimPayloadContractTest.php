@@ -63,13 +63,15 @@ class PimPayloadContractTest extends TestCase
         $parent = Product::where('sku', 'P1')->firstOrFail();
         $this->assertSame('1', $parent->variants()->first()->moq);
         $this->assertSame('ECM1', $parent->variants()->first()->ecmsku);
+        $this->assertSame('/api/pim-media/'.hash('sha256', $this->png).'.png', $parent->variants()->first()->image);
         $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
         $this->getJson('/api/products/'.$saved->id)->assertOk()
             ->assertJsonPath('data.pim_payload.weight', 725)
             ->assertJsonPath('data.pim_payload.variant.0.size', 'M')
             ->assertJsonPath('data.pim_payload.technology.0.id', 'T1');
         $this->getJson('/api/products/'.$parent->id)->assertOk()
-            ->assertJsonPath('data.variants.0.sku', 'P1-M');
+            ->assertJsonPath('data.variants.0.sku', 'P1-M')
+            ->assertJsonPath('data.variants.0.image', url('/api/pim-media/'.hash('sha256', $this->png).'.png'));
     }
 
     public function test_blank_activity_attribute_gets_stable_dummy_and_real_value_is_preserved(): void
@@ -84,6 +86,24 @@ class PimPayloadContractTest extends TestCase
         $base['product']['customAtributes'][1]['value'] = 'Climbing';
         $normalized = $service->validate($base);
         $this->assertSame('Climbing', collect($normalized['product']['customAtributes'])->firstWhere('attributeCode', 'activity')['value']);
+    }
+
+    public function test_existing_pim_variant_url_uses_the_public_cms_media_copy(): void
+    {
+        $hash = hash('sha256', $this->png);
+        file_put_contents($this->mediaDir.'/'.$hash.'.png', $this->png);
+
+        $product = Product::factory()->create();
+        $product->variants()->create([
+            'sku' => '910012408001',
+            'name' => 'Existing variant',
+            'price' => 100000,
+            'stock' => 1,
+            'image' => 'http://pim.test/media/'.$hash.'.png',
+        ]);
+
+        $this->getJson('/api/products/'.$product->id)->assertOk()
+            ->assertJsonPath('data.variants.0.image', url('/api/pim-media/'.$hash.'.png'));
     }
 
     public function test_form_accepts_signed_url_and_legacy_attribute_spelling(): void

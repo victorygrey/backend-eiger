@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\PimMediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,8 +23,10 @@ class ProductResource extends JsonResource
             'stock'           => $this->stock,
             'zone_id'         => $this->zone_id,
             'zone'            => new ZoneResource($this->whenLoaded('zone')),
-            'image'           => str_starts_with($this->image ?? '', '/api/pim-media/') ? url($this->image) : $this->image,
-            'pim_media'       => collect($this->pim_media ?? [])->map(fn ($media) => array_merge($media, ['url' => url($media['url'])]))->all(),
+            'image'           => PimMediaUrl::toPublicUrl($this->image),
+            'pim_media'       => collect($this->pim_media ?? [])->map(fn ($media) => array_merge($media, [
+                'url' => PimMediaUrl::toPublicUrl($media['url'] ?? null),
+            ]))->all(),
             'material'        => $this->material,
             'pim_payload'     => $this->pim_payload,
             'pim_image_payload' => $this->pim_image_payload,

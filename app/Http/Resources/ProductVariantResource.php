@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\PimMediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,7 +27,7 @@ class ProductVariantResource extends JsonResource
             'custom_attributes' => $this->custom_attributes ?? [],
             'price'      => $this->price,
             'stock'      => $this->stock,
-            'image'      => str_starts_with($this->image ?? '', '/api/pim-media/') ? url($this->image) : $this->image,
+            'image'      => PimMediaUrl::toPublicUrl($this->image),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

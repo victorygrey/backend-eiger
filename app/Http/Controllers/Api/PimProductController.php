@@ -75,7 +75,12 @@ class PimProductController extends Controller
                             'custom_attributes' => $variant['customAttributes'] ?? [],
                             'price' => $variant['price'] ?? $parent->price,
                             'stock' => $variant['stock'] ?? 0,
-                            'image' => $variant['image'] ?? ($media[$variant['sku']]['image'] ?? $parent->image),
+                            // Prefer the CMS copy. CARE variants often inherit an
+                            // article-level PIM URL that is unreachable outside LAN.
+                            'image' => $media[$variant['sku']]['image']
+                                ?? $genericMedia['image']
+                                ?? $variant['image']
+                                ?? $parent->image,
                         ]
                     );
                 }
