@@ -16,6 +16,10 @@ class PimIntegrationTest extends TestCase
     {
         parent::setUp();
         config(['pim.legacy_http_enabled' => true, 'pim.copy_http_media' => false]);
+    }
+
+    private function fakeEmptyCare(): void
+    {
         Http::fake([
             '*/api/health' => Http::response(['status' => 'ok']),
             '*/api/server/pricing_details*' => Http::response(['data' => []]),
@@ -50,6 +54,7 @@ class PimIntegrationTest extends TestCase
 
     public function test_publish_upserts_variants_and_preserves_care_fields(): void
     {
+        $this->fakeEmptyCare();
         config(['pim.inbound_token' => 'test-secret']);
         $product = Product::factory()->create(['sku' => '910012408001', 'price' => 123456, 'stock' => 7, 'material' => 'Nylon']);
         for ($i = 0; $i < 2; $i++) {
@@ -66,6 +71,7 @@ class PimIntegrationTest extends TestCase
 
     public function test_new_variant_defaults_and_failed_requests_do_not_write(): void
     {
+        $this->fakeEmptyCare();
         config(['pim.inbound_token' => 'test-secret']);
         $this->withToken('test-secret')->postJson('/api/integrations/pim/product', ['product' => []])->assertUnprocessable();
         $this->withToken('test-secret')->withHeader('X-Simulate-Atom-Failure', 'true')
@@ -104,6 +110,7 @@ class PimIntegrationTest extends TestCase
 
     public function test_cms_accepts_long_s3_urls_and_custom_atributes(): void
     {
+        $this->fakeEmptyCare();
         config(['pim.inbound_token' => 'test-secret']);
         $longUrl = 'https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-3.amazonaws.com/media/1787559064_14_910005551.BLK.36.JPG?X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-southeast-3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-Expires=86400&X-Amz-Signature=f35173e23bb94650b3093c0ef64c0303c247fdd318ac34c94be60e98ba45138d';
 
