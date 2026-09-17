@@ -3,17 +3,16 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\ProductVariant;
+use App\Models\RfidTag;
 use App\Models\SyncLog;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class CareSyncService
 {
-    public function __construct(private readonly CareOmniClient $care)
-    {
-    }
+    public function __construct(private readonly CareOmniClient $care) {}
 
     /**
      * Get the active CARE base URL with auto-discovery fallback.
@@ -33,14 +32,12 @@ class CareSyncService
         $result = $this->care->testConnection();
         $result['url'] = $result['master_url'];
         $result['store_code'] = (string) config('services.care.store_code', '2022');
+
         return $result;
     }
 
     /**
-     * Synchronize products from CARE Simulator API.
-     *
-     * Supports both modern CARE OMNI endpoints (September 2026 spec)
-     * and fallback to legacy dummy endpoints.
+     * Synchronize products from the official CARE OMNI staging/production APIs.
      *
      * @param  string  $source  e.g. 'api' | 'console' | 'scheduler' | 'web'
      * @return array{success: bool, message: string, source: string, status: string, synced_at: string}
@@ -50,18 +47,8 @@ class CareSyncService
         $startedAt = Carbon::now();
 
         try {
-            $baseUrl = $this->care->legacyUrl();
-            $serverKey = config('services.care.server_key');
             $storeCode = config('services.care.store_code', '2022');
-            $timeout = (int) config('services.care.timeout', 10);
-
-            // Attempt 1: CARE OMNI (September 2026) Official Schema
-            $items = $this->fetchFromCareOmni($baseUrl, $serverKey, $storeCode, $timeout);
-
-            // Attempt 2: Fallback to legacy /api/products if CARE OMNI not available
-            if ($items === null) {
-                $items = $this->fetchFromLegacyApi($baseUrl, $timeout);
-            }
+            $items = $this->care->allItems();
 
             $createdCount = 0;
             $updatedCount = 0;
@@ -93,15 +80,17 @@ class CareSyncService
                 $sku = $pItem['sku'];
                 $name = $pItem['name'] ?? null;
                 $price = isset($pItem['price']) ? (float) $pItem['price'] : null;
-                if ($price !== null) $explicitParentPrices[$sku] = true;
+                if ($price !== null) {
+                    $explicitParentPrices[$sku] = true;
+                }
                 $stock = isset($pItem['stock']) ? (int) $pItem['stock'] : null;
 
                 $product = Product::where('sku', $sku)->first();
 
                 if (! $product) {
                     $product = Product::create([
-                        'sku'   => $sku,
-                        'name'  => $name ?: ('SKU ' . $sku),
+                        'sku' => $sku,
+                        'name' => $name ?: ('SKU '.$sku),
                         'price' => $price ?? 0,
                         'stock' => $stock ?? 0,
                     ]);
@@ -143,10 +132,10 @@ class CareSyncService
                 $parent = Product::where('sku', $parentSku)->first();
 
                 if (! $parent) {
-                    $parentName = !empty($vItem['name']) ? explode(' - ', $vItem['name'])[0] : ('SKU ' . $parentSku);
+                    $parentName = ! empty($vItem['name']) ? explode(' - ', $vItem['name'])[0] : ('SKU '.$parentSku);
                     $parent = Product::create([
-                        'sku'   => $parentSku,
-                        'name'  => $parentName,
+                        'sku' => $parentSku,
+                        'name' => $parentName,
                         'price' => isset($vItem['price']) ? (float) $vItem['price'] : 0,
                         'stock' => 0,
                     ]);
@@ -157,7 +146,7 @@ class CareSyncService
                 }
 
                 // Extract color and size from name if available
-                $vName = $vItem['name'] ?? ('Variant ' . $vSku);
+                $vName = $vItem['name'] ?? ('Variant '.$vSku);
                 $color = null;
                 $size = null;
                 if (str_contains($vName, ' - ')) {
@@ -175,21 +164,21 @@ class CareSyncService
                 }
                 $vStock = isset($vItem['stock']) ? (int) $vItem['stock'] : 0;
 
-                $variant = \App\Models\ProductVariant::updateOrCreate(
+                $variant = ProductVariant::updateOrCreate(
                     ['sku' => $vSku],
                     [
                         'product_id' => $parent->id,
-                        'name'       => $vName,
-                        'color'      => $color,
-                        'size'       => $size,
-                        'price'      => $vPrice,
-                        'stock'      => $vStock,
+                        'name' => $vName,
+                        'color' => $color,
+                        'size' => $size,
+                        'price' => $vPrice,
+                        'stock' => $vStock,
                     ]
                 );
                 // CARE owns price and stock; PIM owns the image. A CARE variant may
                 // arrive after its parent was enriched by PIM, so fill only empty
                 // variant images from the stable parent cover.
-                if (!$variant->image && $parent->image) {
+                if (! $variant->image && $parent->image) {
                     $variant->update(['image' => $parent->image]);
                 }
                 $variantCount++;
@@ -209,7 +198,7 @@ class CareSyncService
                 $pSku = substr($old->sku, 0, 9);
                 $parent = Product::where('sku', $pSku)->first();
                 if ($parent) {
-                    \App\Models\RfidTag::where('product_id', $old->id)->update(['product_id' => $parent->id]);
+                    RfidTag::where('product_id', $old->id)->update(['product_id' => $parent->id]);
                     DB::table('tablet_recommendations')->where('product_id', $old->id)->update(['product_id' => $parent->id]);
                     $old->delete();
                 }
@@ -219,15 +208,19 @@ class CareSyncService
             foreach (Product::has('variants')->get() as $p) {
                 $totalStock = $p->variants()->sum('stock');
                 $updates = [];
-                if ((int) $p->stock !== $totalStock) $updates['stock'] = $totalStock;
-                if (isset($variantPrices[$p->sku]) && !isset($explicitParentPrices[$p->sku])
+                if ((int) $p->stock !== $totalStock) {
+                    $updates['stock'] = $totalStock;
+                }
+                if (isset($variantPrices[$p->sku]) && ! isset($explicitParentPrices[$p->sku])
                     && (float) $p->price !== $variantPrices[$p->sku]) {
                     $updates['price'] = $variantPrices[$p->sku];
                 }
-                if ($updates) $p->update($updates);
+                if ($updates) {
+                    $p->update($updates);
+                }
             }
 
-            $status  = 'success';
+            $status = 'success';
             $message = sprintf(
                 'CARE sync completed (Store: %s). Total: %d main products (%d created, %d updated) and %d variants attached.',
                 $storeCode,
@@ -238,9 +231,9 @@ class CareSyncService
             );
 
             $log = SyncLog::create([
-                'source'    => 'care-' . $source,
-                'status'    => $status,
-                'message'   => $message,
+                'source' => 'care-'.$source,
+                'status' => $status,
+                'message' => $message,
                 'synced_at' => $startedAt,
             ]);
 
@@ -252,69 +245,36 @@ class CareSyncService
             Log::info('CareSyncService: success', ['log_id' => $log->id, 'details' => $message]);
 
             return [
-                'success'   => true,
-                'message'   => $message,
-                'source'    => $log->source,
-                'status'    => $status,
+                'success' => true,
+                'message' => $message,
+                'source' => $log->source,
+                'status' => $status,
                 'synced_at' => $startedAt->toIso8601String(),
             ];
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            $message = 'CARE sync failed: ' . $e->getMessage();
+            $message = 'CARE sync failed: '.$e->getMessage();
 
             $log = SyncLog::create([
-                'source'    => 'care-' . $source,
-                'status'    => 'failed',
-                'message'   => $message,
+                'source' => 'care-'.$source,
+                'status' => 'failed',
+                'message' => $message,
                 'synced_at' => $startedAt,
             ]);
 
             Log::error('CareSyncService: failed', [
                 'log_id' => $log->id,
-                'error'  => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return [
-                'success'   => false,
-                'message'   => $message,
-                'source'    => $log->source,
-                'status'    => 'failed',
+                'success' => false,
+                'message' => $message,
+                'source' => $log->source,
+                'status' => 'failed',
                 'synced_at' => $startedAt->toIso8601String(),
             ];
         }
-    }
-
-    /**
-     * Fetch prices and stocks from official CARE OMNI endpoints.
-     *
-     * @return array<int, array{sku: string, price: ?float, stock: ?int, name: ?string}>|null
-     */
-    protected function fetchFromCareOmni(string $baseUrl, ?string $serverKey, string $storeCode, int $timeout): ?array
-    {
-        try {
-            return $this->care->allItems();
-        } catch (\Throwable $e) {
-            Log::warning('fetchFromCareOmni error, attempting fallback', ['error' => $e->getMessage()]);
-            return null;
-        }
-    }
-
-    /**
-     * Fallback to legacy /api/products endpoint.
-     *
-     * @return array<int, array{sku: string, price: ?float, stock: ?int, name: ?string}>
-     */
-    protected function fetchFromLegacyApi(string $baseUrl, int $timeout): array
-    {
-        $url = rtrim($baseUrl, '/') . '/api/products';
-        $response = Http::timeout($timeout)->acceptJson()->get($url);
-
-        if (! $response->successful()) {
-            throw new \RuntimeException('CARE API error with status code ' . $response->status());
-        }
-
-        $json = $response->json();
-        return $json['data'] ?? [];
     }
 }

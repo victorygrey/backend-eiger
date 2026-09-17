@@ -18,11 +18,6 @@ class CareOmniClient
         return rtrim((string) config('services.care.wms_url'), '/');
     }
 
-    public function legacyUrl(): string
-    {
-        return rtrim((string) config('services.care.legacy_url'), '/');
-    }
-
     /**
      * Read CARE commercial data for one generic article.
      *
@@ -263,15 +258,21 @@ class CareOmniClient
         $storeCode = (string) config('services.care.store_code');
         $now = CarbonImmutable::now();
         $eligible = array_values(array_filter($rows, function (array $row) use ($storeCode, $now) {
-            if (! empty($row['deleted_at'])) return false;
-            if (! in_array((string) ($row['loccode'] ?? ''), ['', $storeCode], true)) return false;
+            if (! empty($row['deleted_at'])) {
+                return false;
+            }
+            if (! in_array((string) ($row['loccode'] ?? ''), ['', $storeCode], true)) {
+                return false;
+            }
             $from = empty($row['validfrom']) ? null : CarbonImmutable::parse($row['validfrom'])->startOfDay();
             $to = empty($row['validto']) ? null : CarbonImmutable::parse($row['validto'])->endOfDay();
+
             return (! $from || $from->lte($now)) && (! $to || $to->gte($now));
         }));
         usort($eligible, function (array $a, array $b) use ($storeCode) {
             $aStore = (string) ($a['loccode'] ?? '') === $storeCode ? 1 : 0;
             $bStore = (string) ($b['loccode'] ?? '') === $storeCode ? 1 : 0;
+
             return [$bStore, (string) ($b['validfrom'] ?? ''), (int) ($b['id'] ?? 0)]
                 <=> [$aStore, (string) ($a['validfrom'] ?? ''), (int) ($a['id'] ?? 0)];
         });
@@ -285,7 +286,9 @@ class CareOmniClient
         $grouped = [];
         foreach ($rows as $row) {
             $sku = trim((string) ($row['skucode'] ?? ''));
-            if ($sku !== '') $grouped[$sku][] = $row;
+            if ($sku !== '') {
+                $grouped[$sku][] = $row;
+            }
         }
 
         return collect($grouped)->map(fn (array $skuRows) => $this->preferredPrice($skuRows))->all();
@@ -297,13 +300,22 @@ class CareOmniClient
         $result = [];
         foreach ($rows as $row) {
             $sku = trim((string) ($row['sku_code'] ?? $row['skucode'] ?? $row['sku'] ?? ''));
-            if ($sku === '') continue;
-            if (($row['bin_status'] ?? 'active') !== 'active') continue;
-            if (isset($row['bin_category']) && strtolower((string) $row['bin_category']) !== 'saleable goods') continue;
+            if ($sku === '') {
+                continue;
+            }
+            if (($row['bin_status'] ?? 'active') !== 'active') {
+                continue;
+            }
+            if (isset($row['bin_category']) && strtolower((string) $row['bin_category']) !== 'saleable goods') {
+                continue;
+            }
             $result[$sku] ??= ['name' => (string) ($row['sku_name'] ?? ''), 'stock' => 0];
-            if ($result[$sku]['name'] === '' && ! empty($row['sku_name'])) $result[$sku]['name'] = (string) $row['sku_name'];
+            if ($result[$sku]['name'] === '' && ! empty($row['sku_name'])) {
+                $result[$sku]['name'] = (string) $row['sku_name'];
+            }
             $result[$sku]['stock'] += (int) ($row['available_qty'] ?? $row['available_stock'] ?? $row['stock'] ?? 0);
         }
+
         return $result;
     }
 
@@ -311,7 +323,10 @@ class CareOmniClient
     private function parseVariantName(string $name): array
     {
         $parts = array_values(array_filter(array_map('trim', preg_split('/\s*(?:-|,)\s*/', $name) ?: []), 'strlen'));
-        if (count($parts) < 3) return ['', ''];
+        if (count($parts) < 3) {
+            return ['', ''];
+        }
+
         return [$parts[count($parts) - 2], $parts[count($parts) - 1]];
     }
 }

@@ -127,4 +127,26 @@ class CareIntegrationWebTest extends TestCase
             'stock' => 15,
         ]);
     }
+
+    public function test_care_sync_never_falls_back_to_the_local_simulator(): void
+    {
+        Http::fake([
+            '*/api/server/pricing_details*' => Http::response(['message' => 'Unavailable'], 503),
+            '*/api/products*' => Http::response([
+                'data' => [[
+                    'sku' => '910099999',
+                    'name' => 'Simulator product',
+                    'price' => 100000,
+                    'stock' => 10,
+                ]],
+            ], 200),
+        ]);
+
+        $response = $this->post(route('admin.care.sync'));
+
+        $response->assertRedirect(route('admin.care.index'));
+        $response->assertSessionHas('error');
+        $this->assertDatabaseMissing('products', ['sku' => '910099999']);
+        Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/products'));
+    }
 }
