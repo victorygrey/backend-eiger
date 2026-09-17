@@ -10,6 +10,7 @@ use App\Models\Zone;
 use App\Services\PimCareProductMapper;
 use App\Services\PimProductLookup;
 use App\Services\ProductEnrichmentService;
+use App\Services\PimProductDataStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -24,7 +25,7 @@ class ProductController extends Controller
             ->withCount('variants')
             ->whereRaw('LENGTH(sku) = 9')
             ->where(function ($query) {
-                $query->whereNull('pim_payload')->orWhere('pim_catalog_active', true);
+                $query->whereDoesntHave('pimRecord')->orWhere('pim_catalog_active', true);
             })
             ->when($request->filled('search'), function ($query) use ($request) {
                 $query->where(function ($q) use ($request) {
@@ -148,9 +149,10 @@ class ProductController extends Controller
         $data['is_discontinued'] = $request->has('is_discontinued');
 
         $variants = $data['variants'] ?? [];
-        unset($data['variants']);
+        $pimSync = $data['_pim_sync'] ?? null;
+        unset($data['variants'], $data['_pim_sync']);
 
-        DB::transaction(function () use ($data, $variants) {
+        DB::transaction(function () use ($data, $variants, $pimSync) {
             $product = Product::create($data);
             foreach ($variants as $var) {
                 $product->variants()->create([
@@ -164,6 +166,9 @@ class ProductController extends Controller
                 ]);
             }
             if ($variants) $product->update(['stock' => $product->variants()->sum('stock')]);
+            if ($pimSync) app(PimProductDataStore::class)->replace(
+                $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
+            );
         });
 
         return redirect()->route('admin.products.index')
@@ -191,10 +196,16 @@ class ProductController extends Controller
         $data['is_discontinued'] = $request->has('is_discontinued');
 
         $variants = $data['variants'] ?? ($request->boolean('variants_submitted') ? [] : null);
-        unset($data['variants']);
-        DB::transaction(function () use ($product, $data, $variants) {
+        $pimSync = $data['_pim_sync'] ?? null;
+        unset($data['variants'], $data['_pim_sync']);
+        DB::transaction(function () use ($product, $data, $variants, $pimSync) {
             $product->update($data);
-            if ($variants === null) return;
+            if ($variants === null) {
+                if ($pimSync) app(PimProductDataStore::class)->replace(
+                    $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
+                );
+                return;
+            }
 
             $existingSku = [];
             foreach ($variants as $var) {
@@ -218,6 +229,9 @@ class ProductController extends Controller
                 $product->variants()->delete();
             }
             $product->update(['stock' => $product->variants()->sum('stock')]);
+            if ($pimSync) app(PimProductDataStore::class)->replace(
+                $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
+            );
         });
 
         return redirect()->route('admin.products.index')

@@ -29,9 +29,11 @@ class PimFormData
         if (!$skuMatches) {
             throw ValidationException::withMessages(['sku' => 'SKU harus sesuai dengan kode generic (' . $genericSku . ') atau salah satu SKU varian dalam payload PIM.']);
         }
-        return array_merge($data, [
-            'pim_payload' => $payload['product'],
-            'pim_image_payload' => $payload['image'],
-        ], $service->mediaValues($payload['product'], $payload['image'], $data['sku']));
+        $media = $service->mediaValues($payload['product'], $payload['image'], $data['sku']);
+        return array_merge($data, ['image' => $media['image'] ?? ($data['image'] ?? null), '_pim_sync' => [
+            'product' => $payload['product'],
+            'image' => $payload['image'],
+            'media' => $media['pim_media'],
+        ]]);
     }
 }

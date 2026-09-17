@@ -53,14 +53,12 @@ class PimCatalogSync
                 }
                 $parentMedia = $this->mediaReferences($assets, $detail, $image, $detail['generic']);
                 DB::transaction(function () use ($detail, $image, $perSku, $parentMedia) {
+                    $dataStore = app(PimProductDataStore::class);
                     $attributes = collect($detail['customAtributes'] ?? [])->pluck('value', 'attributeCode');
                     $description = $attributes->get('long_description') ?: $attributes->get('short_description');
                     $parent = Product::firstOrNew(['sku' => $detail['generic']]);
                     $parent->name = $detail['name'];
-                    $parent->pim_payload = $detail;
-                    $parent->pim_image_payload = $image;
                     $parent->pim_catalog_active = true;
-                    $parent->pim_media = $parentMedia['pim_media'];
                     if ($description !== null) $parent->description = $description;
                     if ($attributes->has('material')) $parent->material = $attributes->get('material');
                     $this->setImage($parent, $parentMedia['image']);
@@ -69,13 +67,11 @@ class PimCatalogSync
                     foreach ($detail['variant'] as $variant) {
                         $product = Product::firstOrNew(['sku' => $variant['sku']]);
                         $product->name = $variant['name'];
-                        $product->pim_payload = $detail;
-                        $product->pim_image_payload = $image;
                         $product->pim_catalog_active = true;
-                        $product->pim_media = $perSku[$variant['sku']]['pim_media'];
                         if ($description !== null) $product->description = $description;
                         $this->setImage($product, $perSku[$variant['sku']]['image']);
                         $product->save();
+                        $dataStore->replace($product, $detail, $image, $perSku[$variant['sku']]['pim_media'], source: 'pim-catalog');
                         if ($variant['sku'] === $detail['generic']) {
                             // Scraped catalogs have no child SKU; the generic row is the parent,
                             // while real 12-digit CARE variants remain in this dropdown.
@@ -88,17 +84,19 @@ class PimCatalogSync
                             }
                             continue;
                         }
-                        ProductVariant::updateOrCreate(['sku' => $variant['sku']], [
+                        $savedVariant = ProductVariant::updateOrCreate(['sku' => $variant['sku']], [
                             'product_id' => $parent->id,
                             'name' => $variant['name'],
                             'color' => $variant['color'] ?? null,
                             'size' => $variant['size'] ?? null,
                             'ecmsku' => $variant['ecmsku'] ?? null,
                             'moq' => $variant['moq'] ?? null,
-                            'custom_attributes' => $variant['customAttributes'] ?? [],
                             'image' => $perSku[$variant['sku']]['image'],
                         ]);
+                        $dataStore->replaceVariantAttributes($savedVariant, $variant['customAttributes'] ?? []);
                     }
+                    $dataStore->replace($parent, $detail, $image, $parentMedia['pim_media'], source: 'pim-catalog',
+                        variantMedia: collect($perSku)->map(fn ($item) => $item['pim_media'] ?? [])->all());
                 });
                 $result['synced']++;
                 $result['variants'] += count($detail['variant']);
@@ -110,7 +108,7 @@ class PimCatalogSync
         }
         $result['success'] = count($result['failed']) === 0;
         if ($result['success']) {
-            Product::whereNotNull('pim_payload')->whereNotIn('sku', array_unique($activeSkus))
+            Product::whereHas('pimRecord')->whereNotIn('sku', array_unique($activeSkus))
                 ->update(['pim_catalog_active' => false]);
         }
         $result['message'] = sprintf('%d/%d artikel dan %d varian PIM tersinkronisasi; %d gagal.',

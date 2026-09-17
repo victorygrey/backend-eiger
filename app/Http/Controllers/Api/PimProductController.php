@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\SyncLog;
 use App\Services\PimCareProductMapper;
 use App\Services\PimPayload;
+use App\Services\PimProductDataStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -29,16 +30,18 @@ class PimProductController extends Controller
         $catalog = $mapper->map($data['product'], $data['image']);
         $count = DB::transaction(function () use ($data, $media, $genericMedia, $catalog) {
             $detail = $data['product'];
+            $dataStore = app(PimProductDataStore::class);
             foreach ($detail['variant'] as $pimVariant) {
                 $existingLegacyProduct = Product::where('sku', $pimVariant['sku'])->first();
                 if ($existingLegacyProduct && $existingLegacyProduct->sku !== $detail['generic']) {
-                    $existingLegacyProduct->update(array_merge($media[$pimVariant['sku']], [
+                    $existingLegacyProduct->update([
                         'name' => $pimVariant['name'],
                         'description' => $catalog['description'],
-                        'pim_payload' => $detail,
-                        'pim_image_payload' => $data['image'],
                         'pim_catalog_active' => true,
-                    ]));
+                        'image' => $media[$pimVariant['sku']]['image'] ?? $existingLegacyProduct->image,
+                    ]);
+                    $dataStore->replace($existingLegacyProduct, $detail, $data['image'],
+                        $media[$pimVariant['sku']]['pim_media'] ?? [], source: 'pim-http');
                 }
             }
 
@@ -49,22 +52,20 @@ class PimProductController extends Controller
                     'zone_id' => $catalog['zone_id'],
                     'material' => $catalog['material'],
                     'description' => $catalog['description'],
-                    'pim_payload' => $detail,
-                    'pim_image_payload' => $data['image'],
                     'pim_catalog_active' => true,
-                    'pim_media' => $genericMedia['pim_media'],
                     'image' => $genericMedia['image'] ?? ($detail['mainImage'] ?? null),
                 ];
                 if ($catalog['care_found']) {
                     $parentValues['price'] = $catalog['price'];
                     $parentValues['stock'] = $catalog['stock'];
+                    $parentValues['care_synced_at'] = now();
                 }
                 $parent = Product::updateOrCreate(['sku' => $genericSku], $parentValues);
 
                 $syncedSkus = [];
                 foreach ($catalog['variants'] as $variant) {
                     $syncedSkus[] = $variant['sku'];
-                    $parent->variants()->updateOrCreate(
+                    $savedVariant = $parent->variants()->updateOrCreate(
                         ['sku' => $variant['sku']],
                         [
                             'name'  => $variant['name'],
@@ -72,7 +73,6 @@ class PimProductController extends Controller
                             'size'  => $variant['size'] ?? null,
                             'ecmsku' => $variant['ecmsku'] ?? null,
                             'moq' => $variant['moq'] ?? null,
-                            'custom_attributes' => $variant['customAttributes'] ?? [],
                             'price' => $variant['price'] ?? $parent->price,
                             'stock' => $variant['stock'] ?? 0,
                             // Prefer the CMS copy. CARE variants often inherit an
@@ -83,12 +83,22 @@ class PimProductController extends Controller
                                 ?? $parent->image,
                         ]
                     );
+                    $dataStore->replaceVariantAttributes($savedVariant, $variant['customAttributes'] ?? []);
                 }
                 if ($catalog['care_found']) {
                     $syncedSkus === []
                         ? $parent->variants()->delete()
                         : $parent->variants()->whereNotIn('sku', $syncedSkus)->delete();
                 }
+
+                $dataStore->replace(
+                    $parent,
+                    $detail,
+                    $data['image'],
+                    $genericMedia['pim_media'],
+                    source: 'pim-http',
+                    variantMedia: collect($media)->map(fn ($item) => $item['pim_media'] ?? [])->all(),
+                );
 
             }
             SyncLog::create([

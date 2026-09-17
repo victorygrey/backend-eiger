@@ -77,9 +77,24 @@ class PimFolderImporter
                             $product = Product::firstOrNew(['sku' => $values['sku']]);
                             // Old drops arriving late must never overwrite more recent content.
                             if ($product->pim_version && strcmp($product->pim_version, $version) >= 0) continue;
+                            $media = $values['pim_media'];
+                            unset($values['pim_media']);
                             $product->fill($values);
-                            $product->pim_version = $version;
                             $product->save();
+                            $payload = $product->pim_payload ?? [
+                                'generic' => $product->sku,
+                                'name' => $product->name,
+                                'mainImage' => $product->image,
+                                'variant' => [],
+                                'customAtributes' => [],
+                                'media' => [],
+                                'technology' => [],
+                                'activity' => [],
+                                'specification' => [],
+                            ];
+                            app(PimProductDataStore::class)->replace(
+                                $product, $payload, $product->pim_image_payload ?? [], $media, $version, 'pim-folder'
+                            );
                             $updated++;
                         }
                         $message = "$updated SKU diperbarui dari batch $batch.";

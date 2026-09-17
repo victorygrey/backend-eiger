@@ -8,6 +8,7 @@ use App\Services\PimPayload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -72,6 +73,30 @@ class PimPayloadContractTest extends TestCase
         $this->getJson('/api/products/'.$parent->id)->assertOk()
             ->assertJsonPath('data.variants.0.sku', 'P1-M')
             ->assertJsonPath('data.variants.0.image', url('/api/pim-media/'.hash('sha256', $this->png).'.png'));
+    }
+
+    public function test_publish_normalizes_queryable_pim_data_out_of_products_table(): void
+    {
+        Http::fake(['storage.eigeradventure.com/*' => Http::response($this->png, 200)]);
+        $payload = $this->payload();
+        $payload['product']['variant'][0]['customAttributes'] = [
+            ['attributeCode' => 'lining', 'value' => 'Mesh'],
+        ];
+
+        $this->withToken('test')->postJson('/api/integrations/pim/product', $payload)->assertOk();
+        $parent = Product::where('sku', 'P1')->firstOrFail();
+        $variant = $parent->variants()->where('sku', 'P1-M')->firstOrFail();
+
+        $this->assertFalse(Schema::hasColumn('products', 'pim_payload'));
+        $this->assertFalse(Schema::hasColumn('products', 'pim_media'));
+        $this->assertDatabaseHas('product_pim_records', ['product_id' => $parent->id, 'generic_sku' => 'P1', 'source' => 'pim-http']);
+        $this->assertDatabaseHas('product_custom_attributes', ['product_id' => $parent->id, 'attribute_code' => 'long_description', 'value' => 'Real description']);
+        $this->assertDatabaseHas('product_technologies', ['product_id' => $parent->id, 'pim_id' => 'T1', 'name' => 'Technology from PIM']);
+        $this->assertDatabaseHas('product_activities', ['product_id' => $parent->id, 'name' => 'Hiking', 'rating' => 4]);
+        $this->assertDatabaseHas('product_specifications', ['product_id' => $parent->id, 'code' => 'PRODUCT_WEIGHT', 'value' => '725']);
+        $this->assertDatabaseHas('product_media', ['product_id' => $parent->id, 'role' => 'main_image']);
+        $this->assertDatabaseHas('product_variant_attributes', ['product_variant_id' => $variant->id, 'attribute_code' => 'lining', 'value' => 'Mesh']);
+        $this->assertSame('Technology from PIM', $parent->fresh()->technologies[0]['name']);
     }
 
     public function test_blank_activity_attribute_gets_stable_dummy_and_real_value_is_preserved(): void

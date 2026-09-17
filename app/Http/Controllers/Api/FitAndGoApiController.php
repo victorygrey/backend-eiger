@@ -198,7 +198,19 @@ class FitAndGoApiController extends Controller
                 $sub->where('name', 'like', "%{$q}%")
                     ->orWhere('sku', 'like', "%{$q}%")
                     ->orWhere('description', 'like', "%{$q}%")
-                    ->orWhere('pim_payload', 'like', "%{$q}%");
+                    ->orWhereHas('customAttributesRelation', fn ($attributes) => $attributes
+                        ->where('attribute_code', 'like', "%{$q}%")
+                        ->orWhere('value', 'like', "%{$q}%"))
+                    ->orWhereHas('technologiesRelation', fn ($technologies) => $technologies
+                        ->where('name', 'like', "%{$q}%")
+                        ->orWhere('description', 'like', "%{$q}%"))
+                    ->orWhereHas('activitiesRelation', fn ($activities) => $activities
+                        ->where('name', 'like', "%{$q}%")
+                        ->orWhere('description', 'like', "%{$q}%"))
+                    ->orWhereHas('specificationsRelation', fn ($specifications) => $specifications
+                        ->where('code', 'like', "%{$q}%")
+                        ->orWhere('name', 'like', "%{$q}%")
+                        ->orWhere('value', 'like', "%{$q}%"));
             });
 
         $query->whereIn('id', $this->visibleProductIds(null, $device));

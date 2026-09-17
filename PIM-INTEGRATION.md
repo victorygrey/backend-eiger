@@ -23,12 +23,58 @@ Tes: `php artisan test`. Tes kontrak mencakup payload lengkap, URL bertanda tang
 
 Alur alternatif: **PIM simulator → file-drop NAS → PIM folder scanner → database CMS → Core API**. Tidak ada HTTP call pada scanner. Bagian di bawah menjelaskan mode alternatif dan contoh setup sebelumnya.
 
+# Penyimpanan data PIM di CMS
+
+CMS memakai model data relasional agar tabel `products` tetap ringkas dan isi payload PIM dapat dicari tanpa membongkar JSON. Payload asli tetap disimpan untuk audit dan kompatibilitas API.
+
+| Tabel | Isi |
+| --- | --- |
+| `products` | Identitas artikel 9 digit, nama, harga dan stok CARE, zona, cover, material, kategori, gender, kelompok produk, berat, status, serta waktu sinkronisasi |
+| `product_variants` | SKU jual/varian, warna, ukuran, harga, stok, MOQ, ECM SKU, dan cover varian |
+| `product_custom_attributes` | Satu baris per `attributeCode` pada artikel |
+| `product_variant_attributes` | Satu baris per custom attribute pada varian |
+| `product_technologies` | Teknologi, deskripsi, dan URL gambar teknologi |
+| `product_activities` | Aktivitas, status pilihan, rating, dan deskripsi rating |
+| `product_specifications` | Spesifikasi berdasarkan kode, nama, nilai, dan unit |
+| `product_media` | Galeri, main image, size chart, video, media teknologi, sumber, checksum, dan relasi varian |
+| `product_pim_records` | Payload produk dan image asli, checksum, versi, sumber, serta waktu diterima |
+
+Kolom JSON lama `pim_payload`, `pim_image_payload`, dan `pim_media` tidak lagi berada di `products`. Model dan API masih menyediakan properti dengan nama tersebut dari tabel relasional, sehingga kontrak respons yang sudah dipakai frontend tetap sama.
+
+Contoh pemeriksaan satu artikel melalui DB Browser for SQLite:
+
+```sql
+SELECT
+    p.sku,
+    p.name,
+    p.category,
+    p.gender,
+    p.material,
+    p.price,
+    p.stock,
+    z.name AS zone,
+    p.pim_synced_at,
+    p.care_synced_at
+FROM products p
+LEFT JOIN zones z ON z.id = p.zone_id
+WHERE p.sku = '910006090';
+```
+
+```sql
+SELECT attribute_code, value
+FROM product_custom_attributes
+WHERE product_id = (SELECT id FROM products WHERE sku = '910006090')
+ORDER BY sort_order;
+```
+
+Migration `2026_09_17_000000_normalize_pim_product_data` memindahkan data JSON lama ke tabel-tabel tersebut sebelum menghapus kolom lama. Deployment tidak memerlukan input ulang data produk.
+
 ## Yang sudah terpasang
 
 - Simulator menulis media fisik dan metadata SKU ke direktori `.partial`, lalu rename ke `.ready` setelah lengkap.
 - `php artisan pim:scan` membaca paket `.ready`, memvalidasi manifest, tipe media, path, dan checksum SHA-256.
 - Impor produk dan catatan batch dilakukan dalam satu transaksi. Harga, stok, zona, material, flag, dan RFID yang sudah ada tidak diubah.
-- Setiap SKU varian menjadi satu produk. Produk baru memakai default harga dan stok nol sampai CARE mengisinya.
+- Artikel generic 9 digit disimpan sebagai produk utama. SKU jual disimpan pada `product_variants`; produk baru memakai default harga dan stok nol sampai CARE mengisinya.
 - Scanner melewati batch yang sudah berhasil dan melindungi konten baru dari batch lama yang datang terlambat.
 - Media disalin ke penyimpanan lokal CMS, sehingga aplikasi pengguna tidak memerlukan kredensial SMB. API `/api/pim-media/{hash.ext}` menyajikan gambar/video; Product API menambahkan `pim_media`.
 - `/admin/pim` menampilkan ketersediaan folder, status batch, error, pemindaian manual, dan retry.
@@ -123,7 +169,7 @@ Perintah tersebut menjalankan seluruh jadwal aplikasi yang sudah ada, termasuk C
 - Batch gagal tidak dicoba ulang terus-menerus. Setelah memperbaiki masalah file/akses, centang **Coba ulang batch gagal** atau jalankan `php artisan pim:scan --retry-failed`.
 - Jangan mengedit paket yang sudah `imported`. Perubahan konten harus memakai batch ID baru.
 - Scanner mempertahankan paket NAS. Tidak ada penghapusan konten otomatis. Media beralamat hash di CMS juga dipertahankan; kebijakan retensi/cleanup belum diterapkan.
-- Metadata v1 mencakup SKU, nama, deskripsi, dan media. Metadata lain seperti teknologi/spesifikasi belum dipetakan ke katalog CMS.
+- Metadata artikel, custom attributes, teknologi, aktivitas, spesifikasi, media, dan atribut varian dipetakan ke tabel relasional CMS. Payload mentah tetap tersedia pada `product_pim_records`.
 - Pastikan jam sumber PIM benar; urutan pembaruan menggunakan waktu UTC paket, dengan batch ID sebagai pembeda jika waktunya sama.
 
 ## Pengujian
