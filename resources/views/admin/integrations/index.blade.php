@@ -198,6 +198,16 @@
                     </form>
                 </div>
 
+                <div class="border-top pt-3 mb-3">
+                    <div class="fw-semibold small text-muted mb-2"><i class="bi bi-database-check me-1"></i>Master Data ATOM (17 Sep 2026)</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-light text-dark border">{{ $atomMasterCounts['categories'] }} kategori</span>
+                        <span class="badge bg-light text-dark border">{{ $atomMasterCounts['sub_categories'] }} subkategori</span>
+                        <span class="badge bg-light text-dark border">{{ $atomMasterCounts['activity_groups'] }} grup aktivitas</span>
+                        <span class="badge bg-light text-dark border">{{ $atomMasterCounts['activities'] }} aktivitas</span>
+                    </div>
+                </div>
+
                 {{-- File-Drop Alternative --}}
                 <div class="border-top pt-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -283,8 +293,8 @@
                         <i class="bi bi-info-circle me-1"></i>Informasi Endpoint CARE Omni:
                     </div>
                     <div class="text-muted small text-break font-monospace" style="font-size: 0.75rem;">
-                        {{ $careUrl }}/api/server/pricing_details<br>
-                        {{ $careUrl }}/api/server/stocks
+                        {{ $careMasterUrl }}/api/server/pricing_details<br>
+                        {{ $careWmsUrl }}/api/server/inventories/bybin
                     </div>
                 </div>
             </div>

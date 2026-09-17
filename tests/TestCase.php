@@ -15,6 +15,7 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['pim.allow_static_inbound_token' => true]);
 
         if ($this->autoAuthenticate && in_array(\Illuminate\Foundation\Testing\RefreshDatabase::class, class_uses_recursive(static::class))) {
             $user = User::factory()->superadmin()->create();

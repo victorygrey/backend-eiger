@@ -18,7 +18,7 @@ class ProductController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $products = Product::with(['zone'])
+        $products = Product::with(['zone', 'atomCategory', 'atomSubCategory'])
             ->withCount('variants')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $query->where(function ($q) use ($request) {
@@ -44,7 +44,7 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product created successfully.',
-            'data'    => new ProductResource($product->load('zone')),
+            'data'    => new ProductResource($product->load(['zone', 'atomCategory', 'atomSubCategory'])),
         ], 201);
     }
 
@@ -56,7 +56,7 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product retrieved successfully.',
-            'data'    => new ProductResource($product->load(['zone', 'rfidTag', 'variants'])),
+            'data'    => new ProductResource($product->load(['zone', 'atomCategory', 'atomSubCategory', 'rfidTag', 'variants'])),
         ]);
     }
 
@@ -70,7 +70,7 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product updated successfully.',
-            'data'    => new ProductResource($product->fresh()->load('zone')),
+            'data'    => new ProductResource($product->fresh()->load(['zone', 'atomCategory', 'atomSubCategory'])),
         ]);
     }
 

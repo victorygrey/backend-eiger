@@ -32,6 +32,8 @@ class Product extends Model
         'image',
         'material',
         'category',
+        'atom_product_category_id',
+        'atom_product_sub_category_id',
         'gender',
         'product_group',
         'weight',
@@ -195,6 +197,9 @@ class Product extends Model
     {
         return $this->belongsTo(Zone::class);
     }
+
+    public function atomCategory(): BelongsTo { return $this->belongsTo(AtomProductCategory::class, 'atom_product_category_id'); }
+    public function atomSubCategory(): BelongsTo { return $this->belongsTo(AtomProductSubCategory::class, 'atom_product_sub_category_id'); }
 
     /**
      * Get the RFID tag associated with this product.

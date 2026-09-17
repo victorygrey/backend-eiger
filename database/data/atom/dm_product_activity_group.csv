@@ -1,0 +1,10 @@
+"id","external_id","name","slug","image","is_active","created_at","updated_at","deleted_at","image_web","sequence_number"
+6,A,Tactical,Shooting,product-activity/shooting-unisex.jpg,true,,,,product-activity/shooting-unisex.png,5
+1,M,Camping & Hiking,camping-hiking,product-activity/hiking-camping-unisex.jpg,true,,2023-12-21 07:00:00.000 +0700,,product-activity/hiking-camping-unisex.png,1
+2,M,Climbing,climbing,product-activity/climbing-unisex.jpg,true,,,,product-activity/climbing-unisex.png,7
+3,L,Daily Wear,daily-wear,product-activity/daily-wear-unisex.jpg,true,,,,product-activity/daily-wear-unisex.png,3
+4,T,Travelling,traveling,product-activity/traveling-unisex.jpg,true,,,,product-activity/traveling-unisex.png,6
+5,V,Running,running,product-activity/running-unisex.jpg,true,,,,product-activity/running-unisex.png,4
+7,V,Cycling,cycling,product-activity/cycling-unisex.jpg,true,,,,product-activity/cycling-unisex.png,8
+8,R,Riding,riding,product-activity/riding-unisex.jpg,true,,,,product-activity/riding-unisex.png,2
+9,V,Water Sport,water-sport,product-activity/water-sport-unisex.jpg,false,,2023-12-21 07:00:00.000 +0700,,product-activity/water-sport-unisex.png,9

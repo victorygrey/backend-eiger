@@ -23,6 +23,7 @@ chmod -R 775 /data storage bootstrap/cache
 php artisan config:clear
 runuser -u www-data -- php artisan migrate --force
 runuser -u www-data -- php artisan db:seed --class=UserSeeder --force
+runuser -u www-data -- php artisan db:seed --class=AtomMasterDataSeeder --force
 rm -f public/storage && ln -s /var/www/html/storage/app/public public/storage
 runuser -u www-data -- php artisan config:cache
 runuser -u www-data -- php artisan route:cache

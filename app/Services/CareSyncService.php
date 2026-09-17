@@ -11,44 +11,16 @@ use Illuminate\Support\Facades\Log;
 
 class CareSyncService
 {
+    public function __construct(private readonly CareOmniClient $care)
+    {
+    }
+
     /**
      * Get the active CARE base URL with auto-discovery fallback.
      */
     public function getBaseUrl(): string
     {
-        $configured = rtrim((string) config('services.care.url', 'http://192.168.18.31:8002'), '/');
-
-        // 1. If configured URL responds healthy, use it
-        try {
-            $resp = Http::timeout(2)->acceptJson()->get($configured . '/api/health');
-            if ($resp->successful()) {
-                return $configured;
-            }
-        } catch (\Throwable $e) {
-            // Probe fallback candidates below
-        }
-
-        // 2. Candidates: TrueNAS host endpoint, then localhost
-        $candidates = [
-            'http://192.168.18.31:8002',
-            'http://127.0.0.1:8002',
-        ];
-
-        foreach ($candidates as $candidate) {
-            if ($candidate === $configured) {
-                continue;
-            }
-            try {
-                $resp = Http::timeout(2)->acceptJson()->get($candidate . '/api/health');
-                if ($resp->successful()) {
-                    return $candidate;
-                }
-            } catch (\Throwable $e) {
-                // Try next
-            }
-        }
-
-        return $configured;
+        return $this->care->masterUrl();
     }
 
     /**
@@ -58,57 +30,10 @@ class CareSyncService
      */
     public function testConnection(): array
     {
-        $baseUrl = $this->getBaseUrl();
-        $storeCode = config('services.care.store_code', '2022');
-        $serverKey = config('services.care.server_key');
-        $timeout = (int) config('services.care.timeout', 5);
-
-        try {
-            // First check health
-            $healthUrl = rtrim($baseUrl, '/') . '/api/health';
-            $healthResp = Http::timeout($timeout)->acceptJson()->get($healthUrl);
-
-            if ($healthResp->successful()) {
-                return [
-                    'online' => true,
-                    'status_code' => $healthResp->status(),
-                    'message' => 'CARE Server connected successfully.',
-                    'url' => $baseUrl,
-                    'store_code' => $storeCode,
-                ];
-            }
-
-            // If no health route, test pricing details with server key
-            $pricingUrl = rtrim($baseUrl, '/') . '/api/server/pricing_details';
-            $headers = $serverKey ? ['x-server-key' => $serverKey] : [];
-            $pricingResp = Http::timeout($timeout)->withHeaders($headers)->acceptJson()->get($pricingUrl);
-
-            if ($pricingResp->successful()) {
-                return [
-                    'online' => true,
-                    'status_code' => $pricingResp->status(),
-                    'message' => 'CARE Server connected successfully.',
-                    'url' => $baseUrl,
-                    'store_code' => $storeCode,
-                ];
-            }
-
-            return [
-                'online' => false,
-                'status_code' => $pricingResp->status(),
-                'message' => 'CARE Server responded with HTTP ' . $pricingResp->status(),
-                'url' => $baseUrl,
-                'store_code' => $storeCode,
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'online' => false,
-                'status_code' => null,
-                'message' => 'Connection failed: ' . $e->getMessage(),
-                'url' => $baseUrl,
-                'store_code' => $storeCode,
-            ];
-        }
+        $result = $this->care->testConnection();
+        $result['url'] = $result['master_url'];
+        $result['store_code'] = (string) config('services.care.store_code', '2022');
+        return $result;
     }
 
     /**
@@ -125,7 +50,7 @@ class CareSyncService
         $startedAt = Carbon::now();
 
         try {
-            $baseUrl = $this->getBaseUrl();
+            $baseUrl = $this->care->legacyUrl();
             $serverKey = config('services.care.server_key');
             $storeCode = config('services.care.store_code', '2022');
             $timeout = (int) config('services.care.timeout', 10);
@@ -368,135 +293,7 @@ class CareSyncService
     protected function fetchFromCareOmni(string $baseUrl, ?string $serverKey, string $storeCode, int $timeout): ?array
     {
         try {
-            $headers = ['Accept' => 'application/json'];
-            if ($serverKey) {
-                $headers['x-server-key'] = $serverKey;
-            }
-
-            // 1. Fetch Pricing Details for Store
-            $pricingUrl = rtrim($baseUrl, '/') . '/api/server/pricing_details';
-            $pricingResp = Http::timeout($timeout)
-                ->withHeaders($headers)
-                ->acceptJson()
-                ->get($pricingUrl, ['filter' => ['loccode' => $storeCode]]);
-
-            if (! $pricingResp->successful()) {
-                return null;
-            }
-
-            $pricingData = $pricingResp->json('data') ?? [];
-            if (empty($pricingData) && ! is_array($pricingData)) {
-                return null;
-            }
-
-            // Map pricing by skucode
-            $itemsMap = [];
-            foreach ($pricingData as $p) {
-                $sku = $p['skucode'] ?? null;
-                if (! $sku) {
-                    continue;
-                }
-                $itemsMap[$sku] = [
-                    'sku' => (string) $sku,
-                    'price' => isset($p['articleprice']) ? (float) $p['articleprice'] : null,
-                    'stock' => 0,
-                    'name' => null,
-                ];
-            }
-
-            // 2. Fetch Stocks for Store
-            $stockUrl = rtrim($baseUrl, '/') . '/api/server/stocks';
-            $stockResp = Http::timeout($timeout)
-                ->withHeaders($headers)
-                ->acceptJson()
-                ->get($stockUrl, ['filter' => ['loccode' => $storeCode]]);
-
-            if ($stockResp->successful()) {
-                $stockData = $stockResp->json('data') ?? [];
-                foreach ($stockData as $s) {
-                    $sku = $s['skucode'] ?? null;
-                    if (! $sku) {
-                        continue;
-                    }
-                    if (! isset($itemsMap[$sku])) {
-                        $itemsMap[$sku] = [
-                            'sku' => (string) $sku,
-                            'price' => null,
-                            'stock' => 0,
-                            'name' => null,
-                        ];
-                    }
-                    $itemsMap[$sku]['stock'] = isset($s['stock']) ? (int) $s['stock'] : 0;
-                }
-            }
-
-            // 3. Fetch Master Product Catalog from CARE /api/products for Names and fallback Stocks
-            $catalogNames = [];
-            $catalogStocks = [];
-            try {
-                $productsUrl = rtrim($baseUrl, '/') . '/api/products';
-                $prodResp = Http::timeout($timeout)->acceptJson()->get($productsUrl);
-                if ($prodResp->successful()) {
-                    $prodData = $prodResp->json('data') ?? [];
-                    foreach ($prodData as $pr) {
-                        $pSku = $pr['sku'] ?? null;
-                        if (! $pSku) {
-                            continue;
-                        }
-                        if (! empty($pr['name'])) {
-                            $catalogNames[(string) $pSku] = (string) $pr['name'];
-                        }
-                        if (isset($pr['stock'])) {
-                            $catalogStocks[(string) $pSku] = (int) $pr['stock'];
-                        }
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::warning('CareSyncService: failed to fetch /api/products catalog', ['error' => $e->getMessage()]);
-            }
-
-            // Secondary fallback: local scrap-eiger products.json if available
-            $scrapJsonPath = 'd:/LAPTOP FAIZAL/_Project/scrap-eiger/data/products.json';
-            if (file_exists($scrapJsonPath)) {
-                try {
-                    $rawScraped = json_decode(file_get_contents($scrapJsonPath), true) ?: [];
-                    foreach ($rawScraped as $scraped) {
-                        $sSku9 = (string) ($scraped['product_code'] ?? $scraped['sku'] ?? '');
-                        if (strlen($sSku9) === 9 && ! empty($scraped['product_name'])) {
-                            if (! isset($catalogNames[$sSku9])) {
-                                $catalogNames[$sSku9] = (string) $scraped['product_name'];
-                            }
-                            $colors = ! empty($scraped['available_colors']) ? $scraped['available_colors'] : ['STD'];
-                            $sizes = ! empty($scraped['available_sizes']) ? $scraped['available_sizes'] : ['ALL'];
-                            $vSeq = 1;
-                            foreach ($colors as $c) {
-                                foreach ($sizes as $sz) {
-                                    $vSku12 = sprintf('%s%03d', $sSku9, $vSeq);
-                                    if (! isset($catalogNames[$vSku12])) {
-                                        $catalogNames[$vSku12] = sprintf('%s - %s - %s', $scraped['product_name'], $c, $sz);
-                                    }
-                                    $vSeq++;
-                                }
-                            }
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    // ignore
-                }
-            }
-
-            // Assign catalog names and stocks to itemsMap
-            foreach ($itemsMap as $sku => &$item) {
-                if (isset($catalogNames[$sku])) {
-                    $item['name'] = $catalogNames[$sku];
-                }
-                if ($item['stock'] === 0 && isset($catalogStocks[$sku]) && $catalogStocks[$sku] > 0) {
-                    $item['stock'] = $catalogStocks[$sku];
-                }
-            }
-            unset($item);
-
-            return array_values($itemsMap);
+            return $this->care->allItems();
         } catch (\Throwable $e) {
             Log::warning('fetchFromCareOmni error, attempting fallback', ['error' => $e->getMessage()]);
             return null;

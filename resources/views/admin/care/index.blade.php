@@ -123,9 +123,10 @@
                         <i class="bi bi-cloud-arrow-down-fill"></i>
                     </div>
                     <div class="flex-grow-1">
-                        <h6 class="fw-bold mb-1">Target Endpoint CARE Simulator</h6>
+                        <h6 class="fw-bold mb-1">Target Endpoint CARE OMNI</h6>
                         <p class="text-muted small mb-2">
-                            Base URL: <code class="text-dark bg-light px-2 py-1 rounded">{{ $careUrl }}</code>
+                            Master: <code class="text-dark bg-light px-2 py-1 rounded">{{ $careMasterUrl }}</code><br>
+                            WMS: <code class="text-dark bg-light px-2 py-1 rounded">{{ $careWmsUrl }}</code>
                             &bull; Toko: <strong>{{ $storeName }} ({{ $storeCode }})</strong>
                         </p>
                         <p class="text-muted small mb-0">

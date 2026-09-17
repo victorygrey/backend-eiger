@@ -32,11 +32,12 @@ return [
     ],
 
     'care' => [
-        'url' => env('CARE_SIMULATOR_URL', 'http://192.168.18.31:8002'),
+        'master_url' => env('CARE_MASTER_URL', 'https://care-master-dev.pos-eigerindo.com'),
+        'wms_url' => env('CARE_WMS_URL', 'https://care-wms-dev.pos-eigerindo.com'),
+        'legacy_url' => env('CARE_SIMULATOR_URL', 'http://127.0.0.1:8002'),
         'server_key' => env('CARE_SERVER_KEY', '$2y$10$1HIh4X/8NlSCknqwxkTog.990d3glvP2QoYahSVRJOs/uie7ph/fC'),
         'store_code' => env('CARE_STORE_CODE', '2022'),
         'timeout' => env('CARE_TIMEOUT', 10),
     ],
 
 ];
-

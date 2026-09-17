@@ -1,0 +1,9 @@
+"id","external_id","name","slug","image","created_at","updated_at","deleted_at","channel_code","sequence_number","is_featured","is_active","image2","image_web"
+8,S,Stationery,stationery,product-category/stasionery-new2.png,2023-04-19 12:27:51.542 +0700,2023-04-19 12:27:51.542 +0700,,ATOM,13,false,false,banner/photo/5bbb9328-821c-451f-aea9-0e36bfe134ed.png,
+7,L,Logowear,logowear,product-category/logo-wear-new2.png,2023-04-19 12:27:51.542 +0700,2023-04-19 12:27:51.542 +0700,,ATOM,14,false,false,banner/photo/cc8ce8a0-b4f3-4c1c-a5ff-a67830f5cbc9.png,
+6,H,Headwear,headwear,product-category/936x138/headwear-936x138.jpg,2023-04-19 12:27:51.542 +0700,2023-04-19 12:27:51.542 +0700,,ATOM,3,true,true,product-category/640x180/headwear-640x180.jpg,
+4,E,Equipment,equipment,product-category/936x138/equipment-936x138.jpg,2023-04-19 12:27:51.542 +0700,2023-04-19 12:27:51.542 +0700,,ATOM,5,true,true,product-category/640x180/equipment-640x180.jpg,
+2,B,Bags,bags,product-category/936x138/bags-936x138.jpg,2023-04-19 12:27:51.542 +0700,2023-04-19 12:27:51.542 +0700,,ATOM,1,true,true,product-category/640x180/bags-640x180.jpg,product-category/bags_web-1.webp
+1,A,Apparel,apparel,product-category/936x138/apparel-936x138.jpg,2023-04-19 12:27:51.542 +0700,2023-04-19 12:27:51.542 +0700,,ATOM,4,true,true,product-category/640x180/apparel-640x180.jpg,
+5,F,Footwear,footwear,product-category/936x138/footwear-936x138.jpg,2023-04-19 12:27:51.542 +0700,2023-04-19 12:27:51.542 +0700,,ATOM,2,true,true,product-category/640x180/footwear-640x180.jpg,
+3,C,Accessories,accessories,product-category/936x138/accessories-936x138.jpg,2023-04-19 12:27:51.542 +0700,2023-04-19 12:27:51.542 +0700,,ATOM,6,true,true,product-category/640x180/accessories-640x180.jpg,product-category/accessories_web-1.webp

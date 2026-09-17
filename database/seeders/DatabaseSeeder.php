@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             UserSeeder::class,
+            AtomMasterDataSeeder::class,
             ZoneSeeder::class,
             PrintRuleSeeder::class,
             FitAndGoSeeder::class,

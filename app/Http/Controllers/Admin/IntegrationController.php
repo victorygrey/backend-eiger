@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\AtomProductCategory;
+use App\Models\AtomProductSubCategory;
+use App\Models\AtomProductActivityGroup;
+use App\Models\AtomProductActivity;
 use App\Models\SyncLog;
 use App\Services\CareSyncService;
 use App\Services\PimFolderImporter;
@@ -75,6 +79,14 @@ class IntegrationController extends Controller
             'storeCode' => config('services.care.store_code', '2022'),
             'storeName' => 'Toko Flagship Setiabudi (Bandung)',
             'careUrl' => $careConnection['url'],
+            'careMasterUrl' => $careConnection['master_url'],
+            'careWmsUrl' => $careConnection['wms_url'],
+            'atomMasterCounts' => [
+                'categories' => AtomProductCategory::count(),
+                'sub_categories' => AtomProductSubCategory::count(),
+                'activity_groups' => AtomProductActivityGroup::count(),
+                'activities' => AtomProductActivity::count(),
+            ],
             'pimUrl' => config('pim.url', 'http://192.168.18.31:8001'),
         ]);
     }

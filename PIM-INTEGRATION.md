@@ -1,16 +1,17 @@
-# Integrasi PIM TrueNAS dan CMS
+# Integrasi PIM, CARE OMNI, dan CMS
 
-Konfigurasi aktif pada 15 September 2026 memakai **HTTP**: PIM TrueNAS `http://192.168.18.31:8001` menyediakan `/api/articles/{code}/product-payload` dan `/image-payload`. Sinkronisasi manual CMS membaca seluruh katalog dari `/api/ui/articles`, lalu mengambil kedua payload tiap artikel. Publish PIM ke `/api/integrations/pim/product` masih tersedia. Shared folder di bagian berikut adalah pilihan alternatif.
+Konfigurasi staging menerima publish PIM pada `POST https://eiger-dev.automataserver.com/api/integrations/pim/product`. Setelah payload lolos validasi, CMS langsung meminta harga ke CARE Master dan stok per bin ke CARE WMS, lalu menyimpan data PIM dan CARE sebagai satu katalog artikel. Shared folder di bagian berikut tetap tersedia sebagai pilihan alternatif.
 
 Katalog aktif berasal dari 60 artikel scraping. PIM menyajikan 928 foto lewat `/media/{sha256}.jpg`, dan CMS menyimpan salinan lokalnya lewat `/api/pim-media/{sha256}.jpg`. Data scraping hanya menyediakan SKU induk 9 digit; varian 12 digit pada CMS berasal dari CARE. Daftar admin menampilkan 60 SKU induk aktif, dengan varian CARE pada dropdown. Katalog demo PIM lama dipertahankan di database tetapi ditandai tidak aktif untuk daftar admin.
 
 ## Kontrak HTTP
 
-- `PIM_SIMULATOR_URL=http://192.168.18.31:8001`, `PIM_LEGACY_HTTP_ENABLED=true`, `PIM_COPY_HTTP_MEDIA=true`. Flag legacy masih menjadi sakelar endpoint penerima dan halaman QA.
-- Penerima memerlukan Bearer token yang sama dengan `PIM_INBOUND_TOKEN`; PIM menyimpannya sebagai `EIGER_ATOM_TOKEN`. Jangan menaruh token di dokumentasi.
+- `PIM_LEGACY_HTTP_ENABLED=true` mengaktifkan endpoint penerima. `PIM_COPY_HTTP_MEDIA=true` menyalin media PIM ke penyimpanan CMS.
+- Penerima memerlukan Bearer token sementara. Buat token dua jam dengan `php artisan pim:issue-token --ttl=120 --name=EIGER-PIM`; nilai token hanya ditampilkan sekali dan database hanya menyimpan hash SHA-256. Setelah `expires_at`, request menerima HTTP 401. Token statis lama hanya diterima jika `PIM_ALLOW_STATIC_INBOUND_TOKEN=true` disetel secara eksplisit.
+- CARE menggunakan dua host sesuai dokumen September 2026: `CARE_MASTER_URL` untuk `/api/server/pricing_details` dan `CARE_WMS_URL` untuk `/api/server/inventories/bybin`. Keduanya memakai header `x-server-key` dan kode toko `CARE_STORE_CODE`.
 - Publish dan form memakai validasi yang sama. `customAtributes` mengikuti ejaan dokumen; input lama `customAttributes` dinormalisasi. Atribut varian tetap bernama `customAttributes`.
 - Setiap SKU menyimpan `pim_payload` dan `pim_image_payload` lengkap, termasuk berat, varian, media, teknologi, aktivitas dan spesifikasi. Produk generic juga menyimpan relasi varian dengan SKU, ECM SKU, MOQ dan seluruh `customAttributes` resmi. Core Product API mengembalikan field ini. Nilai yang belum tersedia dari sumber tetap kosong atau nol.
-- Harga, stok, zone, RFID dan flag CMS tidak diubah oleh publish. Form tetap mendukung pengeditan field CMS.
+- Harga dan stok diperbarui dari CARE pada publish yang sama; PIM tidak menjadi sumber kedua field tersebut. Jika CARE tidak dapat dihubungi atau belum memiliki artikel, CMS tetap menerima PIM dan mempertahankan harga/stok lama agar kegagalan CARE tidak merusak katalog.
 - Gambar varian disalin ke `storage/app/pim-media`. Jika gambar utama varian tidak ada, gunakan gambar utama generic yang cocok, lalu `mainImage`. `image` dan `pim_media` menunjuk salinan lokal; kedua payload mempertahankan URL sumber.
 - URL hingga 8192 karakter diterima. Unduhan hanya dari direktori hash PIM atau host HTTPS persis yang terdaftar di `PIM_MEDIA_HOSTS`. Default mencakup `storage.eigeradventure.com` dan bucket S3 pada dokumen PIM. Redirect tidak diikuti; MIME, ukuran 10 MiB, dan checksum nama hash PIM diverifikasi. Media HTTP ini mendukung JPG/PNG/WebP; video file-drop tetap memakai scanner.
 - `media` tambahan seperti size chart dan gambar teknologi tersimpan di payload sumber serta `pim_media` sebagai referensi URL. Pengimpor HTTP hanya mengunduh gambar galeri. Sinkronisasi manual menjaga gambar lokal lama dan menyimpan URL PIM baru sebagai referensi. Katalog scraping memakai URL `/media/{sha256}.jpg` dari PIM TrueNAS yang dapat dijangkau CMS, sehingga foto galeri sekarang tersimpan secara fisik di CMS.
@@ -38,8 +39,13 @@ CMS memakai model data relasional agar tabel `products` tetap ringkas dan isi pa
 | `product_specifications` | Spesifikasi berdasarkan kode, nama, nilai, dan unit |
 | `product_media` | Galeri, main image, size chart, video, media teknologi, sumber, checksum, dan relasi varian |
 | `product_pim_records` | Payload produk dan image asli, checksum, versi, sumber, serta waktu diterima |
+| `atom_product_categories` / `atom_product_sub_categories` | Snapshot master kategori ATOM dan relasi induk-anaknya |
+| `atom_product_activity_groups` / `atom_product_activities` | Snapshot grup aktivitas dan aktivitas ATOM |
+| `pim_api_tokens` | Hash Bearer token inbound, waktu kedaluwarsa, penggunaan terakhir, dan status revoke |
 
 Kolom JSON lama `pim_payload`, `pim_image_payload`, dan `pim_media` tidak lagi berada di `products`. Model dan API masih menyediakan properti dengan nama tersebut dari tabel relasional, sehingga kontrak respons yang sudah dipakai frontend tetap sama.
+
+Master data ATOM tanggal 17 September 2026 dimuat idempoten pada startup container: 8 kategori, 92 subkategori, 9 grup aktivitas, dan 20 aktivitas. Nilai kategori/aktivitas PIM tetap disimpan mentah, sekaligus dihubungkan ke baris master bila kode, nama, atau slug cocok. Struktur master tersedia melalui `GET /api/master-data/categories` dan `GET /api/master-data/activities`.
 
 Contoh pemeriksaan satu artikel melalui DB Browser for SQLite:
 

@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\Route;
 | EIGER Backend - API Routes
 |--------------------------------------------------------------------------
 |
-| All routes are publicly accessible during the development phase.
-| Authentication (Sanctum/Token) will be added in a future phase.
+| Endpoint inbound PIM memakai Bearer token sementara. Endpoint perangkat
+| memakai token pairing masing-masing; endpoint katalog tetap read-only.
 |
 */
 
@@ -22,6 +22,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('pim-media/{filename}', [\App\Http\Controllers\Api\PimMediaController::class, 'show']);
 Route::post('integrations/pim/product', [\App\Http\Controllers\Api\PimProductController::class, 'store']);
 Route::apiResource('products', ProductController::class);
+Route::prefix('master-data')->group(function () {
+    Route::get('categories', [\App\Http\Controllers\Api\AtomMasterDataController::class, 'categories']);
+    Route::get('activities', [\App\Http\Controllers\Api\AtomMasterDataController::class, 'activities']);
+});
 
 // Interactive tablet devices
 Route::post('tablets/activate', [TabletDisplayController::class, 'activate']);
@@ -72,4 +76,3 @@ Route::prefix('v1/table-expedition')->group(function () {
     Route::post('compare', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'compare']);
     Route::get('status', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'status']);
 });
-

@@ -14,10 +14,8 @@ class IntegrationWebTest extends TestCase
     public function test_unified_integrations_page_loads_successfully(): void
     {
         Http::fake([
-            '*/api/health' => Http::response([
-                'success' => true,
-                'status' => 'online',
-            ], 200),
+            '*/api/server/pricing_details*' => Http::response(['data' => []], 200),
+            '*/api/server/inventories/bybin*' => Http::response(['data' => []], 200),
             '*/api/articles/channel-list*' => Http::response([
                 'status' => true,
                 'message' => 'Success',
@@ -64,13 +62,15 @@ class IntegrationWebTest extends TestCase
                     ],
                 ],
             ], 200),
-            '*/api/server/stocks*' => Http::response([
+            '*/api/server/inventories/bybin*' => Http::response([
                 'data' => [
                     [
-                        'id' => 1,
-                        'skucode' => '910009029001',
-                        'loccode' => '2022',
-                        'stock' => 15,
+                        'sku_code' => '910009029001',
+                        'sku_generic_code' => '910009029',
+                        'sku_name' => 'TOURER WANDER - BLACK - ALL',
+                        'available_qty' => 15,
+                        'bin_status' => 'active',
+                        'bin_category' => 'saleable goods',
                     ],
                 ],
             ], 200),
@@ -111,7 +111,7 @@ class IntegrationWebTest extends TestCase
             '*/api/server/pricing_details*' => Http::response([
                 'data' => [],
             ], 200),
-            '*/api/server/stocks*' => Http::response([
+            '*/api/server/inventories/bybin*' => Http::response([
                 'data' => [],
             ], 200),
         ]);

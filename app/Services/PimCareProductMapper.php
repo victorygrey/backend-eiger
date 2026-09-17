@@ -42,7 +42,7 @@ class PimCareProductMapper
 
         try {
             if ($sku !== '') {
-                $care = $this->care->get($sku);
+                $care = $this->care->get($sku, array_column($pimVariants, 'sku'));
             }
         } catch (\Throwable $e) {
             Log::warning('CARE article enrichment failed; preserving PIM catalog data', [

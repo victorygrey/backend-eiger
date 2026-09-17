@@ -14,10 +14,8 @@ class CareIntegrationWebTest extends TestCase
     public function test_care_index_page_loads_successfully(): void
     {
         Http::fake([
-            '*/api/health' => Http::response([
-                'success' => true,
-                'status' => 'online',
-            ], 200),
+            '*/api/server/pricing_details*' => Http::response(['data' => []], 200),
+            '*/api/server/inventories/bybin*' => Http::response(['data' => []], 200),
         ]);
 
         $response = $this->get(route('admin.care.index'));
@@ -51,13 +49,15 @@ class CareIntegrationWebTest extends TestCase
                     ],
                 ],
             ], 200),
-            '*/api/server/stocks*' => Http::response([
+            '*/api/server/inventories/bybin*' => Http::response([
                 'data' => [
                     [
-                        'id' => 1,
-                        'skucode' => '910012408001',
-                        'loccode' => '2022',
-                        'stock' => 25,
+                        'sku_code' => '910012408001',
+                        'sku_generic_code' => '910012408',
+                        'sku_name' => 'ACROSS - BLACK - M',
+                        'available_qty' => 25,
+                        'bin_status' => 'active',
+                        'bin_category' => 'saleable goods',
                     ],
                 ],
             ], 200),
@@ -95,13 +95,15 @@ class CareIntegrationWebTest extends TestCase
                     ],
                 ],
             ], 200),
-            '*/api/server/stocks*' => Http::response([
+            '*/api/server/inventories/bybin*' => Http::response([
                 'data' => [
                     [
-                        'id' => 1,
-                        'skucode' => '910012408002',
-                        'loccode' => '2022',
-                        'stock' => 15,
+                        'sku_code' => '910012408002',
+                        'sku_generic_code' => '910012408',
+                        'sku_name' => 'ACROSS - BLACK - L',
+                        'available_qty' => 15,
+                        'bin_status' => 'active',
+                        'bin_category' => 'saleable goods',
                     ],
                 ],
             ], 200),

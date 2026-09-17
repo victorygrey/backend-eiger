@@ -10,4 +10,5 @@ return [
     'url' => env('PIM_SIMULATOR_URL', 'http://127.0.0.1:8001'),
     'timeout' => (int) env('PIM_TIMEOUT', 10),
     'inbound_token' => env('PIM_INBOUND_TOKEN'),
+    'allow_static_inbound_token' => env('PIM_ALLOW_STATIC_INBOUND_TOKEN', false),
 ];

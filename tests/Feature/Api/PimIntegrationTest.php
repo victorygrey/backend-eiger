@@ -21,10 +21,8 @@ class PimIntegrationTest extends TestCase
     private function fakeEmptyCare(): void
     {
         Http::fake([
-            '*/api/health' => Http::response(['status' => 'ok']),
             '*/api/server/pricing_details*' => Http::response(['data' => []]),
-            '*/api/server/stocks*' => Http::response(['data' => []]),
-            '*/api/products' => Http::response(['data' => []]),
+            '*/api/server/inventories/bybin*' => Http::response(['data' => []]),
         ]);
     }
 
@@ -167,25 +165,20 @@ class PimIntegrationTest extends TestCase
     {
         config([
             'pim.inbound_token' => 'test-secret',
-            'services.care.url' => 'http://care.test',
+            'services.care.master_url' => 'http://care.test',
+            'services.care.wms_url' => 'http://care.test',
             'services.care.store_code' => '2022',
         ]);
         $zone = Zone::create(['name' => 'Zone Sepatu & Alas Kaki', 'code' => 'SHOES']);
         Http::fake([
-            'care.test/api/health' => Http::response(['status' => 'ok']),
             'care.test/api/server/pricing_details*' => Http::response(['data' => [
                 ['skucode' => '910006090', 'articleprice' => '519200.00', 'loccode' => '2022'],
                 ['skucode' => '910006090001', 'articleprice' => '519200.00', 'loccode' => '2022'],
                 ['skucode' => '910006090002', 'articleprice' => '519200.00', 'loccode' => '2022'],
             ]]),
-            'care.test/api/server/stocks*' => Http::response(['data' => [
-                ['skucode' => '910006090', 'stock' => 41, 'loccode' => '2022'],
-                ['skucode' => '910006090001', 'stock' => 17, 'loccode' => '2022'],
-                ['skucode' => '910006090002', 'stock' => 24, 'loccode' => '2022'],
-            ]]),
-            'care.test/api/products' => Http::response(['data' => [
-                ['sku' => '910006090001', 'name' => 'CHELINE - CREAM - 36'],
-                ['sku' => '910006090002', 'name' => 'CHELINE - CREAM - 37'],
+            'care.test/api/server/inventories/bybin*' => Http::response(['data' => [
+                ['sku_code' => '910006090001', 'sku_generic_code' => '910006090', 'sku_name' => 'CHELINE - CREAM - 36', 'available_qty' => 17, 'bin_status' => 'active', 'bin_category' => 'saleable goods'],
+                ['sku_code' => '910006090002', 'sku_generic_code' => '910006090', 'sku_name' => 'CHELINE - CREAM - 37', 'available_qty' => 24, 'bin_status' => 'active', 'bin_category' => 'saleable goods'],
             ]]),
         ]);
 

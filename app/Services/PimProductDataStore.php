@@ -19,8 +19,13 @@ class PimProductDataStore
     ): void {
         DB::transaction(function () use ($product, $payload, $imagePayload, $media, $version, $source, $variantMedia) {
             $attributes = $this->attributes($payload['customAtributes'] ?? $payload['customAttributes'] ?? []);
+            $categoryValue = $attributes['sub_category'] ?? $attributes['subcategory']
+                ?? $attributes['category'] ?? $payload['category'] ?? null;
+            $category = app(AtomMasterDataResolver::class)->category($categoryValue);
             $product->updateQuietly([
                 'category' => $attributes['category'] ?? $payload['category'] ?? null,
+                'atom_product_category_id' => $category['category_id'],
+                'atom_product_sub_category_id' => $category['sub_category_id'],
                 'gender' => $attributes['gender'] ?? $payload['gender'] ?? null,
                 'product_group' => $attributes['product_group'] ?? null,
                 'weight' => is_numeric($payload['weight'] ?? null) ? $payload['weight'] : null,
@@ -60,12 +65,29 @@ class PimProductDataStore
             }
 
             $product->activitiesRelation()->delete();
+            $storedActivityIds = [];
             foreach (array_values($payload['activity'] ?? []) as $position => $row) {
+                $master = app(AtomMasterDataResolver::class)->activity($row);
                 $product->activitiesRelation()->create([
                     'pim_id' => $row['id'] ?? null, 'name' => $row['name'] ?? 'Activity',
+                    'atom_product_activity_id' => $master?->id,
                     'description' => $row['description'] ?? null, 'is_selected' => (bool) ($row['selected'] ?? false),
                     'rating' => is_numeric($row['rating'] ?? null) ? $row['rating'] : null,
                     'rating_description' => $row['desc_rating'] ?? null, 'sort_order' => $position,
+                ]);
+                if ($master) $storedActivityIds[$master->id] = true;
+            }
+            $activityAttribute = $attributes['activity'] ?? null;
+            foreach (app(AtomMasterDataResolver::class)->activitiesFromValue($activityAttribute) as $master) {
+                if (isset($storedActivityIds[$master->id])) continue;
+                $product->activitiesRelation()->create([
+                    'pim_id' => $master->external_id,
+                    'atom_product_activity_id' => $master->id,
+                    'name' => $master->name,
+                    'description' => $master->description,
+                    'is_selected' => true,
+                    'rating_description' => $master->rating_description,
+                    'sort_order' => $product->activitiesRelation()->count(),
                 ]);
             }
 

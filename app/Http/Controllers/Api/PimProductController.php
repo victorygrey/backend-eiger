@@ -7,16 +7,16 @@ use App\Models\SyncLog;
 use App\Services\PimCareProductMapper;
 use App\Services\PimPayload;
 use App\Services\PimProductDataStore;
+use App\Services\PimInboundTokenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PimProductController extends Controller
 {
-    public function store(Request $request, PimPayload $service, PimCareProductMapper $mapper)
+    public function store(Request $request, PimPayload $service, PimCareProductMapper $mapper, PimInboundTokenService $tokens)
     {
         abort_unless(config('pim.legacy_http_enabled'), 404);
-        $token = config('pim.inbound_token');
-        abort_unless(is_string($token) && $token !== '' && hash_equals($token, $request->bearerToken() ?? ''), 401);
+        abort_unless($tokens->authenticate($request->bearerToken()), 401);
         $data = $service->validate($request->only('product', 'image'));
         if ($request->header('X-Simulate-Atom-Failure') === 'true') {
             return response()->json(['status' => false, 'message' => 'Simulated CMS integration failure'], 500);
@@ -65,6 +65,7 @@ class PimProductController extends Controller
                 $syncedSkus = [];
                 foreach ($catalog['variants'] as $variant) {
                     $syncedSkus[] = $variant['sku'];
+                    $existingVariant = $parent->variants()->where('sku', $variant['sku'])->first();
                     $savedVariant = $parent->variants()->updateOrCreate(
                         ['sku' => $variant['sku']],
                         [
@@ -73,8 +74,12 @@ class PimProductController extends Controller
                             'size'  => $variant['size'] ?? null,
                             'ecmsku' => $variant['ecmsku'] ?? null,
                             'moq' => $variant['moq'] ?? null,
-                            'price' => $variant['price'] ?? $parent->price,
-                            'stock' => $variant['stock'] ?? 0,
+                            'price' => $catalog['care_found']
+                                ? ($variant['price'] ?? $parent->price)
+                                : ($existingVariant?->price ?? 0),
+                            'stock' => $catalog['care_found']
+                                ? ($variant['stock'] ?? 0)
+                                : ($existingVariant?->stock ?? 0),
                             // Prefer the CMS copy. CARE variants often inherit an
                             // article-level PIM URL that is unreachable outside LAN.
                             'image' => $media[$variant['sku']]['image']
@@ -103,11 +108,19 @@ class PimProductController extends Controller
             }
             SyncLog::create([
                 'source' => 'pim', 'status' => 'success',
-                'message' => 'PIM article '.$detail['generic'].': '.count($catalog['variants']).' CARE variants synchronized.',
+                'message' => $catalog['care_found']
+                    ? 'PIM article '.$detail['generic'].': '.count($catalog['variants']).' varian diperkaya dari CARE.'
+                    : 'PIM article '.$detail['generic'].' diterima; CARE belum menyediakan harga/stok sehingga nilai komersial lama dipertahankan.',
                 'synced_at' => now(),
             ]);
             return count($catalog['variants']);
         });
-        return response()->json(['status' => true, 'message' => 'PIM products synchronized', 'data' => ['synced' => $count]]);
+        return response()->json([
+            'status' => true,
+            'message' => $catalog['care_found']
+                ? 'Produk PIM dan data komersial CARE berhasil disinkronkan.'
+                : 'Produk PIM berhasil disimpan; data CARE belum ditemukan dan dapat disinkronkan ulang.',
+            'data' => ['synced' => $count, 'care_enriched' => $catalog['care_found']],
+        ]);
     }
 }
