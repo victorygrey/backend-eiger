@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\PimApiToken;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -132,6 +133,33 @@ class IntegrationWebTest extends TestCase
         $this->assertDatabaseHas('pim_api_tokens', [
             'name' => 'EIGER-PIM',
             'token_hash' => hash('sha256', $issued['token']),
+        ]);
+    }
+
+    public function test_superadmin_can_issue_token_until_requested_datetime_and_revoke_previous_one(): void
+    {
+        $first = $this->post(route('admin.integrations.pim-token.issue'), [
+            'name' => 'EIGER-PIM',
+            'expires_at' => now()->addHours(2)->format('Y-m-d H:i:s'),
+        ]);
+        $firstToken = $first->getSession()->get('pim_token.token');
+
+        $target = now()->addDay()->startOfDay();
+        $second = $this->post(route('admin.integrations.pim-token.issue'), [
+            'name' => 'EIGER-PIM',
+            'expires_at' => $target->format('Y-m-d H:i:s'),
+        ]);
+        $second->assertRedirect(route('admin.integrations.index'));
+        $secondToken = $second->getSession()->get('pim_token');
+
+        $this->assertSame($target->toIso8601String(), $secondToken['expires_at']);
+        $this->assertDatabaseHas('pim_api_tokens', [
+            'token_hash' => hash('sha256', $firstToken),
+        ]);
+        $this->assertNotNull(PimApiToken::where('token_hash', hash('sha256', $firstToken))->value('revoked_at'));
+        $this->assertDatabaseHas('pim_api_tokens', [
+            'token_hash' => hash('sha256', $secondToken['token']),
+            'revoked_at' => null,
         ]);
     }
 }

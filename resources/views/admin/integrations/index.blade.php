@@ -215,12 +215,16 @@
                     <form action="{{ route('admin.integrations.pim-token.issue') }}" method="POST" class="border-top pt-3 mb-3">
                         @csrf
                         <input type="hidden" name="name" value="EIGER-PIM">
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div class="d-flex flex-wrap justify-content-between align-items-end gap-2">
                             <div>
                                 <div class="fw-semibold small"><i class="bi bi-key me-1"></i>Akses publish dari EIGER</div>
-                                <div class="text-muted small">Token otomatis kedaluwarsa 2 jam setelah dibuat.</div>
+                                <label for="pim-token-expires-at" class="text-muted small">Berlaku sampai (maksimal 7 hari)</label>
+                                <input id="pim-token-expires-at" type="datetime-local" name="expires_at"
+                                       class="form-control form-control-sm @error('expires_at') is-invalid @enderror"
+                                       value="{{ old('expires_at', now()->addHours(2)->format('Y-m-d\\TH:i')) }}" required>
+                                @error('expires_at')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
-                            <button type="submit" class="btn btn-outline-dark btn-sm"><i class="bi bi-plus-circle me-1"></i>Buat Token 2 Jam</button>
+                            <button type="submit" class="btn btn-outline-dark btn-sm"><i class="bi bi-plus-circle me-1"></i>Buat Token</button>
                         </div>
                     </form>
                 @endif

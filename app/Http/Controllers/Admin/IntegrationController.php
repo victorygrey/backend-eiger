@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
-use App\Models\ProductVariant;
+use App\Models\AtomProductActivity;
+use App\Models\AtomProductActivityGroup;
 use App\Models\AtomProductCategory;
 use App\Models\AtomProductSubCategory;
-use App\Models\AtomProductActivityGroup;
-use App\Models\AtomProductActivity;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\SyncLog;
 use App\Services\CareSyncService;
 use App\Services\PimFolderImporter;
@@ -16,6 +16,7 @@ use App\Services\PimInboundTokenService;
 use App\Services\PimSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -33,7 +34,7 @@ class IntegrationController extends Controller
     public function index(): View
     {
         $folder = config('pim.folder');
-        if (!is_dir($folder) && $folder === storage_path('app/pim-drop')) {
+        if (! is_dir($folder) && $folder === storage_path('app/pim-drop')) {
             @mkdir($folder, 0775, true);
         }
 
@@ -53,9 +54,9 @@ class IntegrationController extends Controller
             ->get();
 
         $lastSync = SyncLog::where(function ($q) {
-                $q->where('source', 'like', 'pim-%')
-                  ->orWhere('source', 'like', 'care-%');
-            })
+            $q->where('source', 'like', 'pim-%')
+                ->orWhere('source', 'like', 'care-%');
+        })
             ->where('status', 'success')
             ->orderBy('id', 'desc')
             ->first();
@@ -133,6 +134,7 @@ class IntegrationController extends Controller
     public function syncPim(Request $request): RedirectResponse
     {
         $result = $this->pimSync->sync('web');
+
         return redirect()->route('admin.integrations.index')->with(
             $result['success'] ? 'success' : 'error',
             $result['message']
@@ -145,6 +147,7 @@ class IntegrationController extends Controller
     public function syncCare(Request $request): RedirectResponse
     {
         $result = $this->careSync->sync('web');
+
         return redirect()->route('admin.integrations.index')->with(
             $result['success'] ? 'success' : 'error',
             $result['message']
@@ -158,6 +161,7 @@ class IntegrationController extends Controller
     {
         try {
             $result = $this->folderImporter->scan($request->boolean('retry_failed'));
+
             return redirect()->route('admin.integrations.index')->with(
                 $result['failed'] ? 'error' : 'success',
                 "Pemindaian File-Drop: {$result['imported']} batch diimpor, {$result['failed']} gagal, {$result['skipped']} dilewati."
@@ -170,11 +174,23 @@ class IntegrationController extends Controller
     /** Create a short-lived credential for the EIGER PIM publisher. */
     public function issuePimToken(Request $request, PimInboundTokenService $tokens): RedirectResponse
     {
-        $name = (string) $request->string('name')->trim();
-        $issued = $tokens->issue($name !== '' ? $name : 'EIGER-PIM', 120);
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:100',
+            'expires_at' => 'nullable|date',
+        ]);
+        $name = trim((string) ($validated['name'] ?? '')) ?: 'EIGER-PIM';
+        $expiresAt = isset($validated['expires_at'])
+            ? Carbon::parse($validated['expires_at'], config('app.timezone'))
+            : now()->addHours(2);
+
+        if ($expiresAt->lte(now()) || $expiresAt->gt(now()->addDays(7))) {
+            return back()->withErrors(['expires_at' => 'Waktu kedaluwarsa harus antara sekarang dan tujuh hari ke depan.']);
+        }
+
+        $issued = $tokens->issueUntil($name, $expiresAt);
 
         return redirect()->route('admin.integrations.index')
             ->with('pim_token', $issued)
-            ->with('success', 'Bearer token PIM dua jam berhasil dibuat. Salin token sebelum meninggalkan halaman.');
+            ->with('success', 'Bearer token PIM berhasil dibuat. Token sebelumnya dengan nama yang sama sudah dicabut.');
     }
 }
