@@ -44,6 +44,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/sync-pim', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncPim'])->name('sync-pim');
         Route::post('/sync-care', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncCare'])->name('sync-care');
         Route::post('/scan-folder', [\App\Http\Controllers\Admin\IntegrationController::class, 'scanFolder'])->name('scan-folder');
+        Route::post('/pim-token', [\App\Http\Controllers\Admin\IntegrationController::class, 'issuePimToken'])
+            ->middleware('role:superadmin')->name('pim-token.issue');
     });
 
     // PIM Legacy / Dedicated Endpoints

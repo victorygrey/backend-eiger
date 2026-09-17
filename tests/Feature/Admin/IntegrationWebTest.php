@@ -122,4 +122,16 @@ class IntegrationWebTest extends TestCase
         $responseCare = $this->post(route('admin.integrations.sync-care'));
         $responseCare->assertRedirect(route('admin.integrations.index'));
     }
+
+    public function test_superadmin_can_issue_two_hour_pim_token(): void
+    {
+        $response = $this->post(route('admin.integrations.pim-token.issue'), ['name' => 'EIGER-PIM']);
+        $response->assertRedirect(route('admin.integrations.index'))->assertSessionHas('pim_token');
+        $issued = session('pim_token');
+        $this->assertStringStartsWith('pim_', $issued['token']);
+        $this->assertDatabaseHas('pim_api_tokens', [
+            'name' => 'EIGER-PIM',
+            'token_hash' => hash('sha256', $issued['token']),
+        ]);
+    }
 }

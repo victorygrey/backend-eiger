@@ -12,6 +12,7 @@ use App\Models\AtomProductActivity;
 use App\Models\SyncLog;
 use App\Services\CareSyncService;
 use App\Services\PimFolderImporter;
+use App\Services\PimInboundTokenService;
 use App\Services\PimSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -164,5 +165,16 @@ class IntegrationController extends Controller
         } catch (\Throwable $error) {
             return redirect()->route('admin.integrations.index')->with('error', $error->getMessage());
         }
+    }
+
+    /** Create a short-lived credential for the EIGER PIM publisher. */
+    public function issuePimToken(Request $request, PimInboundTokenService $tokens): RedirectResponse
+    {
+        $name = (string) $request->string('name')->trim();
+        $issued = $tokens->issue($name !== '' ? $name : 'EIGER-PIM', 120);
+
+        return redirect()->route('admin.integrations.index')
+            ->with('pim_token', $issued)
+            ->with('success', 'Bearer token PIM dua jam berhasil dibuat. Salin token sebelum meninggalkan halaman.');
     }
 }

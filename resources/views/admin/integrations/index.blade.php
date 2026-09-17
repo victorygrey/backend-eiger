@@ -42,6 +42,19 @@
     </div>
 @endif
 
+@if(session('pim_token'))
+    <div class="alert alert-warning border-warning mb-4" role="alert">
+        <div class="fw-bold mb-2"><i class="bi bi-key-fill me-1"></i>Bearer token PIM (ditampilkan satu kali)</div>
+        <div class="input-group mb-2">
+            <input id="issued-pim-token" class="form-control font-monospace" readonly value="{{ session('pim_token.token') }}">
+            <button type="button" class="btn btn-dark" onclick="navigator.clipboard.writeText(document.getElementById('issued-pim-token').value)">
+                <i class="bi bi-copy me-1"></i>Salin
+            </button>
+        </div>
+        <div class="small">Berlaku sampai <strong>{{ \Illuminate\Support\Carbon::parse(session('pim_token.expires_at'))->timezone(config('app.timezone'))->format('d M Y H:i:s T') }}</strong>. Setelah itu endpoint otomatis mengembalikan HTTP 401.</div>
+    </div>
+@endif
+
 @if(session('warning'))
     <div class="alert alert-warning alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
         <i class="bi bi-exclamation-triangle-fill fs-5 me-2 flex-shrink-0"></i>
@@ -197,6 +210,20 @@
                         </button>
                     </form>
                 </div>
+
+                @if(auth()->user()?->isSuperAdmin())
+                    <form action="{{ route('admin.integrations.pim-token.issue') }}" method="POST" class="border-top pt-3 mb-3">
+                        @csrf
+                        <input type="hidden" name="name" value="EIGER-PIM">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div>
+                                <div class="fw-semibold small"><i class="bi bi-key me-1"></i>Akses publish dari EIGER</div>
+                                <div class="text-muted small">Token otomatis kedaluwarsa 2 jam setelah dibuat.</div>
+                            </div>
+                            <button type="submit" class="btn btn-outline-dark btn-sm"><i class="bi bi-plus-circle me-1"></i>Buat Token 2 Jam</button>
+                        </div>
+                    </form>
+                @endif
 
                 <div class="border-top pt-3 mb-3">
                     <div class="fw-semibold small text-muted mb-2"><i class="bi bi-database-check me-1"></i>Master Data ATOM (17 Sep 2026)</div>
