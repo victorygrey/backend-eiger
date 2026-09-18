@@ -210,9 +210,9 @@ class FitAndGoWebTest extends TestCase
     public function test_kiosk_category_uses_filtered_dual_picker_and_saves_selection(): void
     {
         $device = FitAndGoDevice::create(['name' => 'Kiosk', 'device_code' => 'kiosk-filter', 'status' => 'online']);
-        $hat = Product::factory()->create(['sku' => '910000001', 'name' => 'Rimba Bucket Hat', 'pim_catalog_active' => true,
+        $hat = Product::factory()->create(['sku' => '910000001', 'name' => 'Rimba Bucket Hat', 'pim_catalog_active' => true, 'is_discontinued' => false,
             'pim_payload' => ['customAtributes' => [['attributeCode' => 'category', 'value' => 'Hat']]]]);
-        $pants = Product::factory()->create(['sku' => '910000002', 'name' => 'Cargo Pants', 'pim_catalog_active' => true,
+        $pants = Product::factory()->create(['sku' => '910000002', 'name' => 'Cargo Pants', 'pim_catalog_active' => true, 'is_discontinued' => false,
             'pim_payload' => ['customAtributes' => [['attributeCode' => 'category', 'value' => 'Pants']]]]);
 
         $this->get(route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'catalog', 'category' => 'hat']))
@@ -226,7 +226,7 @@ class FitAndGoWebTest extends TestCase
     {
         $device = FitAndGoDevice::create(['name' => 'Kiosk', 'device_code' => 'kiosk-activity', 'status' => 'online']);
         $activity = FitAndGoActivity::where('slug', 'camping')->firstOrFail();
-        $product = Product::factory()->create(['sku' => '910000003', 'name' => 'Camping Jacket', 'pim_catalog_active' => true,
+        $product = Product::factory()->create(['sku' => '910000003', 'name' => 'Camping Jacket', 'pim_catalog_active' => true, 'is_discontinued' => false,
             'pim_payload' => ['customAtributes' => [['attributeCode' => 'activity', 'value' => 'Camping']]]]);
 
         $this->get(route('admin.fit-and-go.devices.edit', ['device' => $device, 'tab' => 'activities', 'activity' => 'camping']))

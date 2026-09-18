@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Route;
 // Products
 Route::get('pim-media/{filename}', [\App\Http\Controllers\Api\PimMediaController::class, 'show']);
 Route::post('integrations/pim/product', [\App\Http\Controllers\Api\PimProductController::class, 'store']);
+Route::post('integrations/pim/image', [\App\Http\Controllers\Api\PimProductController::class, 'storeImage']);
 Route::apiResource('products', ProductController::class);
 Route::prefix('master-data')->group(function () {
     Route::get('categories', [\App\Http\Controllers\Api\AtomMasterDataController::class, 'categories']);

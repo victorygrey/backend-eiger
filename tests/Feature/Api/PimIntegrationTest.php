@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Models\Product;
 use App\Models\Zone;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -67,6 +68,50 @@ class PimIntegrationTest extends TestCase
         $this->assertDatabaseHas('sync_logs', ['source' => 'pim', 'status' => 'success']);
     }
 
+    public function test_official_product_and_image_payloads_are_accepted_by_separate_endpoints(): void
+    {
+        $this->fakeEmptyCare();
+        config(['pim.inbound_token' => 'test-secret']);
+        $combined = $this->payload();
+
+        $this->withToken('test-secret')
+            ->postJson('/api/integrations/pim/product', $combined['product'])
+            ->assertOk()
+            ->assertJsonPath('status', true);
+
+        $product = Product::where('sku', '910012408')->firstOrFail();
+        $this->assertSame('https://example.com/main.jpg', $product->image);
+        $this->assertSame(['generic' => [], 'variant' => []], $product->pim_image_payload);
+
+        $this->withToken('test-secret')
+            ->postJson('/api/integrations/pim/image', $combined['image'])
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('data.generic', '910012408');
+
+        $product->refresh();
+        $this->assertSame([], $product->pim_image_payload['generic']);
+        $this->assertSame($combined['image']['variant'], $product->pim_image_payload['variant']);
+        $this->assertDatabaseHas('product_variants', [
+            'product_id' => $product->id,
+            'sku' => '910012408001',
+            'image' => 'https://example.com/variant.jpg',
+        ]);
+        $this->assertDatabaseHas('sync_logs', ['source' => 'pim-image', 'status' => 'success']);
+    }
+
+    public function test_image_endpoint_requires_product_to_arrive_first(): void
+    {
+        config(['pim.inbound_token' => 'test-secret']);
+
+        $this->withToken('test-secret')
+            ->postJson('/api/integrations/pim/image', $this->payload()['image'])
+            ->assertStatus(409)
+            ->assertJsonPath('status', false);
+
+        $this->assertDatabaseCount('products', 0);
+    }
+
     public function test_new_variant_defaults_and_failed_requests_do_not_write(): void
     {
         $this->fakeEmptyCare();
@@ -99,7 +144,7 @@ class PimIntegrationTest extends TestCase
 
     public function test_cms_handles_unreachable_and_non_json_upstream(): void
     {
-        Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('Timeout'));
+        Http::fake(fn () => throw new ConnectionException('Timeout'));
         $this->getJson('/admin/pim/channel-list')->assertStatus(502)->assertJsonPath('status', false);
         Http::fake(['*' => Http::response('<html>Error</html>', 500)]);
         $this->getJson('/admin/pim/channel-list')->assertStatus(502);

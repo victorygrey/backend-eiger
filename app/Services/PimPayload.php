@@ -32,7 +32,7 @@ class PimPayload
             'product.technology' => 'sometimes|array',
             'product.activity' => 'sometimes|array',
             'product.specification' => 'sometimes|array',
-            'image' => 'required|array',
+            'image' => 'present|array',
         ];
         foreach (['customAttributes', 'customAtributes'] as $key) {
             $rules["product.$key"] = 'sometimes|array';
@@ -60,10 +60,11 @@ class PimPayload
             }
         }
         foreach ($image['variant'] as $row) {
-            if (!in_array($row['sku'], array_column($product['variant'], 'sku'), true)) {
+            if (! in_array($row['sku'], array_column($product['variant'], 'sku'), true)) {
                 throw ValidationException::withMessages(['image.variant' => 'SKU gambar tidak terdapat dalam payload produk PIM.']);
             }
         }
+
         return ['product' => $product, 'image' => $image];
     }
 
@@ -109,16 +110,21 @@ class PimPayload
         $assets = collect($image['variant'] ?? [])->firstWhere('sku', $sku)['image'] ?? [];
         if (empty($assets)) {
             $generic = collect($image['generic'] ?? [])->firstWhere('sku', $product['generic'])['image'] ?? [];
-            if (!empty($generic)) {
+            if (! empty($generic)) {
                 $assets = $generic;
             }
         }
-        if (!collect($assets)->contains('type', 'main_image')) {
+        if (! collect($assets)->contains('type', 'main_image')) {
             $generic = collect($image['generic'] ?? [])->firstWhere('sku', $product['generic'])['image'] ?? [];
             $main = collect($generic)->firstWhere('type', 'main_image');
-            if (!$main && !empty($product['mainImage'])) $main = ['type' => 'main_image', 'url' => $product['mainImage']];
-            if ($main) array_unshift($assets, $main);
+            if (! $main && ! empty($product['mainImage'])) {
+                $main = ['type' => 'main_image', 'url' => $product['mainImage']];
+            }
+            if ($main) {
+                array_unshift($assets, $main);
+            }
         }
+
         return collect($assets)->unique('url')->values()->all();
     }
 
@@ -127,10 +133,12 @@ class PimPayload
         $assets = $this->assets($product, $image, $sku);
         $media = array_map(function ($asset) {
             $role = $asset['type'] === 'main_image' ? 'main_image' : 'gallery';
+
             return config('pim.copy_http_media')
                 ? app(PimHttpMediaImporter::class)->import($asset['url'], $role)
                 : ['url' => $asset['url'], 'role' => $role];
         }, $assets);
+
         return [
             'pim_media' => array_merge($media, $this->supplementalMedia($product)),
             'image' => collect($media)->firstWhere('role', 'main_image')['url'] ?? ($media[0]['url'] ?? null),
@@ -147,11 +155,12 @@ class PimPayload
             }
         }
         foreach ($product['technology'] ?? [] as $technology) {
-            if (!empty($technology['image'])) {
+            if (! empty($technology['image'])) {
                 $media[] = ['url' => $technology['image'], 'role' => 'technology',
                     'description' => $technology['name'] ?? '', 'sku' => $product['generic']];
             }
         }
+
         return $media;
     }
 }
