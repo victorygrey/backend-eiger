@@ -262,7 +262,7 @@ class ProductController extends Controller
     protected function collectAvailableImages(Product $product): array
     {
         $images = [];
-        $sourceToLocal = [];
+        $storedPhotoCount = 0;
         if (! empty($product->image)) {
             $images[] = $product->image;
         }
@@ -279,29 +279,27 @@ class ProductController extends Controller
                     continue;
                 }
                 $url = (string) ($media['url'] ?? $media['value'] ?? '');
-                $sourceUrl = (string) ($media['source_url'] ?? '');
                 if ($url !== '') {
                     $images[] = $url;
-                    if ($sourceUrl !== '') {
-                        $sourceToLocal[$sourceUrl] = $url;
-                    }
+                    $storedPhotoCount++;
                 }
             }
         }
 
-        // From pim_image_payload
-        if (is_array($product->pim_image_payload)) {
+        // Raw signed URLs are a fallback for records that predate local media
+        // copies. Once local photos exist, using both would duplicate thumbnails.
+        if ($storedPhotoCount === 0 && is_array($product->pim_image_payload)) {
             foreach ($product->pim_image_payload['generic'] ?? [] as $gen) {
                 foreach ($gen['image'] ?? [] as $gi) {
                     if (! empty($gi['url'])) {
-                        $images[] = $sourceToLocal[$gi['url']] ?? $gi['url'];
+                        $images[] = $gi['url'];
                     }
                 }
             }
             foreach ($product->pim_image_payload['variant'] ?? [] as $pvar) {
                 foreach ($pvar['image'] ?? [] as $vi) {
                     if (! empty($vi['url'])) {
-                        $images[] = $sourceToLocal[$vi['url']] ?? $vi['url'];
+                        $images[] = $vi['url'];
                     }
                 }
             }
