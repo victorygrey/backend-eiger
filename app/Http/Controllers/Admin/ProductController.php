@@ -8,11 +8,13 @@ use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
 use App\Models\Zone;
 use App\Services\PimCareProductMapper;
+use App\Services\PimFormData;
+use App\Services\PimProductDataStore;
 use App\Services\PimProductLookup;
 use App\Services\ProductEnrichmentService;
-use App\Services\PimProductDataStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
@@ -38,7 +40,7 @@ class ProductController extends Controller
                         });
                 });
             })
-            ->when($request->filled('zone_id'), fn($q) => $q->where('zone_id', $request->zone_id))
+            ->when($request->filled('zone_id'), fn ($q) => $q->where('zone_id', $request->zone_id))
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -54,14 +56,19 @@ class ProductController extends Controller
     public function pimLookup(Request $request)
     {
         $data = $request->validate(['code' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z0-9_-]+$/']]);
-        try { return response()->json(app(\App\Services\PimProductLookup::class)->get($data['code'])); }
-        catch (\Illuminate\Validation\ValidationException $e) { throw $e; }
-        catch (\Throwable $e) { return response()->json(['message' => 'PIM tidak dapat dihubungi atau payload belum tersedia.'], 502); }
+        try {
+            return response()->json(app(PimProductLookup::class)->get($data['code']));
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'PIM tidak dapat dihubungi atau payload belum tersedia.'], 502);
+        }
     }
 
     public function mappingPreview(Product $product)
     {
         $product->load(['zone', 'variants']);
+
         return response()->json([
             'id' => $product->id,
             'sku' => $product->sku,
@@ -136,6 +143,7 @@ class ProductController extends Controller
     {
         $zones = Zone::all();
         $availableImages = [];
+
         return view('admin.products.create', compact('zones', 'availableImages'));
     }
 
@@ -144,7 +152,7 @@ class ProductController extends Controller
      */
     public function store(StoreProductRequest $request)
     {
-        $data = app(\App\Services\PimFormData::class)->apply($request->validated(), $request);
+        $data = app(PimFormData::class)->apply($request->validated(), $request);
         $data['is_featured'] = $request->has('is_featured');
         $data['is_discontinued'] = $request->has('is_discontinued');
 
@@ -156,19 +164,23 @@ class ProductController extends Controller
             $product = Product::create($data);
             foreach ($variants as $var) {
                 $product->variants()->create([
-                    'sku'   => $var['sku'],
-                    'name'  => ($var['name'] ?? null) ?: ($product->name . ' - ' . ($var['color'] ?? '') . ' - ' . ($var['size'] ?? '')),
+                    'sku' => $var['sku'],
+                    'name' => ($var['name'] ?? null) ?: ($product->name.' - '.($var['color'] ?? '').' - '.($var['size'] ?? '')),
                     'color' => $var['color'] ?? null,
-                    'size'  => $var['size'] ?? null,
+                    'size' => $var['size'] ?? null,
                     'price' => $var['price'] ?? $product->price,
                     'stock' => $var['stock'] ?? 0,
                     'image' => ($var['image'] ?? null) ?: $product->image,
                 ]);
             }
-            if ($variants) $product->update(['stock' => $product->variants()->sum('stock')]);
-            if ($pimSync) app(PimProductDataStore::class)->replace(
-                $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
-            );
+            if ($variants) {
+                $product->update(['stock' => $product->variants()->sum('stock')]);
+            }
+            if ($pimSync) {
+                app(PimProductDataStore::class)->replace(
+                    $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
+                );
+            }
         });
 
         return redirect()->route('admin.products.index')
@@ -183,6 +195,7 @@ class ProductController extends Controller
         $product->load('variants');
         $zones = Zone::all();
         $availableImages = $this->collectAvailableImages($product);
+
         return view('admin.products.edit', compact('product', 'zones', 'availableImages'));
     }
 
@@ -191,7 +204,7 @@ class ProductController extends Controller
      */
     public function update(UpdateProductRequest $request, Product $product)
     {
-        $data = app(\App\Services\PimFormData::class)->apply($request->validated(), $request);
+        $data = app(PimFormData::class)->apply($request->validated(), $request);
         $data['is_featured'] = $request->has('is_featured');
         $data['is_discontinued'] = $request->has('is_discontinued');
 
@@ -201,9 +214,12 @@ class ProductController extends Controller
         DB::transaction(function () use ($product, $data, $variants, $pimSync) {
             $product->update($data);
             if ($variants === null) {
-                if ($pimSync) app(PimProductDataStore::class)->replace(
-                    $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
-                );
+                if ($pimSync) {
+                    app(PimProductDataStore::class)->replace(
+                        $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
+                    );
+                }
+
                 return;
             }
 
@@ -214,9 +230,9 @@ class ProductController extends Controller
                 $product->variants()->updateOrCreate(
                     ['sku' => $var['sku']],
                     [
-                        'name'  => ($var['name'] ?? null) ?: ($product->name . ' - ' . ($var['color'] ?? '') . ' - ' . ($var['size'] ?? '')),
+                        'name' => ($var['name'] ?? null) ?: ($product->name.' - '.($var['color'] ?? '').' - '.($var['size'] ?? '')),
                         'color' => $var['color'] ?? null,
-                        'size'  => $var['size'] ?? null,
+                        'size' => $var['size'] ?? null,
                         'price' => $var['price'] ?? $product->price,
                         'stock' => $var['stock'] ?? 0,
                         'image' => ($var['image'] ?? null) ?: ($existingImage ?: $product->image),
@@ -229,9 +245,11 @@ class ProductController extends Controller
                 $product->variants()->delete();
             }
             $product->update(['stock' => $product->variants()->sum('stock')]);
-            if ($pimSync) app(PimProductDataStore::class)->replace(
-                $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
-            );
+            if ($pimSync) {
+                app(PimProductDataStore::class)->replace(
+                    $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
+                );
+            }
         });
 
         return redirect()->route('admin.products.index')
@@ -244,47 +262,66 @@ class ProductController extends Controller
     protected function collectAvailableImages(Product $product): array
     {
         $images = [];
-        if (!empty($product->image)) {
+        $sourceToLocal = [];
+        if (! empty($product->image)) {
             $images[] = $product->image;
+        }
+
+        // Prefer the durable CMS copy for product photos. Supplemental assets
+        // (technology, size chart, and video) have their own preview section.
+        if (is_array($product->pim_media)) {
+            foreach ($product->pim_media as $media) {
+                if (! is_array($media)) {
+                    continue;
+                }
+                $role = strtolower((string) ($media['role'] ?? $media['type'] ?? 'gallery'));
+                if (! in_array($role, ['main_image', 'gallery'], true)) {
+                    continue;
+                }
+                $url = (string) ($media['url'] ?? $media['value'] ?? '');
+                $sourceUrl = (string) ($media['source_url'] ?? '');
+                if ($url !== '') {
+                    $images[] = $url;
+                    if ($sourceUrl !== '') {
+                        $sourceToLocal[$sourceUrl] = $url;
+                    }
+                }
+            }
         }
 
         // From pim_image_payload
         if (is_array($product->pim_image_payload)) {
             foreach ($product->pim_image_payload['generic'] ?? [] as $gen) {
                 foreach ($gen['image'] ?? [] as $gi) {
-                    if (!empty($gi['url'])) $images[] = $gi['url'];
+                    if (! empty($gi['url'])) {
+                        $images[] = $sourceToLocal[$gi['url']] ?? $gi['url'];
+                    }
                 }
             }
             foreach ($product->pim_image_payload['variant'] ?? [] as $pvar) {
                 foreach ($pvar['image'] ?? [] as $vi) {
-                    if (!empty($vi['url'])) $images[] = $vi['url'];
-                }
-            }
-        }
-
-        // From pim_media
-        if (is_array($product->pim_media)) {
-            foreach ($product->pim_media as $m) {
-                if (is_string($m) && !empty($m)) {
-                    $images[] = $m;
-                } elseif (is_array($m)) {
-                    if (!empty($m['url'])) $images[] = $m['url'];
-                    if (!empty($m['value'])) $images[] = $m['value'];
+                    if (! empty($vi['url'])) {
+                        $images[] = $sourceToLocal[$vi['url']] ?? $vi['url'];
+                    }
                 }
             }
         }
 
         // From scraped products.json fallback
-        $scraped = \App\Services\ProductEnrichmentService::findJsonProduct($product->sku);
-        if (!empty($scraped['images'])) {
-            foreach ($scraped['images'] as $img) {
-                if (!empty($img['url'])) $images[] = $img['url'];
+        if (count($images) <= 1) {
+            $scraped = ProductEnrichmentService::findJsonProduct($product->sku);
+            if (! empty($scraped['images'])) {
+                foreach ($scraped['images'] as $img) {
+                    if (! empty($img['url'])) {
+                        $images[] = $img['url'];
+                    }
+                }
             }
         }
 
         // From existing variants
         foreach ($product->variants as $var) {
-            if (!empty($var->image)) {
+            if (! empty($var->image)) {
                 $images[] = $var->image;
             }
         }

@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${mediaPreview(t.image, t.name || 'Teknologi produk', true)}
                             <div>
                                 <span class="badge bg-primary text-white fw-bold">${escapeHtml(t.name || 'TEKNOLOGI')}</span>
-                                <div class="small text-muted mt-1">${escapeHtml(t.description || '')}</div>
+                                <div class="small text-muted mt-1">${escapeHtml(plainText(t.description || ''))}</div>
                             </div>
                         </div>
                     </div>
@@ -83,9 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="p-2 border rounded-2 bg-light bg-opacity-50">
                         <div class="d-flex align-items-center justify-content-between">
                             <span class="fw-semibold small text-dark">${escapeHtml(a.name || 'Aktivitas')}</span>
-                            ${a.rating ? `<span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>${escapeHtml(a.desc_rating || (a.rating + '/5'))}</span>` : ''}
+                            ${a.rating ? `<span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>${escapeHtml(plainText(a.desc_rating || (a.rating + '/5')))}</span>` : ''}
                         </div>
-                        <div class="small text-muted">${escapeHtml(a.description || '')}</div>
+                        <div class="small text-muted">${escapeHtml(plainText(a.description || ''))}</div>
                     </div>
                 `).join('');
             } else {
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="min-w-0">
                             <strong>${escapeHtml(group.name || group.attributeCode || 'Media')}</strong>
                             <span class="badge bg-light text-dark ms-1">${escapeHtml(group.attributeCode || '')}</span>
-                            <div class="text-muted">${escapeHtml(file.description || '')}</div>
+                            <div class="text-muted">${escapeHtml(plainText(file.description || ''))}</div>
                             ${safeMediaUrl(file.value) ? `<a href="${escapeHtml(safeMediaUrl(file.value))}" target="_blank" rel="noopener noreferrer" class="small text-break">Buka media asli <i class="bi bi-box-arrow-up-right"></i></a>` : ''}
                         </div>
                     </div>
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="font-monospace">${escapeHtml(v.sku || '')}</div>
                     <div>ECM SKU: ${escapeHtml(v.ecmsku || '—')} · MOQ: ${escapeHtml(v.moq || '—')}</div>
                     <div>Warna: ${escapeHtml(v.color || '—')} · Ukuran: ${escapeHtml(v.size || '—')}</div>
-                    ${(v.customAttributes || []).map(a => `<div><span class="text-muted">${escapeHtml(a.attributeCode || '')}:</span> ${escapeHtml(a.value || '—')}</div>`).join('')}
+                    ${(v.customAttributes || []).map(a => `<div><span class="text-muted">${escapeHtml(a.attributeCode || '')}:</span> ${escapeHtml(plainText(a.value || '—'))}</div>`).join('')}
                 </div></div>`).join('') : '<div class="col-12 text-muted fst-italic small">Belum ada metadata varian.</div>';
         }
     }

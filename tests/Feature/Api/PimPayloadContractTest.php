@@ -50,7 +50,13 @@ class PimPayloadContractTest extends TestCase
             ]],
             'activity' => [['name' => 'Hiking', 'rating' => '4']],
             'specification' => [['code' => 'PRODUCT_WEIGHT', 'value' => '725']]],
-            'image' => ['generic' => [], 'variant' => []]];
+            'image' => ['generic' => [[
+                'sku' => 'P1',
+                'image' => [[
+                    'id' => 'IMG-1', 'type' => 'main_image', 'source' => 'PIM',
+                    'url' => 'https://storage.eigeradventure.com/main.JPG?signature='.str_repeat('a', 700),
+                ]],
+            ]], 'variant' => []]];
     }
 
     public function test_publish_retains_full_contract_and_core_api_exposes_it(): void
@@ -83,6 +89,7 @@ class PimPayloadContractTest extends TestCase
             ->assertJsonPath('data.variants.0.image', url('/api/pim-media/'.hash('sha256', $this->png).'.png'));
 
         $this->get(route('admin.products.edit', $parent))->assertOk()
+            ->assertSee('1 Foto Tersedia')
             ->assertSee('https://storage.eigeradventure.com/technology.jpg', false)
             ->assertSee('Buka media asli');
     }
@@ -185,6 +192,7 @@ class PimPayloadContractTest extends TestCase
     {
         $payload = $this->payload();
         $payload['product']['mainImage'] = 'https://storage.eigeradventure.com.evil.test/main.png';
+        $payload['image']['generic'][0]['image'][0]['url'] = $payload['product']['mainImage'];
         $this->withToken('test')->postJson('/api/integrations/pim/product', $payload)->assertUnprocessable();
         Http::assertNothingSent();
         Http::fake(['*' => Http::response('', 302, ['Location' => 'http://127.0.0.1/private'])]);

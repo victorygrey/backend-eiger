@@ -33,7 +33,7 @@
                                             @endif
                                             <div>
                                                 <span class="badge bg-primary text-white fw-bold">{{ $tech['name'] ?? 'TEKNOLOGI' }}</span>
-                                                <div class="small text-muted mt-1">{{ $tech['description'] ?? '' }}</div>
+                                                <div class="small text-muted mt-1">{{ $plainPimText($tech['description'] ?? '') }}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -53,10 +53,10 @@
                                         <div class="d-flex align-items-center justify-content-between">
                                             <span class="fw-semibold small text-dark">{{ $act['name'] ?? 'Aktivitas' }}</span>
                                             @if(isset($act['rating']) && $act['rating'] > 0)
-                                                <span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>{{ $act['desc_rating'] ?? ($act['rating'] . '/5') }}</span>
+                                                <span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>{{ $plainPimText($act['desc_rating'] ?? ($act['rating'] . '/5')) }}</span>
                                             @endif
                                         </div>
-                                        <div class="small text-muted">{{ $act['description'] ?? '' }}</div>
+                                        <div class="small text-muted">{{ $plainPimText($act['description'] ?? '') }}</div>
                                     </div>
                                 @endforeach
                             @else
@@ -128,7 +128,7 @@
                                         <div class="min-w-0">
                                             <strong>{{ $group['name'] ?? $group['attributeCode'] ?? 'Media' }}</strong>
                                             <span class="badge bg-light text-dark ms-1">{{ $group['attributeCode'] ?? '' }}</span>
-                                            <div class="text-muted">{{ $file['description'] ?? '' }}</div>
+                                    <div class="text-muted">{{ $plainPimText($file['description'] ?? '') }}</div>
                                             @if($mediaUrl !== '')
                                                 <a href="{{ $mediaUrl }}" target="_blank" rel="noopener noreferrer" class="small text-break">Buka media asli <i class="bi bi-box-arrow-up-right"></i></a>
                                             @endif
@@ -154,7 +154,7 @@
                                     <div>ECM SKU: {{ $variant['ecmsku'] ?? '—' }} · MOQ: {{ $variant['moq'] ?? '—' }}</div>
                                     <div>Warna: {{ $variant['color'] ?? '—' }} · Ukuran: {{ $variant['size'] ?? '—' }}</div>
                                     @foreach($variant['customAttributes'] ?? [] as $attribute)
-                                        <div><span class="text-muted">{{ $attribute['attributeCode'] ?? '' }}:</span> {{ $attribute['value'] ?? '—' }}</div>
+                                        <div><span class="text-muted">{{ $attribute['attributeCode'] ?? '' }}:</span> {{ $plainPimText($attribute['value'] ?? '—') }}</div>
                                     @endforeach
                                 </div>
                             </div>
