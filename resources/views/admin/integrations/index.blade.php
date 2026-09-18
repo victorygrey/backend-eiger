@@ -327,6 +327,12 @@
                         {{ $careMasterUrl }}/api/server/pricing_details<br>
                         {{ $careWmsUrl }}/api/server/inventories/bybin
                     </div>
+                    <div class="alert alert-light border mt-3 mb-0 py-2 px-3 small">
+                        <div class="fw-semibold mb-1">Parameter pencarian SKU di Postman</div>
+                        <div><strong>Harga:</strong> <code>filter[skucode]</code> = SKU 9/12 digit, opsional <code>filter[loccode]</code> = <code>{{ $storeCode }}</code></div>
+                        <div class="mt-1"><strong>Stok:</strong> <code>filter[location]</code> = <code>{{ $storeCode }}</code> dan <code>filter[search_sku.skucode]</code> = SKU varian 12 digit</div>
+                        <div class="text-muted mt-1">Gunakan nama parameter persis seperti di atas. Parameter <code>skucode</code> tanpa pembungkus <code>filter[...]</code> diabaikan CARE dan dapat mengembalikan seluruh data.</div>
+                    </div>
                 </div>
             </div>
         </div>

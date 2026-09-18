@@ -45,7 +45,9 @@ class PimProductDataStore
             $product->customAttributesRelation()->delete();
             foreach (array_values($payload['customAtributes'] ?? $payload['customAttributes'] ?? []) as $position => $row) {
                 $code = trim((string) ($row['attributeCode'] ?? ''));
-                if ($code === '') continue;
+                if ($code === '') {
+                    continue;
+                }
                 $value = $row['value'] ?? null;
                 $product->customAttributesRelation()->create([
                     'attribute_code' => $code,
@@ -75,11 +77,15 @@ class PimProductDataStore
                     'rating' => is_numeric($row['rating'] ?? null) ? $row['rating'] : null,
                     'rating_description' => $row['desc_rating'] ?? null, 'sort_order' => $position,
                 ]);
-                if ($master) $storedActivityIds[$master->id] = true;
+                if ($master) {
+                    $storedActivityIds[$master->id] = true;
+                }
             }
             $activityAttribute = $attributes['activity'] ?? null;
             foreach (app(AtomMasterDataResolver::class)->activitiesFromValue($activityAttribute) as $master) {
-                if (isset($storedActivityIds[$master->id])) continue;
+                if (isset($storedActivityIds[$master->id])) {
+                    continue;
+                }
                 $product->activitiesRelation()->create([
                     'pim_id' => $master->external_id,
                     'atom_product_activity_id' => $master->id,
@@ -94,7 +100,9 @@ class PimProductDataStore
             $product->specificationsRelation()->delete();
             foreach (array_values($payload['specification'] ?? []) as $position => $row) {
                 $code = trim((string) ($row['code'] ?? $row['name'] ?? ''));
-                if ($code === '') continue;
+                if ($code === '') {
+                    continue;
+                }
                 $product->specificationsRelation()->create([
                     'code' => $code, 'name' => $row['name'] ?? null, 'value' => $this->scalarValue($row['value'] ?? null),
                     'unit' => $row['unit'] ?? null, 'sort_order' => $position,
@@ -105,7 +113,9 @@ class PimProductDataStore
             $this->storeMedia($product, $media, null);
             foreach ($variantMedia as $sku => $rows) {
                 $variant = $product->variants()->where('sku', $sku)->first();
-                if ($variant) $this->storeMedia($product, $rows, $variant);
+                if ($variant) {
+                    $this->storeMedia($product, $rows, $variant);
+                }
             }
 
             $product->unsetRelation('pimRecord');
@@ -122,7 +132,9 @@ class PimProductDataStore
         $variant->attributesRelation()->delete();
         foreach (array_values($attributes) as $position => $row) {
             $code = trim((string) ($row['attributeCode'] ?? ''));
-            if ($code === '') continue;
+            if ($code === '') {
+                continue;
+            }
             $value = $row['value'] ?? null;
             $variant->attributesRelation()->create([
                 'attribute_code' => $code, 'value' => $this->scalarValue($value),
@@ -134,16 +146,27 @@ class PimProductDataStore
 
     private function storeMedia(Product $product, array $rows, ?ProductVariant $variant): void
     {
+        $seen = [];
         foreach (array_values($rows) as $position => $row) {
-            if (is_string($row)) $row = ['url' => $row];
+            if (is_string($row)) {
+                $row = ['url' => $row];
+            }
             $url = $row['url'] ?? $row['value'] ?? null;
-            if (! is_string($url) || $url === '') continue;
+            if (! is_string($url) || $url === '') {
+                continue;
+            }
+            $role = (string) ($row['role'] ?? $row['type'] ?? 'gallery');
+            $identity = $role."\0".$url;
+            if (isset($seen[$identity])) {
+                continue;
+            }
+            $seen[$identity] = true;
             $product->mediaRelation()->create([
                 'product_variant_id' => $variant?->id,
                 'sku' => $variant?->sku ?? $row['sku'] ?? $product->sku,
                 'external_id' => $row['id'] ?? null,
                 'attribute_code' => $row['attributeCode'] ?? null,
-                'role' => $row['role'] ?? $row['type'] ?? 'gallery',
+                'role' => $role,
                 'media_type' => $row['type'] ?? null,
                 'url' => $url,
                 'source_url' => $row['source_url'] ?? null,
@@ -161,8 +184,11 @@ class PimProductDataStore
         $result = [];
         foreach ($rows as $row) {
             $code = strtolower(trim((string) ($row['attributeCode'] ?? '')));
-            if ($code !== '') $result[$code] = $this->scalarValue($row['value'] ?? null);
+            if ($code !== '') {
+                $result[$code] = $this->scalarValue($row['value'] ?? null);
+            }
         }
+
         return $result;
     }
 

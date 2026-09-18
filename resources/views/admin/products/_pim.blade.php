@@ -61,10 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (techs.length > 0) {
                 techContainer.innerHTML = techs.map(t => `
                     <div class="p-2 border rounded-2 bg-light bg-opacity-50">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <span class="badge bg-primary text-white fw-bold">${escapeHtml(t.name || 'TEKNOLOGI')}</span>
+                        <div class="d-flex gap-2 align-items-start">
+                            ${mediaPreview(t.image, t.name || 'Teknologi produk', true)}
+                            <div>
+                                <span class="badge bg-primary text-white fw-bold">${escapeHtml(t.name || 'TEKNOLOGI')}</span>
+                                <div class="small text-muted mt-1">${escapeHtml(t.description || '')}</div>
+                            </div>
                         </div>
-                        <div class="small text-muted mt-1">${escapeHtml(t.description || '')}</div>
                     </div>
                 `).join('');
             } else {
@@ -117,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${attrs.map(ca => `
                                 <tr class="border-bottom border-light">
                                     <th class="text-muted ps-2 py-1" style="width: 40%;">${escapeHtml(ca.attributeCode || '')}</th>
-                                    <td class="text-dark pe-2 py-1 fw-semibold">${escapeHtml(String(ca.value || '-')).replace(/<[^>]*>?/gm, '')}</td>
+                                    <td class="text-dark pe-2 py-1 fw-semibold">${escapeHtml(plainText(ca.value || '-'))}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -131,10 +134,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const files = (p.media || []).flatMap(group => (group.files || []).map(file => ({group, file})));
             mediaContainer.innerHTML = files.length ? files.map(({group, file}) => `
                 <div class="p-2 mb-2 border rounded-2 bg-light bg-opacity-50">
-                    <strong>${escapeHtml(group.name || group.attributeCode || 'Media')}</strong>
-                    <span class="badge bg-light text-dark ms-1">${escapeHtml(group.attributeCode || '')}</span>
-                    <div class="text-muted">${escapeHtml(file.description || '')}</div>
-                    <div class="font-monospace text-break">${escapeHtml(file.value || '')}</div>
+                    <div class="d-flex gap-3 align-items-start">
+                        ${mediaPreview(file.value, group.name || group.attributeCode || 'Media')}
+                        <div class="min-w-0">
+                            <strong>${escapeHtml(group.name || group.attributeCode || 'Media')}</strong>
+                            <span class="badge bg-light text-dark ms-1">${escapeHtml(group.attributeCode || '')}</span>
+                            <div class="text-muted">${escapeHtml(file.description || '')}</div>
+                            ${safeMediaUrl(file.value) ? `<a href="${escapeHtml(safeMediaUrl(file.value))}" target="_blank" rel="noopener noreferrer" class="small text-break">Buka media asli <i class="bi bi-box-arrow-up-right"></i></a>` : ''}
+                        </div>
+                    </div>
                 </div>`).join('') : '<span class="text-muted fst-italic">Belum ada media tambahan.</span>';
         }
         if (variantContainer) {
@@ -154,6 +162,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = document.createElement('div');
         d.textContent = str;
         return d.innerHTML;
+    }
+
+    function plainText(value) {
+        const d = document.createElement('div');
+        d.innerHTML = String(value).replace(/<br\s*\/?>|<\/(?:p|div|li|h[1-6])>/gi, ' ');
+        return (d.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function safeMediaUrl(value) {
+        if (!value) return '';
+        try {
+            const url = new URL(String(value), window.location.origin);
+            return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function mediaPreview(value, label, compact = false) {
+        const url = safeMediaUrl(value);
+        if (!url) return '';
+        const path = new URL(url).pathname.toLowerCase();
+        if (/\.(?:jpe?g|png|webp|gif|svg)$/.test(path)) {
+            const size = compact ? 'width:72px;height:72px' : 'width:112px;height:82px';
+            return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0"><img src="${escapeHtml(url)}" alt="${escapeHtml(label || 'Media PIM')}" class="rounded border bg-white object-fit-contain" style="${size}"></a>`;
+        }
+        if (/\.(?:mp4|webm|ogg)$/.test(path)) {
+            return `<video controls preload="metadata" class="rounded border bg-dark flex-shrink-0" style="width:180px;max-height:110px"><source src="${escapeHtml(url)}"></video>`;
+        }
+        return '';
     }
 
     btnFetch.addEventListener('click', async () => {

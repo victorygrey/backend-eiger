@@ -128,19 +128,24 @@ class PimPayload
         return collect($assets)->unique('url')->values()->all();
     }
 
-    public function mediaValues(array $product, array $image, string $sku): array
+    public function mediaValues(array $product, array $image, string $sku, bool $includeSupplemental = true): array
     {
         $assets = $this->assets($product, $image, $sku);
         $media = array_map(function ($asset) {
             $role = $asset['type'] === 'main_image' ? 'main_image' : 'gallery';
 
-            return config('pim.copy_http_media')
+            $stored = config('pim.copy_http_media')
                 ? app(PimHttpMediaImporter::class)->import($asset['url'], $role)
                 : ['url' => $asset['url'], 'role' => $role];
+
+            return array_merge($asset, $stored, [
+                'source_url' => $asset['url'],
+                'role' => $role,
+            ]);
         }, $assets);
 
         return [
-            'pim_media' => array_merge($media, $this->supplementalMedia($product)),
+            'pim_media' => array_merge($media, $includeSupplemental ? $this->supplementalMedia($product) : []),
             'image' => collect($media)->firstWhere('role', 'main_image')['url'] ?? ($media[0]['url'] ?? null),
         ];
     }

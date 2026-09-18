@@ -15,7 +15,9 @@ use Tests\TestCase;
 class PimPayloadContractTest extends TestCase
 {
     use RefreshDatabase;
+
     private string $mediaDir;
+
     private string $png;
 
     protected function setUp(): void
@@ -42,7 +44,10 @@ class PimPayloadContractTest extends TestCase
             'variant' => [['sku' => 'P1-M', 'name' => 'Bag M', 'color' => 'BLK', 'size' => 'M', 'moq' => '1', 'ecmsku' => 'ECM1', 'customAttributes' => []]],
             'customAtributes' => [['attributeCode' => 'long_description', 'value' => 'Real description']],
             'media' => [['attributeCode' => 'SIZE_CHART', 'files' => [['value' => 'https://storage.eigeradventure.com/chart.jpg']]]],
-            'technology' => [['id' => 'T1', 'name' => 'Technology from PIM']],
+            'technology' => [[
+                'id' => 'T1', 'name' => 'Technology from PIM',
+                'image' => 'https://storage.eigeradventure.com/technology.jpg',
+            ]],
             'activity' => [['name' => 'Hiking', 'rating' => '4']],
             'specification' => [['code' => 'PRODUCT_WEIGHT', 'value' => '725']]],
             'image' => ['generic' => [], 'variant' => []]];
@@ -66,6 +71,9 @@ class PimPayloadContractTest extends TestCase
         $this->assertSame('ECM1', $parent->variants()->first()->ecmsku);
         $this->assertSame('/api/pim-media/'.hash('sha256', $this->png).'.png', $parent->variants()->first()->image);
         $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
+        $this->assertCount(3, $parent->mediaRelation()->whereNull('product_variant_id')->get());
+        $this->assertCount(1, $parent->mediaRelation()->whereNotNull('product_variant_id')->get());
+        $this->assertFalse($parent->mediaRelation()->whereNotNull('product_variant_id')->get()->contains('role', 'SIZE_CHART'));
         $this->getJson('/api/products/'.$saved->id)->assertOk()
             ->assertJsonPath('data.pim_payload.weight', 725)
             ->assertJsonPath('data.pim_payload.variant.0.size', 'M')
@@ -73,6 +81,10 @@ class PimPayloadContractTest extends TestCase
         $this->getJson('/api/products/'.$parent->id)->assertOk()
             ->assertJsonPath('data.variants.0.sku', 'P1-M')
             ->assertJsonPath('data.variants.0.image', url('/api/pim-media/'.hash('sha256', $this->png).'.png'));
+
+        $this->get(route('admin.products.edit', $parent))->assertOk()
+            ->assertSee('https://storage.eigeradventure.com/technology.jpg', false)
+            ->assertSee('Buka media asli');
     }
 
     public function test_publish_normalizes_queryable_pim_data_out_of_products_table(): void
@@ -144,7 +156,7 @@ class PimPayloadContractTest extends TestCase
             'pim_image_payload_json' => json_encode($payload['image'])])->assertRedirect('/admin/products');
         $saved = Product::first();
         $this->assertSame('Real description', $saved->pim_payload['customAtributes'][0]['value']);
-        $this->assertCount(2, $saved->pim_media);
+        $this->assertCount(3, $saved->pim_media);
         $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
         $this->assertFileExists($this->mediaDir.'/'.hash('sha256', $this->png).'.png');
     }

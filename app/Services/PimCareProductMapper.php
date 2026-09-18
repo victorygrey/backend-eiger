@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\Log;
 
 class PimCareProductMapper
 {
-    public function __construct(private readonly CareProductLookup $care)
-    {
-    }
+    public function __construct(private readonly CareProductLookup $care) {}
 
     /**
      * Merge PIM master/enrichment data with CARE commercial data for one article.
@@ -81,10 +79,20 @@ class PimCareProductMapper
             $key = strtolower(trim((string) ($attribute['attributeCode'] ?? '')));
             $value = $attribute['value'] ?? null;
             if ($key !== '' && (is_scalar($value) || $value === null)) {
-                $result[$key] = trim(strip_tags((string) $value));
+                $result[$key] = $this->plainText($value);
             }
         }
+
         return $result;
+    }
+
+    private function plainText(mixed $value): string
+    {
+        $html = (string) $value;
+        $html = preg_replace('~<br\s*/?>|</(?:p|div|li|h[1-6])>~i', ' ', $html) ?? $html;
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
     }
 
     private function firstAttribute(array $attributes, array $keys): string
@@ -94,6 +102,7 @@ class PimCareProductMapper
                 return (string) $attributes[$key];
             }
         }
+
         return '';
     }
 
@@ -115,6 +124,7 @@ class PimCareProductMapper
         foreach ($scraped['images'] ?? [] as $item) {
             $images[] = (string) ($item['url'] ?? '');
         }
+
         return array_values(array_unique(array_filter($images)));
     }
 
@@ -128,6 +138,7 @@ class PimCareProductMapper
 
         return array_map(function (array $care) use ($pimVariants, $bySku, $imageBySku, $cover) {
             $pim = $bySku[$care['sku']] ?? $this->findPimVariant($pimVariants, $care['color'], $care['size']);
+
             return array_merge($care, [
                 'name' => $care['name'] ?: ($pim['name'] ?? ('Variant '.$care['sku'])),
                 'color' => $care['color'] ?: ($pim['color'] ?? ''),
@@ -163,6 +174,7 @@ class PimCareProductMapper
                 'image' => $imageBySku[$sku] ?? $cover,
             ];
         }
+
         return $result;
     }
 
@@ -176,6 +188,7 @@ class PimCareProductMapper
                 return $variant;
             }
         }
+
         return null;
     }
 
@@ -189,6 +202,7 @@ class PimCareProductMapper
                 $images[$sku] = $url;
             }
         }
+
         return $images;
     }
 }

@@ -63,7 +63,7 @@ class PimProductController extends Controller
         $data = $service->validate(['product' => $product->pim_payload, 'image' => $image]);
         $media = [];
         foreach ($data['product']['variant'] as $variant) {
-            $media[$variant['sku']] = $service->mediaValues($data['product'], $data['image'], $variant['sku']);
+            $media[$variant['sku']] = $service->mediaValues($data['product'], $data['image'], $variant['sku'], false);
         }
         $genericMedia = $service->mediaValues($data['product'], $data['image'], $data['product']['generic']);
 
@@ -121,11 +121,11 @@ class PimProductController extends Controller
         // Finish all downloads before the transaction; a failed image never partially updates the catalog.
         $media = [];
         foreach ($data['product']['variant'] as $variant) {
-            $media[$variant['sku']] = $service->mediaValues($data['product'], $data['image'], $variant['sku']);
+            $media[$variant['sku']] = $service->mediaValues($data['product'], $data['image'], $variant['sku'], false);
         }
         $genericMedia = $service->mediaValues($data['product'], $data['image'], $data['product']['generic']);
         $catalog = $mapper->map($data['product'], $data['image']);
-        $count = DB::transaction(function () use ($data, $media, $genericMedia, $catalog) {
+        $count = DB::transaction(function () use ($data, $media, $genericMedia, $catalog, $service) {
             $detail = $data['product'];
             $dataStore = app(PimProductDataStore::class);
             foreach ($detail['variant'] as $pimVariant) {
@@ -137,8 +137,12 @@ class PimProductController extends Controller
                         'pim_catalog_active' => true,
                         'image' => $media[$pimVariant['sku']]['image'] ?? $existingLegacyProduct->image,
                     ]);
+                    $legacyMedia = array_merge(
+                        $media[$pimVariant['sku']]['pim_media'] ?? [],
+                        $service->supplementalMedia($detail),
+                    );
                     $dataStore->replace($existingLegacyProduct, $detail, $data['image'],
-                        $media[$pimVariant['sku']]['pim_media'] ?? [], source: 'pim-http');
+                        $legacyMedia, source: 'pim-http');
                 }
             }
 

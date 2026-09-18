@@ -235,6 +235,7 @@ class PimIntegrationTest extends TestCase
                 'customAtributes' => [
                     ['attributeCode' => 'long_description', 'value' => 'Sepatu dengan kombinasi bahan kulit suede dan poliester yang water-repellent.'],
                     ['attributeCode' => 'category', 'value' => 'Shoes'],
+                    ['attributeCode' => 'material', 'value' => '<p>Nylon Robic Hexa 100D</p><p>Nylon Cordura 210D</p><div>Nylon Cordura 420D</div>'],
                 ],
                 // Simulator PIM supplies article-level color/size metadata here.
                 'variant' => [[
@@ -253,7 +254,7 @@ class PimIntegrationTest extends TestCase
             'price' => 519200,
             'stock' => 41,
             'zone_id' => $zone->id,
-            'material' => 'Kulit Suede & Poliester',
+            'material' => 'Nylon Robic Hexa 100D Nylon Cordura 210D Nylon Cordura 420D',
         ]);
         $this->assertDatabaseHas('product_variants', [
             'sku' => '910006090001', 'color' => 'CREAM', 'size' => '36', 'price' => 519200, 'stock' => 17,

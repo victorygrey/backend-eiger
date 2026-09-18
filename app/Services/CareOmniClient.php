@@ -5,6 +5,7 @@ namespace App\Services;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class CareOmniClient
 {
@@ -38,17 +39,31 @@ class CareOmniClient
 
         if ($variantSkus !== []) {
             foreach ($variantSkus as $sku) {
-                array_push($inventoryRows, ...$this->inventoryRows($sku));
+                try {
+                    array_push($inventoryRows, ...$this->inventoryRows($sku));
+                } catch (\Throwable $error) {
+                    Log::warning('CARE WMS lookup failed; retaining the price result and zero stock', [
+                        'sku' => $sku,
+                        'error' => $error->getMessage(),
+                    ]);
+                }
                 array_push($priceRows, ...$this->pricingRows($sku));
             }
         } else {
             // Some PIM payloads only contain article-level color/size metadata.
             // CARE WMS exposes sellable 12-digit SKUs, so use the store catalog
             // as a discovery fallback and retain only this generic article.
-            $inventoryRows = array_values(array_filter(
-                $this->allInventoryRows(),
-                fn (array $row) => (string) ($row['sku_generic_code'] ?? '') === $articleSku,
-            ));
+            try {
+                $inventoryRows = array_values(array_filter(
+                    $this->allInventoryRows(),
+                    fn (array $row) => (string) ($row['sku_generic_code'] ?? '') === $articleSku,
+                ));
+            } catch (\Throwable $error) {
+                Log::warning('CARE WMS article discovery failed; retaining the price result and zero stock', [
+                    'sku' => $articleSku,
+                    'error' => $error->getMessage(),
+                ]);
+            }
         }
 
         $stockBySku = $this->aggregateInventory($inventoryRows);
@@ -56,6 +71,7 @@ class CareOmniClient
         $variants = [];
 
         foreach ($stockBySku as $sku => $stock) {
+            $sku = (string) $sku;
             if (strlen($sku) !== 12 || ! ctype_digit($sku) || ! str_starts_with($sku, $articleSku)) {
                 continue;
             }
@@ -166,7 +182,10 @@ class CareOmniClient
         ]);
         $this->ensureSuccessful($response, 'CARE Master pricing');
 
-        return $this->responseRows($response);
+        return array_values(array_filter(
+            $this->responseRows($response),
+            fn (array $row) => trim((string) ($row['skucode'] ?? '')) === $sku,
+        ));
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -181,7 +200,10 @@ class CareOmniClient
         ]);
         $this->ensureSuccessful($response, 'CARE WMS inventory');
 
-        return $this->responseRows($response);
+        return array_values(array_filter(
+            $this->responseRows($response),
+            fn (array $row) => trim((string) ($row['sku_code'] ?? $row['skucode'] ?? $row['sku'] ?? '')) === $sku,
+        ));
     }
 
     /** @return array<int, array<string, mixed>> */

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Product;
+use App\Services\CareOmniClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -148,5 +149,65 @@ class CareIntegrationWebTest extends TestCase
         $response->assertSessionHas('error');
         $this->assertDatabaseMissing('products', ['sku' => '910099999']);
         Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/products'));
+    }
+
+    public function test_article_lookup_uses_documented_filter_keys_and_rejects_unrelated_rows(): void
+    {
+        config([
+            'services.care.master_url' => 'https://care-master.test',
+            'services.care.wms_url' => 'https://care-wms.test',
+            'services.care.store_code' => '2022',
+        ]);
+        Http::fake(function ($request) {
+            if (str_contains($request->url(), 'pricing_details')) {
+                return Http::response(['data' => [
+                    ['skucode' => '980000201', 'articleprice' => 150000, 'loccode' => '2022'],
+                    ['skucode' => 'WRONG-SKU', 'articleprice' => 999999, 'loccode' => '2022'],
+                ]]);
+            }
+
+            return Http::response(['data' => [
+                ['sku_code' => '980000201001', 'available_qty' => 7, 'bin_status' => 'active', 'bin_category' => 'saleable goods'],
+                ['sku_code' => 'WRONG-SKU', 'available_qty' => 99, 'bin_status' => 'active', 'bin_category' => 'saleable goods'],
+            ]]);
+        });
+
+        $result = app(CareOmniClient::class)->article('980000201', ['980000201001']);
+
+        $this->assertSame(150000.0, $result['price']);
+        $this->assertSame(7, $result['stock']);
+        $this->assertSame(['980000201001'], array_column($result['variants'], 'sku'));
+        Http::assertSent(function ($request) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            if (str_contains($request->url(), 'pricing_details')) {
+                return isset($query['filter']['skucode'], $query['filter']['loccode']);
+            }
+
+            return ($query['filter']['location'] ?? null) === '2022'
+                && isset($query['filter']['search_sku.skucode']);
+        });
+    }
+
+    public function test_article_lookup_keeps_care_price_when_wms_is_temporarily_unavailable(): void
+    {
+        config([
+            'services.care.master_url' => 'https://care-master.test',
+            'services.care.wms_url' => 'https://care-wms.test',
+            'services.care.store_code' => '2022',
+        ]);
+        Http::fake([
+            'care-master.test/*' => Http::response(['data' => [
+                ['skucode' => '980000201', 'articleprice' => 150000, 'loccode' => '2022'],
+                ['skucode' => '980000201001', 'articleprice' => 150000, 'loccode' => '2022'],
+            ]]),
+            'care-wms.test/*' => Http::response(['message' => 'Unavailable'], 503),
+        ]);
+
+        $result = app(CareOmniClient::class)->article('980000201', ['980000201001']);
+
+        $this->assertTrue($result['found']);
+        $this->assertSame(150000.0, $result['price']);
+        $this->assertSame(0, $result['stock']);
+        $this->assertSame(150000.0, $result['variants'][0]['price']);
     }
 }
