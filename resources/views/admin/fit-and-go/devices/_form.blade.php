@@ -20,7 +20,7 @@
                         <input type="text" name="device_code" class="form-control font-monospace @error('device_code') is-invalid @enderror"
                                value="{{ old('device_code', $device->device_code ?? '') }}" placeholder="fit-kiosk-01" required>
                         @error('device_code')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <div class="form-text small">Gunakan huruf kecil, angka, dan tanda hubung. URL konfigurasi: <code>{{ url('/api/v1/fit-and-go/config') }}?device_code={{ old('device_code', $device->device_code ?? 'fit-kiosk-01') }}</code></div>
+                        <div class="form-text small">Gunakan huruf kecil, angka, dan tanda hubung. URL konfigurasi lengkap kiosk: <code>{{ url('/api/v1/fit-and-go/kiosks/'.old('device_code', $device->device_code ?? 'fit-kiosk-01')) }}</code></div>
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold">Lokasi Penempatan Meja / Fitting Room</label>

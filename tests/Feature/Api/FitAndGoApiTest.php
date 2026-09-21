@@ -69,6 +69,61 @@ class FitAndGoApiTest extends TestCase
         ]);
     }
 
+    public function test_kiosk_slug_returns_its_categories_and_activity_recommendations(): void
+    {
+        $device = FitAndGoDevice::where('device_code', 'fit-kiosk-01')->firstOrFail();
+        $activity = FitAndGoActivity::where('slug', 'mountaineering')->firstOrFail();
+        $product = Product::factory()->create([
+            'sku' => '910000999',
+            'name' => 'Kiosk Expedition Jacket',
+            'price' => 999000,
+            'stock' => 8,
+            'pim_catalog_active' => true,
+            'is_discontinued' => false,
+        ]);
+        ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => '910000999001',
+            'name' => 'Kiosk Expedition Jacket Black M',
+            'color' => 'Black',
+            'size' => 'M',
+            'price' => 999000,
+            'stock' => 8,
+        ]);
+        FitAndGoItemVisibility::create([
+            'device_id' => $device->id,
+            'product_id' => $product->id,
+            'category_code' => 'apparel',
+            'is_visible' => true,
+        ]);
+        DB::table('fit_and_go_device_activity_products')->insert([
+            'device_id' => $device->id,
+            'activity_id' => $activity->id,
+            'product_id' => $product->id,
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/v1/fit-and-go/kiosks/fit-kiosk-01');
+
+        $response->assertOk()
+            ->assertJsonPath('data.kiosk.slug', 'fit-kiosk-01')
+            ->assertJsonPath('data.categories.0.code', 'apparel')
+            ->assertJsonPath('data.categories.0.shown_items.0.sku', '910000999');
+
+        $activityData = collect($response->json('data.activities'))->firstWhere('slug', 'mountaineering');
+        $this->assertSame('910000999001', data_get($activityData, 'recommended_items.0.variants.0.sku'));
+    }
+
+    public function test_unknown_kiosk_slug_returns_clear_json_error(): void
+    {
+        $this->getJson('/api/v1/fit-and-go/kiosks/not-a-kiosk')
+            ->assertNotFound()
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('data', null);
+    }
+
     public function test_api_can_get_activities(): void
     {
         $response = $this->getJson('/api/v1/fit-and-go/activities');

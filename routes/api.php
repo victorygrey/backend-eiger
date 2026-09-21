@@ -58,6 +58,7 @@ Route::prefix('sync')->group(function () {
 
 // AI Fit & Go Kiosk & GPU Workstation APIs (v1)
 Route::prefix('v1/fit-and-go')->group(function () {
+    Route::get('kiosks/{deviceCode}', [FitAndGoApiController::class, 'kiosk']);
     Route::get('config', [FitAndGoApiController::class, 'config']);
     Route::get('activities', [FitAndGoApiController::class, 'activities']);
     Route::get('activities/{activity:slug}/recommendations', [FitAndGoApiController::class, 'recommendations']);

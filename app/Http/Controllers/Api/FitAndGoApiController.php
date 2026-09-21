@@ -13,9 +13,94 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class FitAndGoApiController extends Controller
 {
+    /**
+     * Get the complete configuration for one kiosk by its URL slug/device identifier.
+     * GET /api/v1/fit-and-go/kiosks/{deviceCode}
+     */
+    public function kiosk(string $deviceCode): JsonResponse
+    {
+        $device = FitAndGoDevice::whereRaw('LOWER(device_code) = ?', [Str::lower($deviceCode)])->first();
+
+        if (! $device || ! $device->is_active) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Kiosk dengan slug '{$deviceCode}' tidak ditemukan atau tidak aktif.",
+                'data' => null,
+            ], 404);
+        }
+
+        $activities = FitAndGoActivity::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function (FitAndGoActivity $activity) use ($device): array {
+                $products = $this->recommendedProducts($activity, $device);
+
+                return [
+                    'id' => $activity->id,
+                    'name' => $activity->name,
+                    'slug' => $activity->slug,
+                    'image' => $activity->image,
+                    'description' => $activity->description,
+                    'care_mc_level_2' => $activity->care_mc_level_2,
+                    'sort_order' => $activity->sort_order,
+                    'recommendation_count' => $products->count(),
+                    'recommended_items' => $products
+                        ->map(fn (Product $product) => DeviceProductPayload::make($product))
+                        ->values(),
+                ];
+            });
+
+        $categories = FitAndGoCategory::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function (FitAndGoCategory $category) use ($device): array {
+                $productIds = $this->visibleProductIds($category->code, $device);
+                $positions = collect($productIds)->flip();
+                $products = Product::with(DeviceProductPayload::relations())
+                    ->whereIn('id', $productIds)
+                    ->where('pim_catalog_active', true)
+                    ->where('is_discontinued', false)
+                    ->get()
+                    ->sortBy(fn (Product $product) => $positions[$product->id] ?? PHP_INT_MAX)
+                    ->values();
+
+                return [
+                    'id' => $category->id,
+                    'code' => $category->code,
+                    'name' => $category->display_name,
+                    'mc_level' => $category->mc_level,
+                    'background_image' => $category->background_image,
+                    'product_count' => $products->count(),
+                    'shown_items' => $products
+                        ->map(fn (Product $product) => DeviceProductPayload::make($product))
+                        ->values(),
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'kiosk' => [
+                    'id' => $device->id,
+                    'slug' => $device->device_code,
+                    'device_code' => $device->device_code,
+                    'name' => $device->name,
+                    'location' => $device->location,
+                    'status' => $device->status,
+                    'gpu_endpoint' => $device->gpu_endpoint,
+                    'camera_source' => $device->camera_source,
+                    'last_heartbeat' => $device->last_heartbeat_at?->toIso8601String(),
+                ],
+                'categories' => $categories,
+                'activities' => $activities,
+            ],
+        ]);
+    }
+
     /**
      * Get Kiosk & GPU workstation configuration.
      * GET /api/v1/fit-and-go/config
