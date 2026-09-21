@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\FitAndGoActivity;
 use App\Models\LedAmbienceItem;
 use App\Models\LedAmbienceScene;
 use App\Models\RfidTag;
+use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,24 +23,24 @@ class LedAmbienceApiController extends Controller
         $idleScene = LedAmbienceScene::idle()->first()
             ?? LedAmbienceScene::where('is_active', true)->orderBy('sort_order')->first();
 
-        if (!$idleScene) {
+        if (! $idleScene) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'No active idle ambience scene configured.',
-                'data'    => null,
+                'data' => null,
             ], 404);
         }
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
-                'scene_id'       => $idleScene->id,
-                'name'           => $idleScene->name,
-                'scene_type'     => $idleScene->scene_type,
-                'video_url'      => $idleScene->video_url,
-                'audio_url'      => $idleScene->audio_url,
+            'data' => [
+                'scene_id' => $idleScene->id,
+                'name' => $idleScene->name,
+                'scene_type' => $idleScene->scene_type,
+                'video_url' => $idleScene->video_url,
+                'audio_url' => $idleScene->audio_url,
                 'lighting_color' => $idleScene->lighting_color,
-                'description'    => $idleScene->description,
+                'description' => $idleScene->description,
             ],
         ]);
     }
@@ -53,17 +55,17 @@ class LedAmbienceApiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'count'  => $scenes->count(),
-            'data'   => $scenes->map(fn ($s) => [
-                'id'             => $s->id,
-                'name'           => $s->name,
-                'scene_type'     => $s->scene_type,
-                'activity_slug'  => $s->activity_slug,
-                'video_url'      => $s->video_url,
-                'audio_url'      => $s->audio_url,
+            'count' => $scenes->count(),
+            'data' => $scenes->map(fn ($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'scene_type' => $s->scene_type,
+                'activity_slug' => $s->activity_slug,
+                'video_url' => $s->video_url,
+                'audio_url' => $s->audio_url,
                 'lighting_color' => $s->lighting_color,
-                'description'    => $s->description,
-                'sort_order'     => $s->sort_order,
+                'description' => $s->description,
+                'sort_order' => $s->sort_order,
             ]),
         ]);
     }
@@ -82,52 +84,51 @@ class LedAmbienceApiController extends Controller
         $rfidTag = trim(strtoupper($validated['rfid_tag']));
 
         // 1. Check custom LED Ambience mapping
-        $item = LedAmbienceItem::with(['product.zone', 'scene'])
+        $item = LedAmbienceItem::with(array_merge(
+            ['scene'],
+            array_map(fn (string $relation): string => 'product.'.$relation, DeviceProductPayload::relations())
+        ))
             ->where('rfid_tag', $rfidTag)
             ->where('is_active', true)
             ->first();
 
         // 2. Fallback to general rfid_tags table if not explicitly mapped
-        if (!$item) {
-            $generalTag = RfidTag::with('product.zone')->where('uid', $rfidTag)->first();
+        if (! $item) {
+            $generalTag = RfidTag::with(array_map(
+                fn (string $relation): string => 'product.'.$relation,
+                DeviceProductPayload::relations()
+            ))->where('uid', $rfidTag)->first();
             if ($generalTag && $generalTag->product) {
-                // Find matching scene by category or activity
-                $matchedScene = LedAmbienceScene::active()->where('scene_type', 'active')->first();
                 $product = $generalTag->product;
+                $activitySlug = collect($product->activities)
+                    ->sortByDesc(fn (array $activity): bool => (bool) ($activity['selected'] ?? false))
+                    ->map(fn (array $activity): string => str($activity['name'] ?? '')->slug()->toString())
+                    ->first(fn (string $slug): bool => $slug !== '');
+                $matchedScene = LedAmbienceScene::active()
+                    ->when($activitySlug, fn ($query) => $query->where('activity_slug', $activitySlug))
+                    ->first()
+                    ?? LedAmbienceScene::active()->where('scene_type', 'active')->first();
+                $activitySlug ??= $matchedScene?->activity_slug;
 
                 return response()->json([
-                    'status'  => 'success',
+                    'status' => 'success',
                     'matched' => true,
-                    'source'  => 'general_rfid',
-                    'data'    => [
-                        'rfid_tag'      => $rfidTag,
-                        'product'       => [
-                            'id'          => $product->id,
-                            'name'        => $product->name,
-                            'sku'         => $product->sku,
-                            'category'    => $product->category,
-                            'price'       => (float) $product->price,
-                            'stock'       => (int) $product->stock,
-                            'image'       => $product->image,
-                            'description' => $product->description,
-                            'zone'        => $product->zone?->name,
-                        ],
-                        'activity_slug' => null,
-                        'scene'         => $matchedScene ? [
-                            'id'             => $matchedScene->id,
-                            'name'           => $matchedScene->name,
-                            'video_url'      => $matchedScene->video_url,
-                            'audio_url'      => $matchedScene->audio_url,
-                            'lighting_color' => $matchedScene->lighting_color,
-                        ] : null,
+                    'source' => 'general_rfid',
+                    'data' => [
+                        'rfid_tag' => $rfidTag,
+                        'product' => DeviceProductPayload::make($product),
+                        'activity_slug' => $activitySlug,
+                        'activity' => $this->activityPayload($activitySlug),
+                        'video_path' => $matchedScene?->video_url,
+                        'scene' => $this->scenePayload($matchedScene),
                     ],
                 ]);
             }
 
             return response()->json([
-                'status'   => 'not_found',
-                'matched'  => false,
-                'message'  => "Tag RFID '{$rfidTag}' tidak terdaftar pada modul LED Ambience.",
+                'status' => 'not_found',
+                'matched' => false,
+                'message' => "Tag RFID '{$rfidTag}' tidak terdaftar pada modul LED Ambience.",
                 'rfid_tag' => $rfidTag,
             ], 404);
         }
@@ -137,51 +138,29 @@ class LedAmbienceApiController extends Controller
 
         // Resolve scene
         $scene = $item->scene;
-        if (!$scene && $item->activity_slug) {
+        if (! $scene && $item->activity_slug) {
             $scene = LedAmbienceScene::active()
                 ->where('activity_slug', $item->activity_slug)
                 ->first();
         }
-        if (!$scene) {
+        if (! $scene) {
             $scene = LedAmbienceScene::active()->where('scene_type', 'active')->first();
         }
 
         $product = $item->product;
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'matched' => true,
-            'source'  => 'led_ambience_custom',
-            'data'    => [
-                'rfid_tag'      => $item->rfid_tag,
+            'source' => 'led_ambience_custom',
+            'data' => [
+                'rfid_tag' => $item->rfid_tag,
                 'activity_slug' => $item->activity_slug,
-                'notes'         => $item->notes,
-                'product'       => $product ? [
-                    'id'          => $product->id,
-                    'name'        => $product->name,
-                    'sku'         => $product->sku,
-                    'category'    => $product->category,
-                    'price'       => (float) $product->price,
-                    'stock'       => (int) $product->stock,
-                    'image'       => $product->image,
-                    'description' => $product->description,
-                    'zone'        => $product->zone?->name,
-                    'material'    => $product->material,
-                    'technologies' => $product->technologies,
-                    'specifications' => $product->specifications,
-                    'custom_attributes' => $product->custom_attributes_list,
-                    'media' => $product->pim_media ?? [],
-                    'image_payload' => $product->pim_image_payload ?? [],
-                ] : null,
-                'scene'         => $scene ? [
-                    'id'             => $scene->id,
-                    'name'           => $scene->name,
-                    'scene_type'     => $scene->scene_type,
-                    'video_url'      => $scene->video_url,
-                    'audio_url'      => $scene->audio_url,
-                    'lighting_color' => $scene->lighting_color,
-                    'description'    => $scene->description,
-                ] : null,
+                'activity' => $this->activityPayload($item->activity_slug),
+                'notes' => $item->notes,
+                'product' => $product ? DeviceProductPayload::make($product) : null,
+                'video_path' => $scene?->video_url,
+                'scene' => $this->scenePayload($scene),
             ],
         ]);
     }
@@ -197,16 +176,16 @@ class LedAmbienceApiController extends Controller
             ?? LedAmbienceScene::active()->orderBy('sort_order')->first();
 
         return response()->json([
-            'status'  => 'success',
-            'event'   => 'item_lost',
+            'status' => 'success',
+            'event' => 'item_lost',
             'message' => 'Layar kembali ke mode suasana Idle (standby).',
-            'data'    => [
+            'data' => [
                 'scene' => $idleScene ? [
-                    'id'             => $idleScene->id,
-                    'name'           => $idleScene->name,
-                    'scene_type'     => $idleScene->scene_type,
-                    'video_url'      => $idleScene->video_url,
-                    'audio_url'      => $idleScene->audio_url,
+                    'id' => $idleScene->id,
+                    'name' => $idleScene->name,
+                    'scene_type' => $idleScene->scene_type,
+                    'video_url' => $idleScene->video_url,
+                    'audio_url' => $idleScene->audio_url,
                     'lighting_color' => $idleScene->lighting_color,
                 ] : null,
             ],
@@ -226,13 +205,49 @@ class LedAmbienceApiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
+            'data' => [
                 'total_rfid_items' => $totalItems,
-                'active_rfid_items'=> $activeItems,
-                'total_scenes'     => $totalScenes,
-                'idle_configured'  => $hasIdle,
-                'server_time'      => now()->toIso8601String(),
+                'active_rfid_items' => $activeItems,
+                'total_scenes' => $totalScenes,
+                'idle_configured' => $hasIdle,
+                'server_time' => now()->toIso8601String(),
             ],
         ]);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function activityPayload(?string $slug): ?array
+    {
+        if (! $slug) {
+            return null;
+        }
+
+        $activity = FitAndGoActivity::where('slug', $slug)->first();
+
+        return [
+            'id' => $activity?->id,
+            'slug' => $slug,
+            'name' => $activity?->name ?? str($slug)->replace('-', ' ')->title()->toString(),
+            'description' => $activity?->description,
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function scenePayload(?LedAmbienceScene $scene): ?array
+    {
+        if (! $scene) {
+            return null;
+        }
+
+        return [
+            'id' => $scene->id,
+            'name' => $scene->name,
+            'scene_type' => $scene->scene_type,
+            'activity_slug' => $scene->activity_slug,
+            'video_url' => $scene->video_url,
+            'audio_url' => $scene->audio_url,
+            'lighting_color' => $scene->lighting_color,
+            'description' => $scene->description,
+        ];
     }
 }

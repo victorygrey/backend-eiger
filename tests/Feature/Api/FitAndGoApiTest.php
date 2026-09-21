@@ -7,6 +7,7 @@ use App\Models\FitAndGoCategory;
 use App\Models\FitAndGoDevice;
 use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -21,35 +22,35 @@ class FitAndGoApiTest extends TestCase
 
         // Seed test device
         FitAndGoDevice::create([
-            'name'          => 'Kiosk 01',
-            'device_code'   => 'fit-kiosk-01',
-            'location'      => 'Lantai 1',
-            'gpu_endpoint'  => 'http://192.168.1.200:8000/api/v1/fit-prediction',
+            'name' => 'Kiosk 01',
+            'device_code' => 'fit-kiosk-01',
+            'location' => 'Lantai 1',
+            'gpu_endpoint' => 'http://192.168.1.200:8000/api/v1/fit-prediction',
             'camera_source' => 'camera_0',
-            'status'        => 'online',
-            'is_active'     => true,
+            'status' => 'online',
+            'is_active' => true,
         ]);
 
         // Seed test activity
         FitAndGoActivity::create([
-            'name'            => 'Mountaineering',
-            'slug'            => 'mountaineering',
+            'name' => 'Mountaineering',
+            'slug' => 'mountaineering',
             'care_mc_level_2' => 'MOUNTAINEERING',
-            'image'           => 'https://example.com/mountaineering.jpg',
-            'sort_order'      => 1,
-            'is_active'       => true,
+            'image' => 'https://example.com/mountaineering.jpg',
+            'sort_order' => 1,
+            'is_active' => true,
         ]);
 
         // Seed test category
         FitAndGoCategory::create([
-            'code'             => 'apparel',
-            'name'             => 'Apparel',
-            'display_name'     => 'Apparel',
-            'mc_level'         => 'MC 4 (Apparel)',
-            'mc_keywords'      => 'shirt, kaos, jacket, jaket, top',
+            'code' => 'apparel',
+            'name' => 'Apparel',
+            'display_name' => 'Apparel',
+            'mc_level' => 'MC 4 (Apparel)',
+            'mc_keywords' => 'shirt, kaos, jacket, jaket, top',
             'background_image' => 'https://example.com/bg-apparel.jpg',
-            'sort_order'       => 2,
-            'is_active'        => true,
+            'sort_order' => 2,
+            'is_active' => true,
         ]);
     }
 
@@ -60,9 +61,9 @@ class FitAndGoApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
-                'device_code'  => 'fit-kiosk-01',
-                'device_name'  => 'Kiosk 01',
+            'data' => [
+                'device_code' => 'fit-kiosk-01',
+                'device_name' => 'Kiosk 01',
                 'gpu_endpoint' => 'http://192.168.1.200:8000/api/v1/fit-prediction',
             ],
         ]);
@@ -95,35 +96,35 @@ class FitAndGoApiTest extends TestCase
     {
         // Product 1: explicitly assigned to category and activity
         $prod1 = Product::create([
-            'sku'         => 'JKT-001',
-            'name'        => 'Jaket Eiger Torrent',
+            'sku' => 'JKT-001',
+            'name' => 'Jaket Eiger Torrent',
             'description' => 'Jaket mountaineering tahan cuaca ekstrem',
-            'price'       => 750000,
-            'stock'       => 5,
+            'price' => 750000,
+            'stock' => 5,
         ]);
 
         // Product 2: Apparel (hidden by staff)
         $prod2 = Product::create([
-            'sku'         => 'SHIRT-002',
-            'name'        => 'Kaos Eiger Mountain',
+            'sku' => 'SHIRT-002',
+            'name' => 'Kaos Eiger Mountain',
             'description' => 'Kaos mountaineering outdoor',
-            'price'       => 199000,
-            'stock'       => 12,
+            'price' => 199000,
+            'stock' => 12,
         ]);
 
         $this->getJson('/api/v1/fit-and-go/products?category=apparel&activity=mountaineering')
             ->assertJson(['count' => 0]);
 
         FitAndGoItemVisibility::create([
-            'product_id'    => $prod1->id,
+            'product_id' => $prod1->id,
             'category_code' => 'apparel',
-            'is_visible'    => true,
+            'is_visible' => true,
         ]);
         FitAndGoActivity::where('slug', 'mountaineering')->first()->recommendedProducts()->sync([$prod1->id]);
         FitAndGoItemVisibility::create([
-            'product_id'    => $prod2->id,
+            'product_id' => $prod2->id,
             'category_code' => 'apparel',
-            'is_visible'    => false,
+            'is_visible' => false,
         ]);
 
         $response = $this->getJson('/api/v1/fit-and-go/products?category=apparel&activity=mountaineering');
@@ -131,7 +132,7 @@ class FitAndGoApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'count'  => 1,
+            'count' => 1,
         ]);
         $response->assertJsonFragment(['sku' => 'JKT-001']);
         $response->assertJsonMissing(['sku' => 'SHIRT-002']);
@@ -140,11 +141,11 @@ class FitAndGoApiTest extends TestCase
     public function test_api_search(): void
     {
         $product = Product::create([
-            'sku'      => 'SRCH-001',
-            'name'     => 'Special Polar Vest',
+            'sku' => 'SRCH-001',
+            'name' => 'Special Polar Vest',
             'category' => 'Apparel',
-            'price'    => 350000,
-            'stock'    => 3,
+            'price' => 350000,
+            'stock' => 3,
         ]);
         FitAndGoItemVisibility::create([
             'product_id' => $product->id,
@@ -162,15 +163,15 @@ class FitAndGoApiTest extends TestCase
     {
         $response = $this->postJson('/api/v1/fit-and-go/heartbeat', [
             'device_code' => 'fit-kiosk-01',
-            'status'      => 'online',
+            'status' => 'online',
         ]);
 
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
+            'data' => [
                 'device_code' => 'fit-kiosk-01',
-                'status'      => 'online',
+                'status' => 'online',
             ],
         ]);
     }
@@ -187,5 +188,51 @@ class FitAndGoApiTest extends TestCase
 
         $this->getJson('/api/v1/fit-and-go/products?device_code=fit-kiosk-01&activity=mountaineering')
             ->assertOk()->assertJson(['count' => 1])->assertJsonFragment(['sku' => '910000004']);
+    }
+
+    public function test_activity_recommendations_and_shown_item_return_complete_pim_and_care_detail(): void
+    {
+        $activity = FitAndGoActivity::where('slug', 'mountaineering')->firstOrFail();
+        $product = Product::factory()->create([
+            'sku' => '910000123',
+            'name' => 'Expedition Shell',
+            'price' => 1299000,
+            'stock' => 7,
+            'pim_catalog_active' => true,
+            'is_discontinued' => false,
+            'pim_payload' => [
+                'generic' => '910000123',
+                'name' => 'Expedition Shell',
+                'technology' => [['name' => 'Storm Shield', 'description' => 'Perlindungan cuaca']],
+                'activity' => [['name' => 'Mountaineering', 'selected' => true, 'rating' => 5]],
+                'specification' => [['name' => 'Waterproof Rating', 'value' => '10K']],
+                'customAtributes' => [['attributeCode' => 'fit', 'value' => 'Regular']],
+            ],
+        ]);
+        ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => '910000123001',
+            'name' => 'Expedition Shell Black M',
+            'color' => 'Black',
+            'size' => 'M',
+            'price' => 1299000,
+            'stock' => 7,
+        ]);
+        $activity->recommendedProducts()->sync([$product->id => ['sort_order' => 0]]);
+
+        $this->getJson('/api/v1/fit-and-go/activities/mountaineering/recommendations')
+            ->assertOk()
+            ->assertJsonPath('activity.slug', 'mountaineering')
+            ->assertJsonPath('data.0.sku', '910000123')
+            ->assertJsonPath('data.0.variants.0.sku', '910000123001')
+            ->assertJsonPath('data.0.pricing.total_stock', 7)
+            ->assertJsonPath('data.0.technologies.0.name', 'Storm Shield')
+            ->assertJsonPath('data.0.custom_attributes.0.attributeCode', 'fit');
+
+        $this->getJson('/api/v1/fit-and-go/products/'.$product->id)
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Expedition Shell')
+            ->assertJsonPath('data.available_sizes.0', 'M')
+            ->assertJsonPath('data.available_colors.0', 'Black');
     }
 }

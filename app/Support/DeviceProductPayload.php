@@ -1,0 +1,149 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\Product;
+use Illuminate\Support\Str;
+
+class DeviceProductPayload
+{
+    /** @return list<string> */
+    public static function relations(): array
+    {
+        return [
+            'zone',
+            'atomCategory',
+            'atomSubCategory',
+            'variants.attributesRelation',
+            'technologiesRelation',
+            'activitiesRelation',
+            'specificationsRelation',
+            'customAttributesRelation',
+            'mediaRelation',
+            'pimRecord',
+        ];
+    }
+
+    /**
+     * Build the shared product contract consumed by all in-store devices.
+     * Prices and stocks are the latest CARE values stored by the CMS, while
+     * descriptive fields and media originate from PIM.
+     *
+     * @return array<string, mixed>
+     */
+    public static function make(Product $product): array
+    {
+        $product->loadMissing(self::relations());
+
+        $media = collect($product->pim_media ?? [])
+            ->map(function (mixed $item): ?array {
+                if (is_string($item)) {
+                    return ['type' => self::mediaType(null, $item), 'role' => 'image', 'url' => PimMediaUrl::toPublicUrl($item)];
+                }
+
+                if (! is_array($item)) {
+                    return null;
+                }
+
+                $url = $item['url'] ?? $item['value'] ?? null;
+                if (! is_string($url) || $url === '') {
+                    return null;
+                }
+
+                return array_filter([
+                    'id' => $item['id'] ?? null,
+                    'type' => self::mediaType($item['mime'] ?? $item['type'] ?? null, $url),
+                    'role' => $item['role'] ?? $item['attributeCode'] ?? 'image',
+                    'url' => PimMediaUrl::toPublicUrl($url),
+                    'description' => $item['description'] ?? null,
+                    'sku' => $item['sku'] ?? null,
+                ], fn (mixed $value): bool => $value !== null && $value !== '');
+            })
+            ->filter()
+            ->unique('url')
+            ->values();
+
+        $primaryImage = PimMediaUrl::toPublicUrl($product->image);
+        if ($primaryImage && ! $media->contains('url', $primaryImage)) {
+            $media->prepend(['type' => 'image', 'role' => 'main_image', 'url' => $primaryImage]);
+        }
+
+        $variants = $product->variants->map(fn ($variant): array => [
+            'id' => $variant->id,
+            'sku' => $variant->sku,
+            'name' => $variant->name,
+            'color' => $variant->color,
+            'size' => $variant->size,
+            'price' => (float) $variant->price,
+            'stock' => (int) $variant->stock,
+            'image' => PimMediaUrl::toPublicUrl($variant->image),
+            'ecmsku' => $variant->ecmsku,
+            'moq' => $variant->moq,
+            'custom_attributes' => $variant->custom_attributes,
+        ])->values();
+
+        $technologies = $product->technologies;
+        $activities = $product->activities;
+        $specifications = $product->specifications;
+        $customAttributes = $product->custom_attributes_list;
+
+        return [
+            'id' => $product->id,
+            'slug' => Str::slug($product->name).'-'.$product->id,
+            'sku' => $product->sku,
+            'name' => $product->name,
+            'description' => $product->description,
+            'category' => $product->category,
+            'product_group' => $product->product_group,
+            'gender' => $product->gender,
+            'material' => $product->material,
+            'weight' => $product->weight,
+            'price' => (float) $product->price,
+            'stock' => (int) $product->stock,
+            'pricing' => [
+                'currency' => 'IDR',
+                'price' => (float) $product->price,
+                'total_stock' => (int) $product->stock,
+                'care_synced_at' => $product->care_synced_at?->toIso8601String(),
+            ],
+            'zone' => $product->zone ? [
+                'id' => $product->zone->id,
+                'code' => $product->zone->code,
+                'name' => $product->zone->name,
+            ] : null,
+            'atom_category' => $product->atomCategory ? [
+                'id' => $product->atomCategory->id,
+                'external_id' => $product->atomCategory->external_id,
+                'slug' => $product->atomCategory->slug,
+                'name' => $product->atomCategory->name,
+            ] : null,
+            'atom_sub_category' => $product->atomSubCategory ? [
+                'id' => $product->atomSubCategory->id,
+                'external_id' => $product->atomSubCategory->external_id,
+                'slug' => $product->atomSubCategory->slug,
+                'name' => $product->atomSubCategory->name,
+            ] : null,
+            'image' => $primaryImage,
+            'image_url' => $primaryImage,
+            'media' => $media->all(),
+            'variants' => $variants->all(),
+            'available_sizes' => $variants->pluck('size')->filter()->unique()->values()->all(),
+            'available_colors' => $variants->pluck('color')->filter()->unique()->values()->all(),
+            'technologies' => $technologies,
+            'features' => $technologies,
+            'activities' => $activities,
+            'specifications' => $specifications,
+            'custom_attributes' => $customAttributes,
+            'pim_synced_at' => $product->pim_synced_at?->toIso8601String(),
+        ];
+    }
+
+    private static function mediaType(mixed $hint, string $url): string
+    {
+        $hint = strtolower((string) $hint);
+
+        return str_contains($hint, 'video') || preg_match('/\.(mp4|webm|mov)(?:\?|$)/i', $url)
+            ? 'video'
+            : 'image';
+    }
+}

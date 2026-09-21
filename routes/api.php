@@ -1,11 +1,17 @@
 <?php
 
+use App\Http\Controllers\Api\AtomMasterDataController;
+use App\Http\Controllers\Api\FitAndGoApiController;
+use App\Http\Controllers\Api\LedAmbienceApiController;
+use App\Http\Controllers\Api\PimMediaController;
+use App\Http\Controllers\Api\PimProductController;
 use App\Http\Controllers\Api\PrintRuleController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RfidTagController;
 use App\Http\Controllers\Api\SyncController;
-use App\Http\Controllers\Api\ZoneController;
+use App\Http\Controllers\Api\TableExpeditionApiController;
 use App\Http\Controllers\Api\TabletDisplayController;
+use App\Http\Controllers\Api\ZoneController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,13 +25,13 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Products
-Route::get('pim-media/{filename}', [\App\Http\Controllers\Api\PimMediaController::class, 'show']);
-Route::post('integrations/pim/product', [\App\Http\Controllers\Api\PimProductController::class, 'store']);
-Route::post('integrations/pim/image', [\App\Http\Controllers\Api\PimProductController::class, 'storeImage']);
+Route::get('pim-media/{filename}', [PimMediaController::class, 'show']);
+Route::post('integrations/pim/product', [PimProductController::class, 'store']);
+Route::post('integrations/pim/image', [PimProductController::class, 'storeImage']);
 Route::apiResource('products', ProductController::class);
 Route::prefix('master-data')->group(function () {
-    Route::get('categories', [\App\Http\Controllers\Api\AtomMasterDataController::class, 'categories']);
-    Route::get('activities', [\App\Http\Controllers\Api\AtomMasterDataController::class, 'activities']);
+    Route::get('categories', [AtomMasterDataController::class, 'categories']);
+    Route::get('activities', [AtomMasterDataController::class, 'activities']);
 });
 
 // Interactive tablet devices
@@ -52,28 +58,30 @@ Route::prefix('sync')->group(function () {
 
 // AI Fit & Go Kiosk & GPU Workstation APIs (v1)
 Route::prefix('v1/fit-and-go')->group(function () {
-    Route::get('config', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'config']);
-    Route::get('activities', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'activities']);
-    Route::get('categories', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'categories']);
-    Route::get('products', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'products']);
-    Route::get('search', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'search']);
-    Route::post('heartbeat', [\App\Http\Controllers\Api\FitAndGoApiController::class, 'heartbeat']);
+    Route::get('config', [FitAndGoApiController::class, 'config']);
+    Route::get('activities', [FitAndGoApiController::class, 'activities']);
+    Route::get('activities/{activity:slug}/recommendations', [FitAndGoApiController::class, 'recommendations']);
+    Route::get('categories', [FitAndGoApiController::class, 'categories']);
+    Route::get('products', [FitAndGoApiController::class, 'products']);
+    Route::get('products/{product}', [FitAndGoApiController::class, 'showProduct']);
+    Route::get('search', [FitAndGoApiController::class, 'search']);
+    Route::post('heartbeat', [FitAndGoApiController::class, 'heartbeat']);
 });
 
 // LED Ambience (Immersive Ambience Digital) APIs (v1)
 Route::prefix('v1/led-ambience')->group(function () {
-    Route::get('idle', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'idle']);
-    Route::get('scenes', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'scenes']);
-    Route::post('trigger', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'trigger']);
-    Route::post('item-lost', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'itemLost']);
-    Route::get('status', [\App\Http\Controllers\Api\LedAmbienceApiController::class, 'status']);
+    Route::get('idle', [LedAmbienceApiController::class, 'idle']);
+    Route::get('scenes', [LedAmbienceApiController::class, 'scenes']);
+    Route::post('trigger', [LedAmbienceApiController::class, 'trigger']);
+    Route::post('item-lost', [LedAmbienceApiController::class, 'itemLost']);
+    Route::get('status', [LedAmbienceApiController::class, 'status']);
 });
 
 // Table Expedition (Table Expedition Hub / Product Knowledge) APIs (v1)
 Route::prefix('v1/table-expedition')->group(function () {
-    Route::get('standby', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'standby']);
-    Route::post('scan', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'scan']);
-    Route::post('item-lost', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'itemLost']);
-    Route::post('compare', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'compare']);
-    Route::get('status', [\App\Http\Controllers\Api\TableExpeditionApiController::class, 'status']);
+    Route::get('standby', [TableExpeditionApiController::class, 'standby']);
+    Route::post('scan', [TableExpeditionApiController::class, 'scan']);
+    Route::post('item-lost', [TableExpeditionApiController::class, 'itemLost']);
+    Route::post('compare', [TableExpeditionApiController::class, 'compare']);
+    Route::get('status', [TableExpeditionApiController::class, 'status']);
 });

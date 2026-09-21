@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\Tablet;
 use App\Models\TabletConfigVersion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,6 +18,15 @@ class TabletDisplayTest extends TestCase
     {
         $featured = Product::factory()->create(['name' => 'Voyager Jacket 3.0', 'is_discontinued' => false]);
         $recommendation = Product::factory()->create(['name' => 'Greenland Pro', 'is_discontinued' => false]);
+        ProductVariant::create([
+            'product_id' => $featured->id,
+            'sku' => 'VOYAGER-BLK-M',
+            'name' => 'Voyager Black M',
+            'color' => 'Black',
+            'size' => 'M',
+            'price' => 899000,
+            'stock' => 4,
+        ]);
         $tablet = Tablet::create([
             'slug' => 'lobby-01',
             'name' => 'Lobby Tablet 01',
@@ -36,6 +46,8 @@ class TabletDisplayTest extends TestCase
             ->assertOk()
             ->assertJsonPath('tablet.slug', 'lobby-01')
             ->assertJsonPath('featured.name', 'Voyager Jacket 3.0')
+            ->assertJsonPath('featured.variants.0.sku', 'VOYAGER-BLK-M')
+            ->assertJsonPath('featured.available_sizes.0', 'M')
             ->assertJsonPath('recommendations.0.name', 'Greenland Pro');
     }
 

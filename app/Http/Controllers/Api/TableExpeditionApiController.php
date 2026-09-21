@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\RfidTag;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
+use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,10 +28,10 @@ class TableExpeditionApiController extends Controller
         return response()->json([
             'status' => 'success',
             'screen' => 'standby',
-            'data'   => [
-                'title'              => $title,
-                'subtitle'           => $subtitle,
-                'instructions'       => $instructions,
+            'data' => [
+                'title' => $title,
+                'subtitle' => $subtitle,
+                'instructions' => $instructions,
                 'usage_instructions' => $instructions,
             ],
         ]);
@@ -45,9 +46,9 @@ class TableExpeditionApiController extends Controller
     public function scan(Request $request): JsonResponse
     {
         $tagInput = $request->input('rfid_tag') ?? $request->input('rfid');
-        if (!$tagInput) {
+        if (! $tagInput) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Tag RFID wajib diisi (parameter rfid_tag atau rfid).',
             ], 422);
         }
@@ -55,7 +56,10 @@ class TableExpeditionApiController extends Controller
         $rfidTag = trim(strtoupper($tagInput));
 
         // 1. Check custom Table Expedition mapping
-        $item = TableExpeditionItem::with(['product.zone', 'product.variants'])
+        $item = TableExpeditionItem::with(array_map(
+            fn (string $relation): string => 'product.'.$relation,
+            DeviceProductPayload::relations()
+        ))
             ->where('rfid_tag', $rfidTag)
             ->where('is_active', true)
             ->first();
@@ -77,7 +81,10 @@ class TableExpeditionApiController extends Controller
             $item->update(['last_scanned_at' => now()]);
         } else {
             // Fallback to general rfid_tags
-            $generalTag = RfidTag::with(['product.zone', 'product.variants'])
+            $generalTag = RfidTag::with(array_map(
+                fn (string $relation): string => 'product.'.$relation,
+                DeviceProductPayload::relations()
+            ))
                 ->where('uid', $rfidTag)
                 ->first();
 
@@ -86,11 +93,11 @@ class TableExpeditionApiController extends Controller
             }
         }
 
-        if (!$product) {
+        if (! $product) {
             return response()->json([
-                'status'   => 'error',
-                'matched'  => false,
-                'message'  => "Tag RFID '{$rfidTag}' tidak terdaftar pada modul Table Expedition.",
+                'status' => 'error',
+                'matched' => false,
+                'message' => "Tag RFID '{$rfidTag}' tidak terdaftar pada modul Table Expedition.",
                 'rfid_tag' => $rfidTag,
             ], 404);
         }
@@ -101,20 +108,30 @@ class TableExpeditionApiController extends Controller
         $availableColors = $variants->pluck('color')->filter()->unique()->values()->all();
 
         $features = array_values(array_filter(array_map(
-            fn ($technology) => trim(($technology['name'] ?? $technology['code'] ?? '') . ': ' . ($technology['description'] ?? '')),
+            fn ($technology) => trim(($technology['name'] ?? $technology['code'] ?? '').': '.($technology['description'] ?? '')),
             $product->technologies
         )));
         $technicalDetails = ['SKU' => $product->sku];
-        if ($product->material) $technicalDetails['Material'] = $product->material;
-        if ($product->zone?->name) $technicalDetails['Zone'] = $product->zone->name;
-        if ($product->weight) $technicalDetails['Berat'] = $product->weight . ' gram';
+        if ($product->material) {
+            $technicalDetails['Material'] = $product->material;
+        }
+        if ($product->zone?->name) {
+            $technicalDetails['Zone'] = $product->zone->name;
+        }
+        if ($product->weight) {
+            $technicalDetails['Berat'] = $product->weight.' gram';
+        }
         foreach ($product->specifications as $spec) {
             $label = $spec['name'] ?? $spec['code'] ?? null;
-            if ($label && isset($spec['value'])) $technicalDetails[$label] = $spec['value'];
+            if ($label && isset($spec['value'])) {
+                $technicalDetails[$label] = $spec['value'];
+            }
         }
         foreach ($product->custom_attributes_list as $attribute) {
             $label = $attribute['attributeCode'] ?? $attribute['name'] ?? null;
-            if ($label && isset($attribute['value'])) $technicalDetails[$label] = strip_tags((string) $attribute['value']);
+            if ($label && isset($attribute['value'])) {
+                $technicalDetails[$label] = strip_tags((string) $attribute['value']);
+            }
         }
         foreach ($product->pim_media ?? [] as $media) {
             $url = is_string($media) ? $media : ($media['url'] ?? $media['value'] ?? null);
@@ -123,6 +140,7 @@ class TableExpeditionApiController extends Controller
                 break;
             }
         }
+        $videoUrl ??= $item?->video_url;
 
         if (empty($aiSummary)) {
             $aiSummary = "Produk {$product->name} merupakan salah satu perlengkapan unggulan EIGER yang menggabungkan durabilitas tangguh dan fungsionalitas tinggi untuk kenyamanan eksplorasi harian maupun petualangan teknis.";
@@ -137,54 +155,30 @@ class TableExpeditionApiController extends Controller
                 ->get();
         }
 
-        $similarFormatted = $similarProducts->map(fn ($p) => [
-            'id'          => $p->id,
-            'name'        => $p->name,
-            'sku'         => $p->sku,
-            'price'       => (float) $p->price,
-            'stock'       => (int) $p->stock,
-            'image'       => $p->image,
-            'category'    => $p->category,
-        ])->values();
+        $similarProducts->load(DeviceProductPayload::relations());
+        $similarFormatted = $similarProducts
+            ->map(fn (Product $similarProduct) => DeviceProductPayload::make($similarProduct))
+            ->values();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'matched' => true,
-            'screen'  => 'home',
-            'data'    => [
-                'rfid_tag'           => $rfidTag,
-                'is_mapped_table'    => (bool) $item,
-                'activity_slug'      => $item?->activity_slug,
-                'ideal_for'          => $idealFor ?: 'Aktivitas Outdoor & Penjelajahan Harian',
-                'video_url'          => $videoUrl,
-                'features'           => $features,
-                'technical_details'  => $technicalDetails,
-                'ai_summary'         => $aiSummary,
-                'variants'           => [
-                    'sizes'  => $availableSizes,
+            'screen' => 'home',
+            'data' => [
+                'rfid_tag' => $rfidTag,
+                'is_mapped_table' => (bool) $item,
+                'activity_slug' => $item?->activity_slug,
+                'ideal_for' => $idealFor ?: 'Aktivitas Outdoor & Penjelajahan Harian',
+                'video_url' => $videoUrl,
+                'features' => $features,
+                'technical_details' => $technicalDetails,
+                'ai_summary' => $aiSummary,
+                'variants' => [
+                    'sizes' => $availableSizes,
                     'colors' => $availableColors,
                 ],
-                'product'            => [
-                    'id'               => $product->id,
-                    'name'             => $product->name,
-                    'sku'              => $product->sku,
-                    'price'            => (float) $product->price,
-                    'stock'            => (int) $product->stock,
-                    'image'            => $product->image,
-                    'category'         => $product->category,
-                    'description'      => $product->description,
-                    'zone'             => $product->zone?->name,
-                    'technologies'     => $product->technologies,
-                    'activities'       => $product->activities,
-                    'specifications'   => $product->specifications,
-                    'custom_attributes'=> $product->custom_attributes_list,
-                    'media'            => $product->pim_media ?? [],
-                    'image_payload'    => $product->pim_image_payload ?? [],
-                    'weight'           => $product->weight,
-                    'available_sizes'  => $availableSizes,
-                    'available_colors' => $availableColors,
-                ],
-                'similar_products'   => $similarFormatted,
+                'product' => DeviceProductPayload::make($product),
+                'similar_products' => $similarFormatted,
             ],
         ]);
     }
@@ -199,12 +193,12 @@ class TableExpeditionApiController extends Controller
         $rfid = $request->input('rfid_tag') ?? $request->input('rfid');
 
         return response()->json([
-            'status'  => 'success',
-            'event'   => 'item_lost',
+            'status' => 'success',
+            'event' => 'item_lost',
             'message' => 'Produk diangkat dari meja. Layar kembali ke Standby Screen.',
-            'screen'  => 'standby',
-            'data'    => [
-                'action'        => 'reset_to_standby',
+            'screen' => 'standby',
+            'data' => [
+                'action' => 'reset_to_standby',
                 'previous_rfid' => $rfid,
             ],
         ]);
@@ -220,74 +214,49 @@ class TableExpeditionApiController extends Controller
         $p1Id = $request->input('product_id_1');
         $p2Id = $request->input('product_id_2');
 
-        if (!$p1Id && $request->filled('rfid_primary')) {
+        if (! $p1Id && $request->filled('rfid_primary')) {
             $item1 = TableExpeditionItem::where('rfid_tag', $request->input('rfid_primary'))->first();
             $p1Id = $item1?->product_id;
         }
 
-        if (!$p2Id && $request->filled('rfid_secondary')) {
+        if (! $p2Id && $request->filled('rfid_secondary')) {
             $item2 = TableExpeditionItem::where('rfid_tag', $request->input('rfid_secondary'))->first();
             $p2Id = $item2?->product_id;
         }
 
-        if (!$p1Id || !$p2Id) {
+        if (! $p1Id || ! $p2Id) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Dibutuhkan 2 produk untuk komparasi (product_id_1 & product_id_2 atau rfid_primary & rfid_secondary).',
             ], 422);
         }
 
-        $prod1 = Product::with('zone')->findOrFail($p1Id);
-        $prod2 = Product::with('zone')->findOrFail($p2Id);
+        $prod1 = Product::with(DeviceProductPayload::relations())->findOrFail($p1Id);
+        $prod2 = Product::with(DeviceProductPayload::relations())->findOrFail($p2Id);
 
         $aiComparisonSummary = "Perbandingan {$prod1->name} dan {$prod2->name}: ";
         if ($prod1->price > $prod2->price) {
             $diff = number_format($prod1->price - $prod2->price, 0, ',', '.');
             $aiComparisonSummary .= "{$prod1->name} memiliki spesifikasi lebih premium (selisih Rp {$diff}), sedangkan {$prod2->name} menawarkan nilai ekonomis yang sangat baik untuk kebutuhan harian.";
         } else {
-            $aiComparisonSummary .= "Kedua produk saling melengkapi dengan karakteristik fungsional yang kuat untuk lini aktivitas penjelajahan EIGER.";
+            $aiComparisonSummary .= 'Kedua produk saling melengkapi dengan karakteristik fungsional yang kuat untuk lini aktivitas penjelajahan EIGER.';
         }
 
-        $data1 = [
-            'id'          => $prod1->id,
-            'name'        => $prod1->name,
-            'sku'         => $prod1->sku,
-            'price'       => (float) $prod1->price,
-            'material'    => $prod1->material,
-            'zone'        => $prod1->zone?->name,
-            'image'       => $prod1->image,
-            'description' => $prod1->description,
-            'technologies' => $prod1->technologies,
-            'specifications' => $prod1->specifications,
-            'custom_attributes' => $prod1->custom_attributes_list,
-        ];
-
-        $data2 = [
-            'id'          => $prod2->id,
-            'name'        => $prod2->name,
-            'sku'         => $prod2->sku,
-            'price'       => (float) $prod2->price,
-            'material'    => $prod2->material,
-            'zone'        => $prod2->zone?->name,
-            'image'       => $prod2->image,
-            'description' => $prod2->description,
-            'technologies' => $prod2->technologies,
-            'specifications' => $prod2->specifications,
-            'custom_attributes' => $prod2->custom_attributes_list,
-        ];
+        $data1 = DeviceProductPayload::make($prod1);
+        $data2 = DeviceProductPayload::make($prod2);
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
-                'product_1'             => $data1,
-                'product_2'             => $data2,
-                'primary'               => [
+            'data' => [
+                'product_1' => $data1,
+                'product_2' => $data2,
+                'primary' => [
                     'rfid_tag' => $request->input('rfid_primary'),
-                    'product'  => $data1,
+                    'product' => $data1,
                 ],
-                'secondary'             => [
+                'secondary' => [
                     'rfid_tag' => $request->input('rfid_secondary'),
-                    'product'  => $data2,
+                    'product' => $data2,
                 ],
                 'ai_comparison_summary' => $aiComparisonSummary,
             ],
@@ -304,12 +273,12 @@ class TableExpeditionApiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
-                'mode'               => 'standby',
+            'data' => [
+                'mode' => 'standby',
                 'total_mapped_items' => TableExpeditionItem::count(),
-                'active_items'       => $activeCount,
+                'active_items' => $activeCount,
                 'active_items_count' => $activeCount,
-                'server_time'        => now()->toIso8601String(),
+                'server_time' => now()->toIso8601String(),
             ],
         ]);
     }

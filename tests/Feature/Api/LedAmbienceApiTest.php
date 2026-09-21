@@ -18,25 +18,25 @@ class LedAmbienceApiTest extends TestCase
 
         // Idle scene
         LedAmbienceScene::create([
-            'name'           => 'Idle Loop',
-            'scene_type'     => 'idle',
-            'video_url'      => 'https://example.com/idle.mp4',
-            'audio_url'      => 'https://example.com/idle.mp3',
+            'name' => 'Idle Loop',
+            'scene_type' => 'idle',
+            'video_url' => 'https://example.com/idle.mp4',
+            'audio_url' => 'https://example.com/idle.mp3',
             'lighting_color' => '#e8500a',
-            'sort_order'     => 0,
-            'is_active'      => true,
+            'sort_order' => 0,
+            'is_active' => true,
         ]);
 
         // Active scene
         LedAmbienceScene::create([
-            'name'           => 'Mountaineering Extreme',
-            'scene_type'     => 'active',
-            'activity_slug'  => 'mountaineering',
-            'video_url'      => 'https://example.com/mountain.mp4',
-            'audio_url'      => 'https://example.com/wind.mp3',
+            'name' => 'Mountaineering Extreme',
+            'scene_type' => 'active',
+            'activity_slug' => 'mountaineering',
+            'video_url' => 'https://example.com/mountain.mp4',
+            'audio_url' => 'https://example.com/wind.mp3',
             'lighting_color' => '#0284c7',
-            'sort_order'     => 1,
-            'is_active'      => true,
+            'sort_order' => 1,
+            'is_active' => true,
         ]);
     }
 
@@ -47,10 +47,10 @@ class LedAmbienceApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
-                'name'           => 'Idle Loop',
-                'scene_type'     => 'idle',
-                'video_url'      => 'https://example.com/idle.mp4',
+            'data' => [
+                'name' => 'Idle Loop',
+                'scene_type' => 'idle',
+                'video_url' => 'https://example.com/idle.mp4',
                 'lighting_color' => '#e8500a',
             ],
         ]);
@@ -74,15 +74,15 @@ class LedAmbienceApiTest extends TestCase
     public function test_api_trigger_with_mapped_rfid(): void
     {
         $product = Product::factory()->create([
-            'name'            => 'EIGER Expedition Parka',
+            'name' => 'EIGER Expedition Parka',
             'is_discontinued' => false,
         ]);
 
         $item = LedAmbienceItem::create([
-            'rfid_tag'      => 'E28011606000020468900111',
-            'product_id'    => $product->id,
+            'rfid_tag' => 'E28011606000020468900111',
+            'product_id' => $product->id,
             'activity_slug' => 'mountaineering',
-            'is_active'     => true,
+            'is_active' => true,
         ]);
 
         $response = $this->postJson('/api/v1/led-ambience/trigger', [
@@ -91,21 +91,25 @@ class LedAmbienceApiTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertJson([
-            'status'  => 'success',
+            'status' => 'success',
             'matched' => true,
-            'data'    => [
-                'rfid_tag'      => 'E28011606000020468900111',
+            'data' => [
+                'rfid_tag' => 'E28011606000020468900111',
                 'activity_slug' => 'mountaineering',
-                'product'       => [
-                    'id'   => $product->id,
+                'product' => [
+                    'id' => $product->id,
                     'name' => 'EIGER Expedition Parka',
                 ],
-                'scene'         => [
-                    'name'           => 'Mountaineering Extreme',
+                'scene' => [
+                    'name' => 'Mountaineering Extreme',
                     'lighting_color' => '#0284c7',
                 ],
             ],
         ]);
+        $response->assertJsonPath('data.activity.slug', 'mountaineering');
+        $response->assertJsonPath('data.activity.name', 'Mountaineering');
+        $response->assertJsonPath('data.video_path', 'https://example.com/mountain.mp4');
+        $response->assertJsonStructure(['data' => ['product' => ['variants', 'media', 'technologies', 'activities', 'specifications', 'custom_attributes']]]);
 
         $item->refresh();
         $this->assertNotNull($item->last_scanned_at);
@@ -119,7 +123,7 @@ class LedAmbienceApiTest extends TestCase
 
         $response->assertStatus(404);
         $response->assertJson([
-            'status'  => 'not_found',
+            'status' => 'not_found',
             'matched' => false,
         ]);
     }
@@ -131,10 +135,10 @@ class LedAmbienceApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'event'  => 'item_lost',
-            'data'   => [
+            'event' => 'item_lost',
+            'data' => [
                 'scene' => [
-                    'name'       => 'Idle Loop',
+                    'name' => 'Idle Loop',
                     'scene_type' => 'idle',
                 ],
             ],

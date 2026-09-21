@@ -33,8 +33,8 @@ class TableExpeditionApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
-                'title'    => 'Table Expedition Hub',
+            'data' => [
+                'title' => 'Table Expedition Hub',
                 'subtitle' => 'Letakkan produk EIGER di atas sensor',
             ],
         ]);
@@ -44,15 +44,15 @@ class TableExpeditionApiTest extends TestCase
     public function test_api_can_scan_mapped_product(): void
     {
         $similarProduct = Product::factory()->create([
-            'name'            => 'EIGER Equator Tarp',
-            'price'           => 450000,
+            'name' => 'EIGER Equator Tarp',
+            'price' => 450000,
             'is_discontinued' => false,
         ]);
 
         $product = Product::factory()->create([
-            'name'        => 'EIGER Rhinos 45L Backpack',
-            'sku'         => 'SKU-RHINOS-45',
-            'price'       => 1250000,
+            'name' => 'EIGER Rhinos 45L Backpack',
+            'sku' => 'SKU-RHINOS-45',
+            'price' => 1250000,
             'description' => 'Tas carrier handal dengan sistem sirkulasi udara optimal.',
             'pim_payload' => [
                 'category' => 'Mountaineering',
@@ -66,32 +66,32 @@ class TableExpeditionApiTest extends TestCase
 
         ProductVariant::create([
             'product_id' => $product->id,
-            'sku'        => 'SKU-RHINOS-45-OLV-M',
-            'name'       => 'Rhinos 45L Olive M',
-            'size'       => 'M',
-            'color'      => 'Olive',
-            'stock'      => 10,
+            'sku' => 'SKU-RHINOS-45-OLV-M',
+            'name' => 'Rhinos 45L Olive M',
+            'size' => 'M',
+            'color' => 'Olive',
+            'stock' => 10,
         ]);
         ProductVariant::create([
             'product_id' => $product->id,
-            'sku'        => 'SKU-RHINOS-45-BLK-L',
-            'name'       => 'Rhinos 45L Black L',
-            'size'       => 'L',
-            'color'      => 'Black',
-            'stock'      => 5,
+            'sku' => 'SKU-RHINOS-45-BLK-L',
+            'name' => 'Rhinos 45L Black L',
+            'size' => 'L',
+            'color' => 'Black',
+            'stock' => 5,
         ]);
 
         $item = TableExpeditionItem::create([
-            'rfid_tag'             => 'E28011606000020468900001',
-            'product_id'           => $product->id,
-            'activity_slug'        => 'mountaineering',
-            'ideal_for'            => 'Ekspedisi 3-5 Hari',
-            'video_url'            => 'https://example.com/rhinos.mp4',
-            'features'             => ['Ergonomic Backsystem', 'Raincover Included', 'Trekking Pole Holder'],
-            'technical_details'    => ['Capacity' => '45L', 'Weight' => '1.6 kg', 'Dimensions' => '65 x 32 x 26 cm'],
-            'ai_summary'           => 'Carrier tangguh dengan kenyamanan maksimal untuk jalur pendakian berat.',
-            'similar_product_ids'  => [$similarProduct->id],
-            'is_active'            => true,
+            'rfid_tag' => 'E28011606000020468900001',
+            'product_id' => $product->id,
+            'activity_slug' => 'mountaineering',
+            'ideal_for' => 'Ekspedisi 3-5 Hari',
+            'video_url' => 'https://example.com/rhinos.mp4',
+            'features' => ['Ergonomic Backsystem', 'Raincover Included', 'Trekking Pole Holder'],
+            'technical_details' => ['Capacity' => '45L', 'Weight' => '1.6 kg', 'Dimensions' => '65 x 32 x 26 cm'],
+            'ai_summary' => 'Carrier tangguh dengan kenyamanan maksimal untuk jalur pendakian berat.',
+            'similar_product_ids' => [$similarProduct->id],
+            'is_active' => true,
         ]);
 
         $response = $this->postJson('/api/v1/table-expedition/scan', [
@@ -101,17 +101,17 @@ class TableExpeditionApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
-                'rfid_tag'         => 'E28011606000020468900001',
-                'is_mapped_table'  => true,
-                'activity_slug'    => 'mountaineering',
-                'ideal_for'        => 'Ekspedisi 3-5 Hari',
-                'video_url'        => 'https://example.com/master-rhinos.mp4',
-                'ai_summary'       => 'Carrier tangguh dengan kenyamanan maksimal untuk jalur pendakian berat.',
-                'product'          => [
-                    'id'   => $product->id,
+            'data' => [
+                'rfid_tag' => 'E28011606000020468900001',
+                'is_mapped_table' => true,
+                'activity_slug' => 'mountaineering',
+                'ideal_for' => 'Ekspedisi 3-5 Hari',
+                'video_url' => 'https://example.com/master-rhinos.mp4',
+                'ai_summary' => 'Carrier tangguh dengan kenyamanan maksimal untuk jalur pendakian berat.',
+                'product' => [
+                    'id' => $product->id,
                     'name' => 'EIGER Rhinos 45L Backpack',
-                    'sku'  => 'SKU-RHINOS-45',
+                    'sku' => 'SKU-RHINOS-45',
                 ],
             ],
         ]);
@@ -121,6 +121,9 @@ class TableExpeditionApiTest extends TestCase
         $this->assertEquals('Ya', $response->json('data.technical_details.waterproof'));
         $this->assertContains('M', $response->json('data.variants.sizes'));
         $this->assertContains('Olive', $response->json('data.variants.colors'));
+        $this->assertContains('SKU-RHINOS-45-OLV-M', collect($response->json('data.product.variants'))->pluck('sku')->all());
+        $this->assertSame('Airflow', $response->json('data.product.technologies.0.name'));
+        $this->assertSame('waterproof', $response->json('data.product.custom_attributes.0.attributeCode'));
         $this->assertCount(1, $response->json('data.similar_products'));
         $this->assertEquals('EIGER Equator Tarp', $response->json('data.similar_products.0.name'));
 
@@ -131,13 +134,13 @@ class TableExpeditionApiTest extends TestCase
     public function test_api_scan_unmapped_product_returns_fallback_if_in_rfid_tags(): void
     {
         $product = Product::factory()->create([
-            'name'  => 'EIGER Caldera Sandal',
-            'sku'   => 'SKU-CALDERA',
+            'name' => 'EIGER Caldera Sandal',
+            'sku' => 'SKU-CALDERA',
             'price' => 250000,
         ]);
 
         RfidTag::create([
-            'uid'        => 'E28011606000020468900999',
+            'uid' => 'E28011606000020468900999',
             'product_id' => $product->id,
         ]);
 
@@ -148,11 +151,11 @@ class TableExpeditionApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
-                'rfid_tag'        => 'E28011606000020468900999',
+            'data' => [
+                'rfid_tag' => 'E28011606000020468900999',
                 'is_mapped_table' => false,
-                'product'         => [
-                    'id'   => $product->id,
+                'product' => [
+                    'id' => $product->id,
                     'name' => 'EIGER Caldera Sandal',
                 ],
             ],
@@ -180,8 +183,8 @@ class TableExpeditionApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
-                'action'        => 'reset_to_standby',
+            'data' => [
+                'action' => 'reset_to_standby',
                 'previous_rfid' => 'E28011606000020468900001',
             ],
         ]);
@@ -193,37 +196,37 @@ class TableExpeditionApiTest extends TestCase
         $p2 = Product::factory()->create(['name' => 'Backpack Beta', 'price' => 1200000]);
 
         TableExpeditionItem::create([
-            'rfid_tag'          => 'RFID-ALPHA',
-            'product_id'        => $p1->id,
-            'features'          => ['Waterproof'],
+            'rfid_tag' => 'RFID-ALPHA',
+            'product_id' => $p1->id,
+            'features' => ['Waterproof'],
             'technical_details' => ['Capacity' => '40L'],
-            'is_active'         => true,
+            'is_active' => true,
         ]);
 
         TableExpeditionItem::create([
-            'rfid_tag'          => 'RFID-BETA',
-            'product_id'        => $p2->id,
-            'features'          => ['Water Resistant', 'Extra Pocket'],
+            'rfid_tag' => 'RFID-BETA',
+            'product_id' => $p2->id,
+            'features' => ['Water Resistant', 'Extra Pocket'],
             'technical_details' => ['Capacity' => '50L'],
-            'is_active'         => true,
+            'is_active' => true,
         ]);
 
         $response = $this->postJson('/api/v1/table-expedition/compare', [
-            'rfid_primary'   => 'RFID-ALPHA',
+            'rfid_primary' => 'RFID-ALPHA',
             'rfid_secondary' => 'RFID-BETA',
         ]);
 
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
+            'data' => [
                 'primary' => [
                     'rfid_tag' => 'RFID-ALPHA',
-                    'product'  => ['name' => 'Backpack Alpha'],
+                    'product' => ['name' => 'Backpack Alpha'],
                 ],
                 'secondary' => [
                     'rfid_tag' => 'RFID-BETA',
-                    'product'  => ['name' => 'Backpack Beta'],
+                    'product' => ['name' => 'Backpack Beta'],
                 ],
             ],
         ]);
@@ -233,9 +236,9 @@ class TableExpeditionApiTest extends TestCase
     {
         $product = Product::factory()->create();
         TableExpeditionItem::create([
-            'rfid_tag'   => 'RFID-TEST-01',
+            'rfid_tag' => 'RFID-TEST-01',
             'product_id' => $product->id,
-            'is_active'  => true,
+            'is_active' => true,
         ]);
 
         $response = $this->getJson('/api/v1/table-expedition/status');
@@ -243,8 +246,8 @@ class TableExpeditionApiTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'status' => 'success',
-            'data'   => [
-                'mode'               => 'standby',
+            'data' => [
+                'mode' => 'standby',
                 'active_items_count' => 1,
             ],
         ]);

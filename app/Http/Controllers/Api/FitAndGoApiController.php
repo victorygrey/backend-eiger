@@ -8,8 +8,10 @@ use App\Models\FitAndGoCategory;
 use App\Models\FitAndGoDevice;
 use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
+use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class FitAndGoApiController extends Controller
@@ -29,25 +31,25 @@ class FitAndGoApiController extends Controller
             $device = $query->first();
         }
 
-        if (!$device) {
+        if (! $device) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'No active Fit & Go device configured.',
-                'data'    => null,
+                'data' => null,
             ], 404);
         }
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
-                'device_id'       => $device->id,
-                'device_code'     => $device->device_code,
-                'device_name'     => $device->name,
-                'location'        => $device->location,
-                'gpu_endpoint'    => $device->gpu_endpoint,
-                'camera_source'   => $device->camera_source,
-                'device_status'   => $device->status,
-                'last_heartbeat'  => $device->last_heartbeat_at?->toIso8601String(),
+            'data' => [
+                'device_id' => $device->id,
+                'device_code' => $device->device_code,
+                'device_name' => $device->name,
+                'location' => $device->location,
+                'gpu_endpoint' => $device->gpu_endpoint,
+                'camera_source' => $device->camera_source,
+                'device_status' => $device->status,
+                'last_heartbeat' => $device->last_heartbeat_at?->toIso8601String(),
             ],
         ]);
     }
@@ -56,16 +58,61 @@ class FitAndGoApiController extends Controller
      * Get list of active EIGER outdoor activities (SRS page 10).
      * GET /api/v1/fit-and-go/activities
      */
-    public function activities(): JsonResponse
+    public function activities(Request $request): JsonResponse
     {
+        $device = $request->filled('device_code')
+            ? FitAndGoDevice::where('device_code', $request->query('device_code'))->first()
+            : null;
+
         $activities = FitAndGoActivity::where('is_active', true)
             ->orderBy('sort_order')
-            ->get(['id', 'name', 'slug', 'image', 'care_mc_level_2', 'description', 'sort_order']);
+            ->get(['id', 'name', 'slug', 'image', 'care_mc_level_2', 'description', 'sort_order'])
+            ->map(function (FitAndGoActivity $activity) use ($device): array {
+                $products = $this->recommendedProducts($activity, $device);
+
+                return [
+                    'id' => $activity->id,
+                    'name' => $activity->name,
+                    'slug' => $activity->slug,
+                    'image' => $activity->image,
+                    'care_mc_level_2' => $activity->care_mc_level_2,
+                    'description' => $activity->description,
+                    'sort_order' => $activity->sort_order,
+                    'recommendation_count' => $products->count(),
+                    'recommended_items' => $products->map(fn (Product $product) => DeviceProductPayload::make($product))->values(),
+                ];
+            });
 
         return response()->json([
             'status' => 'success',
-            'count'  => $activities->count(),
-            'data'   => $activities,
+            'count' => $activities->count(),
+            'data' => $activities,
+        ]);
+    }
+
+    /**
+     * Get the ordered recommendation list for one activity.
+     * GET /api/v1/fit-and-go/activities/{activity}/recommendations
+     */
+    public function recommendations(Request $request, FitAndGoActivity $activity): JsonResponse
+    {
+        abort_unless($activity->is_active, 404);
+
+        $device = $request->filled('device_code')
+            ? FitAndGoDevice::where('device_code', $request->query('device_code'))->first()
+            : null;
+        $products = $this->recommendedProducts($activity, $device);
+
+        return response()->json([
+            'status' => 'success',
+            'activity' => [
+                'id' => $activity->id,
+                'name' => $activity->name,
+                'slug' => $activity->slug,
+            ],
+            'device_code' => $device?->device_code,
+            'count' => $products->count(),
+            'data' => $products->map(fn (Product $product) => DeviceProductPayload::make($product))->values(),
         ]);
     }
 
@@ -81,8 +128,8 @@ class FitAndGoApiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'count'  => $categories->count(),
-            'data'   => $categories,
+            'count' => $categories->count(),
+            'data' => $categories,
         ]);
     }
 
@@ -112,7 +159,7 @@ class FitAndGoApiController extends Controller
             $query->whereIn('id', $category
                 ? $this->visibleProductIds($category->code, $device)
                 : []);
-        } elseif (!$activityParam) {
+        } elseif (! $activityParam) {
             $query->whereIn('id', $this->visibleProductIds(null, $device));
         }
         if ($activityParam) {
@@ -132,41 +179,34 @@ class FitAndGoApiController extends Controller
         }
 
         // Sort latest and limit (default 15 per SRS recommendation)
-        $products = $query->latest('id')
+        $products = $query->with(DeviceProductPayload::relations())->latest('id')
             ->limit($limit)
             ->get();
 
         return response()->json([
             'status' => 'success',
-            'count'  => $products->count(),
+            'count' => $products->count(),
             'filter' => [
-                'category'    => $categoryParam,
-                'activity'    => $activityParam,
+                'category' => $categoryParam,
+                'activity' => $activityParam,
                 'device_code' => $deviceCode,
-                'limit'       => $limit,
+                'limit' => $limit,
             ],
-            'data'   => $products->map(function ($p) {
-                return [
-                    'id'             => $p->id,
-                    'sku'            => $p->sku,
-                    'name'           => $p->name,
-                    'category'       => $p->category,
-                    'price'          => (float) $p->price,
-                    'stock'          => (int) $p->stock,
-                    'image_url'      => $p->image_url,
-                    'description'    => $p->description,
-                    'material'       => $p->material,
-                    'technologies'   => $p->technologies,
-                    'activities'     => $p->activities,
-                    'specifications' => $p->specifications,
-                    'weight'         => $p->weight,
-                    'zone'        => $p->zone ? [
-                        'id'   => $p->zone->id,
-                        'name' => $p->zone->name,
-                        'code' => $p->zone->code,
-                    ] : null,
-                ];
-            }),
+            'data' => $products->map(fn (Product $product) => DeviceProductPayload::make($product)),
+        ]);
+    }
+
+    /**
+     * Get the complete detail of the item currently shown by a kiosk.
+     * GET /api/v1/fit-and-go/products/{product}
+     */
+    public function showProduct(Product $product): JsonResponse
+    {
+        abort_if($product->is_discontinued || ! $product->pim_catalog_active, 404);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => DeviceProductPayload::make($product),
         ]);
     }
 
@@ -183,8 +223,8 @@ class FitAndGoApiController extends Controller
         if (empty($q)) {
             return response()->json([
                 'status' => 'success',
-                'count'  => 0,
-                'data'   => [],
+                'count' => 0,
+                'data' => [],
             ]);
         }
 
@@ -215,35 +255,40 @@ class FitAndGoApiController extends Controller
 
         $query->whereIn('id', $this->visibleProductIds(null, $device));
 
-        $products = $query->latest('id')->limit($limit)->get();
+        $products = $query->with(DeviceProductPayload::relations())->latest('id')->limit($limit)->get();
 
         return response()->json([
             'status' => 'success',
-            'query'  => $q,
-            'count'  => $products->count(),
-            'data'   => $products->map(function ($p) {
-                return [
-                    'id'             => $p->id,
-                    'sku'            => $p->sku,
-                    'name'           => $p->name,
-                    'category'       => $p->category,
-                    'price'          => (float) $p->price,
-                    'stock'          => (int) $p->stock,
-                    'image_url'      => $p->image_url,
-                    'description'    => $p->description,
-                    'material'       => $p->material,
-                    'technologies'   => $p->technologies,
-                    'activities'     => $p->activities,
-                    'specifications' => $p->specifications,
-                    'weight'         => $p->weight,
-                    'zone'        => $p->zone ? [
-                        'id'   => $p->zone->id,
-                        'name' => $p->zone->name,
-                        'code' => $p->zone->code,
-                    ] : null,
-                ];
-            }),
+            'query' => $q,
+            'count' => $products->count(),
+            'data' => $products->map(fn (Product $product) => DeviceProductPayload::make($product)),
         ]);
+    }
+
+    /** @return Collection<int, Product> */
+    private function recommendedProducts(FitAndGoActivity $activity, ?FitAndGoDevice $device): Collection
+    {
+        $ids = $device
+            ? DB::table('fit_and_go_device_activity_products')
+                ->where('device_id', $device->id)
+                ->where('activity_id', $activity->id)
+                ->orderBy('sort_order')
+                ->pluck('product_id')
+            : $activity->recommendedProducts()->pluck('products.id');
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        $positions = $ids->values()->flip();
+
+        return Product::with(DeviceProductPayload::relations())
+            ->whereIn('id', $ids)
+            ->where('pim_catalog_active', true)
+            ->where('is_discontinued', false)
+            ->get()
+            ->sortBy(fn (Product $product) => $positions[$product->id] ?? PHP_INT_MAX)
+            ->values();
     }
 
     private function visibleProductIds(?string $categoryCode, ?FitAndGoDevice $device): array
@@ -259,7 +304,7 @@ class FitAndGoApiController extends Controller
             ->orderByRaw('CASE WHEN device_id IS NULL THEN 0 ELSE 1 END DESC')
             ->latest('id')->get();
 
-        return $rows->unique(fn ($row) => $row->category_code . ':' . $row->product_id)
+        return $rows->unique(fn ($row) => $row->category_code.':'.$row->product_id)
             ->where('is_visible', true)->pluck('product_id')->unique()->values()->all();
     }
 
@@ -271,21 +316,21 @@ class FitAndGoApiController extends Controller
     {
         $validated = $request->validate([
             'device_code' => 'required|string|exists:fit_and_go_devices,device_code',
-            'status'      => 'nullable|string|in:online,offline,active,maintenance',
+            'status' => 'nullable|string|in:online,offline,active,maintenance',
         ]);
 
         $device = FitAndGoDevice::where('device_code', $validated['device_code'])->firstOrFail();
         $device->update([
             'last_heartbeat_at' => now(),
-            'status'            => $validated['status'] ?? 'online',
+            'status' => $validated['status'] ?? 'online',
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => "Heartbeat received for device {$device->device_code}.",
-            'data'    => [
-                'device_code'       => $device->device_code,
-                'status'            => $device->status,
+            'data' => [
+                'device_code' => $device->device_code,
+                'status' => $device->status,
                 'last_heartbeat_at' => $device->last_heartbeat_at->toIso8601String(),
             ],
         ]);

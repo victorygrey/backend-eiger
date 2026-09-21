@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Tablet;
+use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -47,7 +48,10 @@ class TabletDisplayController extends Controller
             return response()->json(['message' => 'Konfigurasi tablet belum aktif atau belum lengkap.'], 404);
         }
 
-        $tablet->load(['featuredProduct.zone', 'recommendations.zone']);
+        $tablet->load(array_merge(
+            array_map(fn (string $relation): string => 'featuredProduct.'.$relation, DeviceProductPayload::relations()),
+            array_map(fn (string $relation): string => 'recommendations.'.$relation, DeviceProductPayload::relations())
+        ));
 
         return response()->json([
             'tablet' => [
@@ -101,49 +105,41 @@ class TabletDisplayController extends Controller
 
     private function productPayload(Product $product): array
     {
-        $image = $product->image;
-        if (is_string($image) && str_starts_with($image, '/api/pim-media/')) {
-            $image = url($image);
+        $payload = DeviceProductPayload::make($product);
+        $activity = collect($payload['activities'])
+            ->first(fn (array $item): bool => (bool) ($item['selected'] ?? false))
+            ?? collect($payload['activities'])->first();
+        $features = collect($payload['technologies'])->map(function (array $technology): string {
+            $name = $technology['name'] ?? '';
+            $description = $technology['description'] ?? '';
+
+            return trim($name.($name && $description ? ': ' : '').$description);
+        })->filter()->values()->all();
+
+        if ($features === []) {
+            $features = ['Detail produk mengikuti informasi terbaru dari CMS.'];
         }
 
-        $media = collect($product->pim_media ?? [])->map(function ($item) {
-            if (! is_array($item)) {
-                return null;
-            }
-            $url = $item['url'] ?? null;
-            if (is_string($url) && str_starts_with($url, '/')) {
-                $url = url($url);
-            }
+        $dimensions = collect($payload['specifications'])
+            ->filter(fn (array $specification): bool => str_contains(strtolower((string) ($specification['code'] ?? $specification['name'] ?? '')), 'dimension'))
+            ->pluck('value')
+            ->filter()
+            ->implode(' × ');
 
-            return [
-                'type' => str_starts_with((string) ($item['mime'] ?? ''), 'video/') ? 'video' : 'image',
-                'role' => $item['role'] ?? 'image',
-                'url' => $url,
-            ];
-        })->filter(fn ($item) => is_array($item) && is_string($item['url']))->values()->all();
-
-        return [
+        return array_merge($payload, [
             'id' => (string) $product->id,
-            'slug' => Str::slug($product->name).'-'.$product->id,
-            'name' => $product->name,
-            'category' => $product->zone?->name ?? 'EIGER Product',
-            'sku' => $product->sku,
-            'activity' => $product->zone?->name ?? 'Daily Wear',
-            'gender' => 'UNISEX',
-            'weight' => '—',
-            'dimension' => '—',
+            'activity' => $activity['name'] ?? $product->zone?->name ?? 'Daily Wear',
+            'gender' => $product->gender ?: 'UNISEX',
+            'weight' => $payload['weight'] ?? '—',
+            'dimension' => $dimensions ?: '—',
             'materials' => $product->material ? [$product->material] : ['—'],
             'description' => $product->description ?: 'Informasi produk akan diperbarui melalui CMS.',
-            'features' => [
-                'Produk resmi EIGER untuk aktivitas harian dan luar ruang.',
-                'Detail lengkap mengikuti informasi terbaru dari CMS.',
-            ],
+            'features' => $features,
             'care' => [
                 'Ikuti petunjuk perawatan pada label produk.',
                 'Simpan di tempat kering setelah digunakan.',
             ],
-            'imageUrl' => $image ?: '/products/bogota.jpg',
-            'media' => $media,
-        ];
+            'imageUrl' => $payload['image'] ?: '/products/bogota.jpg',
+        ]);
     }
 }
