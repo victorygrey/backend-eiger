@@ -76,6 +76,7 @@ class FitAndGoApiTest extends TestCase
         $product = Product::factory()->create([
             'sku' => '910000999',
             'name' => 'Kiosk Expedition Jacket',
+            'image' => '/api/pim-media/kiosk-cover.jpg',
             'price' => 999000,
             'stock' => 8,
             'pim_catalog_active' => true,
@@ -110,7 +111,8 @@ class FitAndGoApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.kiosk.slug', 'fit-kiosk-01')
             ->assertJsonPath('data.categories.0.code', 'apparel')
-            ->assertJsonPath('data.categories.0.shown_items.0.sku', '910000999');
+            ->assertJsonPath('data.categories.0.shown_items.0.sku', '910000999')
+            ->assertJsonPath('data.categories.0.shown_items.0.variants.0.image', url('/api/pim-media/kiosk-cover.jpg'));
 
         $activityData = collect($response->json('data.activities'))->firstWhere('slug', 'mountaineering');
         $this->assertSame('910000999001', data_get($activityData, 'recommended_items.0.variants.0.sku'));

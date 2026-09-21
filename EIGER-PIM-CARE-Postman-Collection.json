@@ -1,31 +1,36 @@
 {
   "info": {
-    "_postman_id": "eiger-pim-care-apis",
-    "name": "EIGER PIM Simulator & CMS APIs",
-    "description": "Koleksi API lengkap untuk pengujian integrasi EIGER PIM Simulator (Port 8001), CARE Simulator (Port 8002), dan CMS Backend EIGER (Port 8000).",
+    "_postman_id": "eiger-pim-care-device-apis",
+    "name": "EIGER PIM, CMS & Device APIs",
+    "description": "Koleksi pengujian PIM lokal, CMS staging, Fit & Go, Table Expedition, LED Ambience, dan Interactive Tablet. Base URL CMS mengarah ke Cloudflare staging.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "pim_url", "value": "http://192.168.18.31:8001", "type": "string" },
-    { "key": "cms_url", "value": "http://192.168.18.31:8000", "type": "string" },
-    { "key": "cms_ngrok_url", "value": "https://cause-accompany-matchless.ngrok-free.dev", "type": "string" },
-    { "key": "sample_article", "value": "910012408", "type": "string" }
+    { "key": "cms_url", "value": "https://eiger-dev.automataserver.com", "type": "string" },
+    { "key": "cms_lan_url", "value": "http://192.168.18.31:8000", "type": "string" },
+    { "key": "pim_url", "value": "http://192.168.18.199:8001", "type": "string" },
+    { "key": "sample_article", "value": "910006090", "type": "string" },
+    { "key": "fit_go_slug", "value": "fit-kiosk-01", "type": "string" },
+    { "key": "led_rfid", "value": "1231425125124", "type": "string" },
+    { "key": "table_rfid", "value": "12341234123412343212341234", "type": "string" },
+    { "key": "table_product_id", "value": "148", "type": "string" },
+    { "key": "compare_product_id", "value": "147", "type": "string" },
+    { "key": "tablet_slug", "value": "tablet2", "type": "string" },
+    { "key": "tablet_activation_code", "value": "", "type": "string" },
+    { "key": "tablet_token", "value": "", "type": "string" },
+    { "key": "tablet_config_version", "value": "2", "type": "string" }
   ],
   "item": [
     {
-      "name": "1. PIM Simulator (Direct)",
+      "name": "1. PIM Simulator (Local PC)",
       "item": [
         {
-          "name": "GET Product Detail Payload (1:1 Document)",
+          "name": "GET Product Detail Payload",
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": {
-              "raw": "{{pim_url}}/api/articles/{{sample_article}}/product-payload",
-              "host": ["{{pim_url}}"],
-              "path": ["api", "articles", "{{sample_article}}", "product-payload"]
-            },
-            "description": "Mengambil master data spesifikasi lengkap artikel generic (9 digit) persis 1:1 dokumen PIM Continuous Doc."
+            "url": "{{pim_url}}/api/articles/{{sample_article}}/product-payload",
+            "description": "Payload product detail PIM untuk artikel generic 9 digit. Jalankan PIM simulator di PC terlebih dahulu."
           }
         },
         {
@@ -33,12 +38,8 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": {
-              "raw": "{{pim_url}}/api/articles/{{sample_article}}/image-payload",
-              "host": ["{{pim_url}}"],
-              "path": ["api", "articles", "{{sample_article}}", "image-payload"]
-            },
-            "description": "Mengambil mapping gambar generic dan variant."
+            "url": "{{pim_url}}/api/articles/{{sample_article}}/image-payload",
+            "description": "Payload image-to-channel PIM untuk artikel dan variannya."
           }
         },
         {
@@ -46,88 +47,296 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": {
-              "raw": "{{pim_url}}/api/simulator/state",
-              "host": ["{{pim_url}}"],
-              "path": ["api", "simulator", "state"]
-            }
+            "url": "{{pim_url}}/api/simulator/state"
           }
         },
         {
-          "name": "GET Publish List (Eligible Articles)",
+          "name": "GET Publish List",
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": {
-              "raw": "{{pim_url}}/api/articles/publish-list",
-              "host": ["{{pim_url}}"],
-              "path": ["api", "articles", "publish-list"]
-            }
+            "url": "{{pim_url}}/api/articles/publish-list"
           }
         }
       ]
     },
     {
-      "name": "2. CMS Backend EIGER",
+      "name": "2. CMS Catalog",
       "item": [
         {
-          "name": "Admin: Catalog Lookup (PIM + CARE Omni)",
+          "name": "GET Products",
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": {
-              "raw": "{{cms_url}}/admin/products/catalog-lookup?code={{sample_article}}",
-              "host": ["{{cms_url}}"],
-              "path": ["admin", "products", "catalog-lookup"],
-              "query": [{ "key": "code", "value": "{{sample_article}}" }]
-            },
-            "description": "Menarik data produk dari PIM dan varian harga/stok dari CARE untuk form admin CMS. (Memerlukan session login admin)."
+            "url": "{{cms_url}}/api/products?search={{sample_article}}"
           }
         },
         {
-          "name": "Public API: AI Fit & Go Search",
+          "name": "GET Master Categories",
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": {
-              "raw": "{{cms_url}}/api/v1/fit-and-go/search?q={{sample_article}}",
-              "host": ["{{cms_url}}"],
-              "path": ["api", "v1", "fit-and-go", "search"],
-              "query": [{ "key": "q", "value": "{{sample_article}}" }]
-            },
-            "description": "Pencarian produk untuk virtual try-on Kiosk dengan data PIM Enrichment."
+            "url": "{{cms_url}}/api/master-data/categories"
           }
         },
         {
-          "name": "Public API: AI Fit & Go Products",
+          "name": "GET Master Activities",
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": {
-              "raw": "{{cms_url}}/api/v1/fit-and-go/products?limit=15",
-              "host": ["{{cms_url}}"],
-              "path": ["api", "v1", "fit-and-go", "products"],
-              "query": [{ "key": "limit", "value": "15" }]
+            "url": "{{cms_url}}/api/master-data/activities"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. AI Fit & Go",
+      "item": [
+        {
+          "name": "GET Kiosk by Slug",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "const variants = [];",
+                "const walk = value => { if (Array.isArray(value)) return value.forEach(walk); if (!value || typeof value !== 'object') return; Object.entries(value).forEach(([key, child]) => { if (key === 'variants' && Array.isArray(child)) variants.push(...child); walk(child); }); };",
+                "walk(body);",
+                "pm.test('Foto varian tersedia', () => { pm.expect(variants.length).to.be.above(0); variants.forEach(variant => pm.expect(variant.image).to.be.a('string').and.not.empty); });"
+              ]
             }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/fit-and-go/kiosks/{{fit_go_slug}}",
+            "description": "Konfigurasi satu kiosk berdasarkan slug. Respons berisi kategori, shown items, aktivitas, rekomendasi, media, dan varian."
           }
         },
         {
-          "name": "Public API: Table Expedition Scan",
+          "name": "GET Activities",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/fit-and-go/activities?device_code={{fit_go_slug}}"
+          }
+        },
+        {
+          "name": "GET Products",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/fit-and-go/products?device_code={{fit_go_slug}}&limit=15"
+          }
+        },
+        {
+          "name": "GET Search Product",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/fit-and-go/search?q={{sample_article}}&device_code={{fit_go_slug}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Table Expedition (Interactive Table)",
+      "item": [
+        {
+          "name": "GET Standby",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/table-expedition/standby"
+          }
+        },
+        {
+          "name": "POST Scan RFID",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const variants = pm.response.json().data.product.variants;",
+                "pm.test('Foto setiap varian tersedia', () => { pm.expect(variants.length).to.be.above(0); variants.forEach(variant => pm.expect(variant.image).to.be.a('string').and.not.empty); });"
+              ]
+            }
+          }],
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Accept", "value": "application/json" }
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"rfid_tag\": \"E2801160600002123456789A\"\n}"
-            },
-            "url": {
-              "raw": "{{cms_url}}/api/v1/table-expedition/scan",
-              "host": ["{{cms_url}}"],
-              "path": ["api", "v1", "table-expedition", "scan"]
+            "body": { "mode": "raw", "raw": "{\n  \"rfid_tag\": \"{{table_rfid}}\"\n}" },
+            "url": "{{cms_url}}/api/v1/table-expedition/scan",
+            "description": "RFID contoh sudah dipetakan ke GAEA MID. Respons berisi full product detail, foto/media, varian, fitur, spesifikasi, AI summary, dan produk serupa."
+          }
+        },
+        {
+          "name": "POST Compare Products",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"product_id_1\": {{table_product_id}},\n  \"product_id_2\": {{compare_product_id}}\n}" },
+            "url": "{{cms_url}}/api/v1/table-expedition/compare"
+          }
+        },
+        {
+          "name": "POST Item Lost",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"rfid_tag\": \"{{table_rfid}}\"\n}" },
+            "url": "{{cms_url}}/api/v1/table-expedition/item-lost"
+          }
+        },
+        {
+          "name": "GET Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/table-expedition/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. LED Ambience",
+      "item": [
+        {
+          "name": "GET Idle Scene",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/led-ambience/idle"
+          }
+        },
+        {
+          "name": "GET Scenes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/led-ambience/scenes"
+          }
+        },
+        {
+          "name": "POST Trigger RFID",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const variants = pm.response.json().data.product.variants;",
+                "pm.test('Foto setiap varian tersedia', () => { pm.expect(variants.length).to.be.above(0); variants.forEach(variant => pm.expect(variant.image).to.be.a('string').and.not.empty); });"
+              ]
             }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"rfid_tag\": \"{{led_rfid}}\"\n}" },
+            "url": "{{cms_url}}/api/v1/led-ambience/trigger",
+            "description": "RFID contoh sudah dipetakan ke GREENLAND PRO dengan aktivitas Hiking."
+          }
+        },
+        {
+          "name": "POST Item Lost",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{cms_url}}/api/v1/led-ambience/item-lost"
+          }
+        },
+        {
+          "name": "GET Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/v1/led-ambience/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Interactive Tablet Display",
+      "description": "Isi collection variable tablet_activation_code dengan kode pairing tablet2. Request Activate otomatis menyimpan token respons ke variable tablet_token.",
+      "item": [
+        {
+          "name": "POST Activate Tablet",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Aktivasi berhasil', () => pm.response.to.have.status(200));",
+                "if (pm.response.code === 200) { const body = pm.response.json(); if (body.token) pm.collectionVariables.set('tablet_token', body.token); }"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"slug\": \"{{tablet_slug}}\",\n  \"activation_code\": \"{{tablet_activation_code}}\"\n}" },
+            "url": "{{cms_url}}/api/tablets/activate",
+            "description": "Jalankan sekali setelah tablet_activation_code diisi. Token perangkat otomatis disimpan oleh script Postman."
+          }
+        },
+        {
+          "name": "GET Display Configuration",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "const products = [body.featured, ...(body.recommendations || [])].filter(Boolean);",
+                "const variants = products.flatMap(product => product.variants || []);",
+                "pm.test('Featured dan rekomendasi tersedia', () => { pm.expect(body.featured).to.be.an('object'); pm.expect(body.recommendations.length).to.be.above(0); });",
+                "pm.test('Foto setiap varian tersedia', () => { pm.expect(variants.length).to.be.above(0); variants.forEach(variant => pm.expect(variant.image).to.be.a('string').and.not.empty); });"
+              ]
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tablet_token}}", "type": "string" }] },
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{cms_url}}/api/tablets/{{tablet_slug}}/display",
+            "description": "Konfigurasi tablet2 versi 2: CHELINE sebagai featured product dan empat rekomendasi."
+          }
+        },
+        {
+          "name": "POST Heartbeat",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tablet_token}}", "type": "string" }] },
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"version\": {{tablet_config_version}},\n  \"media_status\": \"ready\"\n}" },
+            "url": "{{cms_url}}/api/tablets/{{tablet_slug}}/heartbeat"
           }
         }
       ]

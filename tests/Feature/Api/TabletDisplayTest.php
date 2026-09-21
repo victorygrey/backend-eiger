@@ -16,7 +16,11 @@ class TabletDisplayTest extends TestCase
 
     public function test_tablet_can_activate_and_fetch_its_configured_catalog(): void
     {
-        $featured = Product::factory()->create(['name' => 'Voyager Jacket 3.0', 'is_discontinued' => false]);
+        $featured = Product::factory()->create([
+            'name' => 'Voyager Jacket 3.0',
+            'image' => '/api/pim-media/voyager-cover.jpg',
+            'is_discontinued' => false,
+        ]);
         $recommendation = Product::factory()->create(['name' => 'Greenland Pro', 'is_discontinued' => false]);
         ProductVariant::create([
             'product_id' => $featured->id,
@@ -47,6 +51,7 @@ class TabletDisplayTest extends TestCase
             ->assertJsonPath('tablet.slug', 'lobby-01')
             ->assertJsonPath('featured.name', 'Voyager Jacket 3.0')
             ->assertJsonPath('featured.variants.0.sku', 'VOYAGER-BLK-M')
+            ->assertJsonPath('featured.variants.0.image', url('/api/pim-media/voyager-cover.jpg'))
             ->assertJsonPath('featured.available_sizes.0', 'M')
             ->assertJsonPath('recommendations.0.name', 'Greenland Pro');
     }

@@ -76,7 +76,10 @@ class DeviceProductPayload
             'size' => $variant->size,
             'price' => (float) $variant->price,
             'stock' => (int) $variant->stock,
-            'image' => PimMediaUrl::toPublicUrl($variant->image),
+            // CARE may create a sellable size/color variant before PIM sends
+            // variant-specific media. Devices still need a usable image, so
+            // inherit the locally stored product cover until that media arrives.
+            'image' => PimMediaUrl::toPublicUrl($variant->image) ?? $primaryImage,
             'ecmsku' => $variant->ecmsku,
             'moq' => $variant->moq,
             'custom_attributes' => $variant->custom_attributes,

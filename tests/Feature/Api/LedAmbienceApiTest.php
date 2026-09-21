@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Models\LedAmbienceItem;
 use App\Models\LedAmbienceScene;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -75,7 +76,17 @@ class LedAmbienceApiTest extends TestCase
     {
         $product = Product::factory()->create([
             'name' => 'EIGER Expedition Parka',
+            'image' => '/api/pim-media/parka-cover.jpg',
             'is_discontinued' => false,
+        ]);
+        ProductVariant::create([
+            'product_id' => $product->id,
+            'sku' => 'PARKA-BLK-M',
+            'name' => 'Parka Black M',
+            'color' => 'Black',
+            'size' => 'M',
+            'price' => 899000,
+            'stock' => 4,
         ]);
 
         $item = LedAmbienceItem::create([
@@ -109,6 +120,7 @@ class LedAmbienceApiTest extends TestCase
         $response->assertJsonPath('data.activity.slug', 'mountaineering');
         $response->assertJsonPath('data.activity.name', 'Mountaineering');
         $response->assertJsonPath('data.video_path', 'https://example.com/mountain.mp4');
+        $response->assertJsonPath('data.product.variants.0.image', url('/api/pim-media/parka-cover.jpg'));
         $response->assertJsonStructure(['data' => ['product' => ['variants', 'media', 'technologies', 'activities', 'specifications', 'custom_attributes']]]);
 
         $item->refresh();

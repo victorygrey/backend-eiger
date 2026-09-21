@@ -52,6 +52,7 @@ class TableExpeditionApiTest extends TestCase
         $product = Product::factory()->create([
             'name' => 'EIGER Rhinos 45L Backpack',
             'sku' => 'SKU-RHINOS-45',
+            'image' => '/api/pim-media/rhinos-cover.jpg',
             'price' => 1250000,
             'description' => 'Tas carrier handal dengan sistem sirkulasi udara optimal.',
             'pim_payload' => [
@@ -122,6 +123,7 @@ class TableExpeditionApiTest extends TestCase
         $this->assertContains('M', $response->json('data.variants.sizes'));
         $this->assertContains('Olive', $response->json('data.variants.colors'));
         $this->assertContains('SKU-RHINOS-45-OLV-M', collect($response->json('data.product.variants'))->pluck('sku')->all());
+        $this->assertSame(url('/api/pim-media/rhinos-cover.jpg'), $response->json('data.product.variants.0.image'));
         $this->assertSame('Airflow', $response->json('data.product.technologies.0.name'));
         $this->assertSame('waterproof', $response->json('data.product.custom_attributes.0.attributeCode'));
         $this->assertCount(1, $response->json('data.similar_products'));
