@@ -27,6 +27,7 @@ class PimHttpMediaImporter
             $name = $expectedHash.'.'.$expectedExtension;
             $target = $dir.DIRECTORY_SEPARATOR.$name;
             if (is_file($target) && !is_link($target) && hash_file('sha256', $target) === $expectedHash) {
+                $this->makeReadable($target);
                 return $this->result($target, $name, $expectedHash, $role);
             }
         }
@@ -61,6 +62,7 @@ class PimHttpMediaImporter
                 throw ValidationException::withMessages(['image' => 'Salinan lokal gambar PIM rusak. Pulihkan file media sebelum mengimpor ulang.']);
             }
             if (!is_file($target) && !rename($temp, $target)) throw new \RuntimeException('Cannot store PIM media');
+            $this->makeReadable($target);
             return $this->result($target, $name, $hash, $role);
         } finally {
             if (is_file($temp)) unlink($temp);
@@ -71,5 +73,12 @@ class PimHttpMediaImporter
     {
         return ['url' => '/api/pim-media/'.$name, 'role' => $role, 'sha256' => $hash,
             'mime' => (new \finfo(FILEINFO_MIME_TYPE))->file($path)];
+    }
+
+    private function makeReadable(string $path): void
+    {
+        if (!@chmod($path, 0644)) {
+            throw new \RuntimeException('Cannot make PIM media readable');
+        }
     }
 }

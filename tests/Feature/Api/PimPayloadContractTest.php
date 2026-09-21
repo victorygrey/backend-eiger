@@ -165,7 +165,11 @@ class PimPayloadContractTest extends TestCase
         $this->assertSame('Real description', $saved->pim_payload['customAtributes'][0]['value']);
         $this->assertCount(3, $saved->pim_media);
         $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
-        $this->assertFileExists($this->mediaDir.'/'.hash('sha256', $this->png).'.png');
+        $path = $this->mediaDir.'/'.hash('sha256', $this->png).'.png';
+        $this->assertFileExists($path);
+        if (DIRECTORY_SEPARATOR === '/') {
+            $this->assertSame(0644, fileperms($path) & 0777);
+        }
     }
 
     public function test_rejects_cross_article_images_before_download_or_write(): void

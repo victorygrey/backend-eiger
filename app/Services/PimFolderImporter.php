@@ -192,6 +192,9 @@ class PimFolderImporter
         } finally {
             if (is_file($temporary)) unlink($temporary);
         }
+        if (!@chmod($destination, 0644)) {
+            throw new RuntimeException('Tidak dapat mengatur izin baca media CMS.');
+        }
         return ['url' => '/api/pim-media/'.$name, 'role' => $asset['role'], 'sha256' => $asset['sha256'], 'mime' => $mime];
     }
 
