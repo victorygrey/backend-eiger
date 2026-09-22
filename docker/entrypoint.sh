@@ -18,8 +18,11 @@ if [ "${DB_CONNECTION:-sqlite}" = sqlite ]; then
         touch "$DB_DATABASE"
     fi
 fi
-chown -R www-data:www-data /data storage bootstrap/cache
-chmod -R 775 /data storage bootstrap/cache
+# Keep the externally mounted EIGER media dataset out of recursive permission
+# changes. TrueNAS ACL datasets can reject chmod even when the application user
+# already has access through the www-data group.
+chown -R www-data:www-data /data bootstrap/cache storage/framework storage/logs storage/app/public storage/app/pim-media storage/app/pim-drop
+chmod -R 775 /data bootstrap/cache storage/framework storage/logs storage/app/public storage/app/pim-media storage/app/pim-drop
 php artisan config:clear
 runuser -u www-data -- php artisan migrate --force
 runuser -u www-data -- php artisan db:seed --class=UserSeeder --force
