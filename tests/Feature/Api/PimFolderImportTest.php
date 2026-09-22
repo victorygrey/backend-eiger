@@ -62,7 +62,8 @@ class PimFolderImportTest extends TestCase
         $product = Product::first();
         $this->assertCount(1, $product->pim_media);
         if (DIRECTORY_SEPARATOR === '/') {
-            $this->assertSame(0644, fileperms(config('pim.media_path').'/'.basename($product->image)) & 0777);
+            $relativePath = substr($product->image, strlen('/api/pim-media/'));
+            $this->assertSame(0644, fileperms(config('pim.media_path').'/'.$relativePath) & 0777);
         }
         $this->get($product->image)->assertOk()->assertHeader('Content-Type', 'image/png');
         $this->getJson('/api/products/'.$product->id)->assertOk()->assertJsonPath('data.pim_media.0.role', 'main_image');
