@@ -1,0 +1,110 @@
+CARE OMNI : NEW API SCHEMA
+API DOCUMENTATION
+Last Updated: September 2026
+Document History
+Configuration
+Staging
+Production
+1. Article Price
+1.1. Get Article Price List
+Endpoint ini dipergunakan untuk mendapatkan daftar harga yang terdapat pada masing-masing artikel (sku)..
+Request
+Content Description
+Response
+1.2. Get Stock
+Endpoint ini dipergunakan untuk mendapatkan stok sku yang tersedia pada toko tertentu.
+Request
+Content Description
+Response
+
+===== TABLE 1 =====
+Version | Date | Author | Description
+1.0 | 10 Sep 2026 | Yudi | Initial Document
+ |  |  | 
+ |  |  | 
+
+===== TABLE 2 =====
+Base URL | https://caremaster-dev.pos-eigerindo.com
+Server Key | $2y$10$1HIh4X/8NlSCknqwxkTog.990d3glvP2QoYahSVRJOs/uie7ph/fC
+
+===== TABLE 3 =====
+Base URL | https://caremaster.pos-eigerindo.com
+Server Key | WILL BE INFORMED
+
+===== TABLE 4 =====
+Endpoint | [Base URL]/api/server/pricing_details
+Method | GET
+Header | Content-Type : application/json / Accept : application/json / x-server-key: SERVER_KEY_CREDENTIAL
+Parameter | filter[skucode]: Filter berdasrkan kode skui (contoh: 910001241001) / filter[loccode]: Filter berdasarkan kode lokasi (contoh: 2022) / filter[currency]: Filter berdasarkan mata uang
+Payload Example  | -
+
+===== TABLE 5 =====
+Name | Type | Mandatory | Description
+- | - | - | -
+
+===== TABLE 6 =====
+Success | Success
+HTTP Code | 200
+Body | { /     "data": [ /         { /             "id": 3, /             "skucode": "910001241", /             "articleprice": "160000.00", /             "buyingprice": "1.00", /             "validfrom": "2025-02-11", /             "validto": "9999-12-31", /             "currency": "IDR", /             "deleted_at": null, /             "created_at": "2025-06-18 08:23:38", /             "updated_at": "2025-08-16 00:30:49", /             "status": false, /             "loccode": null, /             "sym_sync": false, /             "created_by": null, /             "updated_by": "push_rama" /         }, /         { /             "id": 21, /             "skucode": "910001241", /             "articleprice": "170000.00", /             "buyingprice": "1.00", /             "validfrom": "2025-04-20", /             "validto": "9999-12-31", /             "currency": "IDR", /             "deleted_at": null, /             "created_at": "2025-06-20 09:49:45", /             "updated_at": "2025-08-13 09:01:45", /             "status": false, /             "loccode": null, /             "sym_sync": false, /             "created_by": null, /             "updated_by": "push_rama" /         } /     ] / }
+
+===== TABLE 7 =====
+Error | Error
+HTTP Code | 400
+Body | { /     "code": 400, /     "message": "Bad request.", /     "errors": [ ] / }
+
+===== TABLE 8 =====
+Error | Error
+HTTP Code | 422
+Body | { /     "code": 422, /     "message": "The given data was invalid.", /     "errors": { /         "channel_code": [ /             "The channel code field is required." /         ] /     } / }
+
+===== TABLE 9 =====
+Error | Error
+HTTP Code | 405
+Body | { /     "code": 405, /     "message": "The POST method is not supported for this route. Supported methods: GET.", /     "errors": [ ] / }
+
+===== TABLE 10 =====
+Error | Error
+HTTP Code | 500
+Body | { /     "code": 500, /     "message": "Internal server error.", /     "errors": [ ] / }
+
+===== TABLE 11 =====
+Endpoint | [Base URL]/api/server/transporter/service_rates
+Method | GET
+Header | Content-Type : application/json / Accept : application/json / x-server-key: SERVER_KEY_CREDENTIAL
+Parameter | -
+Payload Example  | 
+
+===== TABLE 12 =====
+Name | Type | Mandatory | Description
+channel_code | String | Yes | Kode channel penjualan dari sistem CareOmni
+vendor_id | String | Yes | Kode vendor transporter dari sistem CareOmni
+origin | String | No | Kode kecamatan (kemendagri) alamat pengirim (fulfillment)
+destination | String | No | Kode kecamatan (kemendagri) alamat  penerima
+latlong_origin | String | No | Koordinat dari lokasi pengiriman (fulfillment) : latitude,longitude / *Note: Mandatory untuk pengiriman instan seperti : GOSEND
+latlong_destination | String | No | Koordinat dari lokasi penerima: latitude,longitude / *Note: Mandatory untuk pengiriman instan seperti : GOSEND
+weight | Number | Yes | Berat barang yang akan dikirim dalam kg
+
+===== TABLE 13 =====
+Success | Success
+HTTP Code | 200
+Body | 
+
+===== TABLE 14 =====
+Error | Error
+HTTP Code | 400
+Body | { /     "code": 400, /     "message": "Bad request.", /     "errors": [ ] / }
+
+===== TABLE 15 =====
+Error | Error
+HTTP Code | 422
+Body | { /     "code": 422, /     "message": "The given data was invalid.", /     "errors": { /         "channel_code": [ /             "The channel code field is required." /         ] /     } / }
+
+===== TABLE 16 =====
+Error | Error
+HTTP Code | 405
+Body | { /     "code": 405, /     "message": "The GET method is not supported for this route. Supported methods: POST.", /     "errors": [ ] / }
+
+===== TABLE 17 =====
+Error | Error
+HTTP Code | 500
+Body | { /     "code": 500, /     "message": "Internal server error.", /     "errors": [ ] / }

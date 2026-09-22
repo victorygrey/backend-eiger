@@ -1,0 +1,593 @@
+
+===== PAGE 1 =====
+LAMPIRAN I 
+EIGER DIGITAL STORE SYSTEM 
+Software Requirements Specification (SRS) 
+Version 1.0  |  Prepared August 2026 
+Mencakup shared CMS backend dan enam in-store applications: CMS Admin, Virtual Fitting Try-On (AI Fit & Go), Table 
+Product Knowledge (Table Expedition Hub), Immersive Ambience Digital (LED Dynamic Content), Product Catalog 
+(Interactive Display), dan Print Photo (Photo Printer). 
+ 
+
+===== PAGE 2 =====
+1. Pendahuluan 
+1.1 Tujuan 
+Software Requirements Specification (SRS) ini mendefinisikan persyaratan fungsional dan non-fungsional untuk 
+EIGER Digital Store System: satu shared backend yang melayani lima aplikasi yang digunakan oleh customer dan 
+staff di shop floor. Dokumen ini menerjemahkan site map / information architecture dan Product Requirements 
+Document (PRD) sebelumnya ke dalam detail tingkat persyaratan yang sesuai untuk kebutuhan development, 
+QA, dan technical review oleh EIGER. 
+1.2 Ruang Lingkup Dokumen 
+Yang termasuk dalam scope: shared CMS backend dan Admin Console terintegrasi dengan Eigerindo platform 
+(CARE, IPM dan Loyalty) dan Admin Console, serta lima aplikasi yang digunakan oleh customer — Virtual Fitting 
+Try-On, Table Product Knowledge, Immersive Ambience Digital, Product Catalog, dan Print Photo. 
+Yang tidak termasuk dalam scope: CARE, PIM, dan Loyalty/EAC itu sendiri (dimiliki dan dioperasikan oleh EIGER), 
+payment/cart processing, serta VR Game Climbing (secara eksplisit tidak termasuk dalam engagement ini). 
+1.3 Target Audience 
+• Development team — sebagai referensi utama untuk build scope dan acceptance criteria. 
+• EIGER's IT team — untuk technical review terhadap integration points, security, dan compliance 
+requirements. 
+• Project stakeholders — untuk cross-check terhadap cost proposal dan PRD. 
+1.4 Definisi, Akronim, dan Singkatan 
+Istilah Definisi 
+CARE System of record EIGER untuk data stok, harga, dan data store-zone. 
+PIM Sistem Product Information Management EIGER — mengelola konten produk (gambar, 
+video, deskripsi). 
+EAC / Loyalty Program membership/loyalty EIGER, yang digunakan untuk memeriksa kelayakan untuk 
+print. 
+NAS Network Attached Storage — disediakan oleh EIGER dan berada di dalam store; menerima 
+konten file-drop dari PIM. 
+ROPA Record of Processing Activities — dokumentasi formal EIGER terkait compliance dan privasi 
+data. 
+RFID Radio-Frequency Identification — hardware tag/reader yang digunakan oleh Table Product 
+Knowledge dan Immersive Ambience Digital. 
+TTL Time-to-live — aturan penghapusan otomatis yang diterapkan pada foto fitting (6 jam). 
+Struct Code Kode receipt/transaction yang dimasukkan pada Photo Printer untuk membantu 
+mengidentifikasi session customer. 
+Photo Code Kode yang diberikan kepada customer untuk mengidentifikasi foto dari fitting-session 
+mereka secara spesifik. 
+
+===== PAGE 3 =====
+IA Information Architecture — diagram site map yang telah disetujui dan menjadi dasar 
+penyusunan SRS ini. 
+1.5 References 
+• EIGER Digital Store — Product Requirements Document (PRD), tingkat sistem secara umum. 
+• EIGER Digital Store — Infrastructure Overview (lampiran teknis). 
+• Diagram Information Architecture: CMS, AI Fit & Go, Table Expedition Hub, LED Dynamic Content, 
+Interactive Display, Photo Printer. 
+• EIGER quotation / cost proposal (revisi terkini). 
+2. Deskripsi Umum 
+2.1 Perspektif Produk 
+Sistem ini berada di depan tiga sistem milik EIGER — CARE, PIM, dan Loyalty/EAC — tanpa melakukan modifikasi 
+terhadap sistem-sistem tersebut. Sistem ini memiliki working copy sendiri dari data katalog (disinkronkan dari 
+CARE secara berkala dan di-ingest dari PIM melalui file-drop) dan menyediakan data tersebut, bersama dengan 
+data session, print, serta configuration yang dihasilkan oleh sistem itu sendiri, kepada enam aplikasi melalui satu 
+versioned API. 
+2.2 Product Functions (Summary) 
+• Melakukan sinkronisasi subset katalog EIGER yang relevan untuk store dari CARE dan PIM. 
+• Memungkinkan customer mencoba produk secara virtual melalui pengalaman photobooth yang 
+menggunakan AI. 
+• Menampilkan detail produk yang lengkap pada permukaan meja fisik melalui RFID. 
+• Mengendalikan konten video/audio ambient dalam format layar besar melalui RFID. 
+• Memungkinkan customer melihat detail lengkap dari produk yang ditampilkan dan menelusuri produk 
+serupa melalui tablet. 
+• Memungkinkan customer mencetak hasil fitting, dengan akses yang dikendalikan berdasarkan aturan 
+eligibility yang dapat dikonfigurasi. 
+• Memberikan no-code Admin Console bagi store staff untuk mengelola seluruh fungsi di atas. 
+2.3 Kelas Pengguna dan Karakteristik 
+Kelas Pengguna Karakteristik 
+Store visitor / customer 
+Tidak diperlukan login untuk browsing, fitting, atau interaksi dengan table. 
+Memasukkan dua kode (struct, photo) untuk melakukan print — tidak memerlukan 
+akun. 
+Store staff / admin Login ke Admin Console. Mengelola featured items, zones, RFID bindings, dan print 
+rules. Tidak diharapkan memiliki latar belakang teknis/developer. 
+EIGER's IT team Bertanggung jawab atas CARE, PIM, dan Loyalty. Menyediakan dan memelihara in-
+store NAS. Menjadi counterpart teknis untuk dua live-call integrations. 
+2.4 Lingkungan Operasional 
+• Satu physical store, dengan satu on-site server. 
+
+===== PAGE 4 =====
+• NAS yang disediakan oleh EIGER di dalam store, menerima konten file-drop dari PIM terintegrasike C. 
+• RFID reader hardware pada instalasi Table Expedition Hub dan LED Dynamic Content. 
+• Dedicated GPU workstation yang menjalankan AI fitting pipeline. 
+• Kiosk/tablet/TV touchscreens untuk AI Fit & Go, Table Expedition Hub, Interactive Display, dan Photo 
+Printer; serta large-format display untuk LED Dynamic Content. 
+• Physical photo printer yang terhubung dengan aplikasi Photo Printer. 
+2.5 Batasan Desain dan Implementasi 
+• Read-only terhadap CARE, PIM, dan Loyalty untuk seluruh data katalog dan membership — tidak memiliki 
+akses write ke sistem EIGER mana pun, dalam kondisi apa pun. 
+• Tidak terdapat fungsi payment atau cart/checkout di seluruh sistem — secara eksplisit berada di luar 
+scope, sehingga sistem tetap berada di luar cakupan PCI-DSS. 
+• Menggunakan single server tanpa failover yang saat ini dirancang — jika server mengalami downtime, 
+seluruh enam aplikasi akan berhenti beroperasi. 
+• NAS hardware disediakan oleh EIGER dan tidak termasuk dalam biaya proyek ini. 
+2.6 Asumsi dan Dependensi 
+• Store ini hanya menerima sebagian dari seluruh katalog EIGER, yang telah difilter terlebih dahulu di sisi 
+EIGER sebelum masuk ke sistem ini. 
+• CARE, PIM, dan Loyalty/EAC tetap tersedia dan API tetap stabil selama sistem ini beroperasi; sistem ini 
+tidak mengontrol uptime dari sistem-sistem tersebut. 
+• Mekanisme autentikasi untuk dua live-call integrations (real-time stock/price dan transaction lookup) akan 
+dikonfirmasi bersama tim IT EIGER. 
+• PIM file-drop mencakup keseluruhan data (gambar, video, produk). 
+3. Fitur Sistem (Persyaratan Fungsional) 
+Persyaratan dikelompokkan berdasarkan aplikasi, sesuai dengan Information Architecture yang telah disetujui. 
+Setiap persyaratan diberi nomor untuk traceability (misalnya, FR-FIT-03) dan harus direferensikan secara 
+langsung dalam QA test cases. 
+3.1 CMS Backend & Admin Console 
+Admin Console merupakan control surface yang digunakan oleh staff untuk mengelola seluruh aplikasi lainnya. 
+Sesuai dengan site map / IA, homepage menyediakan akses ke area konfigurasi untuk masing-masing aplikasi, 
+serta bagian Monitoring dan User Management yang berlaku di seluruh sistem. 
+FR-CMS-01 Sistem harus menyediakan homepage yang menghubungkan ke area konfigurasi untuk Table 
+Expedition, AI Fit & Go, Interactive Display, LED Dynamic Content, Photo Printer, Monitoring, dan User 
+Management. 
+FR-CMS-02 Untuk setiap aplikasi berbasis produk, Admin Console harus memungkinkan staff mengonfigurasi 
+nama produk, product stats, product image path, kategori/activity, RFID-to-product mapping jika berlaku, 
+serta status mapping tanpa perubahan kode atau keterlibatan developer. 
+FR-CMS-03 Sistem harus memungkinkan staff untuk mengatur visibilitas item (show/hide) dan item-zone 
+assignment (misalnya berdasarkan lantai) untuk AI Fit & Go. 
+FR-CMS-04 Sistem harus memungkinkan staff untuk mengatur similar-product / recommended-product 
+mappings untuk AI Fit & Go dan Interactive Display. 
+
+===== PAGE 5 =====
+FR-CMS-05 Sistem harus memungkinkan staff untuk mengatur konten ambience video/audio dan RFID-to-
+item mapping, termasuk default dan idle-state ambience, untuk LED Dynamic Content. 
+FR-CMS-06 Sistem harus memungkinkan staff untuk mengatur Print Rules (minimum transaction requirement, 
+EAC membership requirement, atau keduanya) yang digunakan oleh Photo Printer. 
+FR-CMS-07 Bagian Monitoring harus menampilkan setidaknya total product count, total items per zone, dan 
+total RFID tag count, dengan CRUD history yang dibatasi hanya untuk user superadmin. 
+FR-CMS-08 Sistem harus menyediakan User Management dengan role-based access control (RBAC) yang 
+terpisah dari customer-facing flows. Super Admin harus dapat membuat, mengubah, menonaktifkan user, 
+serta mengatur role dan permission aksesnya. 
+  
+  
+3.2 Virtual Fitting Try-On (AI Fit & Go) 
+Sesuai dengan site map / IA: Product Screen → Start → Consent Screen → Photo Capture → Item Selection → 
+Item Result → Background Selection → Background Result → Final Result → Email Input → Finish, dengan jalur 
+retake pada setiap tahap capture/result. 
+  
+Consent bukan merupakan gate pada experience — setiap customer tetap menyelesaikan seluruh flow terlepas 
+dari jawabannya. Consent menentukan apakah hasil akan disimpan di server dan kemudian dapat di-print, atau 
+hanya dikirim melalui email dan tidak pernah disimpan secara permanen. 
+FR-FIT-01 Sistem harus menampilkan Product Screen yang menjadi titik awal customer untuk memulai fitting 
+flow. 
+FR-FIT-02 Sistem harus menampilkan consent screen sebelum Photo Capture, yang memungkinkan customer 
+untuk menerima atau menolak consent. Penolakan TIDAK boleh menghambat customer untuk melanjutkan ke 
+Photo Capture atau step berikutnya. 
+FR-FIT-03 Fitting flow (Photo Capture, Item Selection, Background Selection, Final Result) harus berjalan 
+secara identik terlepas dari pilihan consent customer. 
+FR-FIT-04 Sistem harus melakukan live stock/price check terhadap CARE saat Product Screen dibuka, dengan 
+melewati local cache, serta menyediakan timeout/fallback sehingga response yang terlambat tidak 
+menghambat flow. 
+FR-FIT-05 Sistem harus memungkinkan customer untuk melakukan capture foto dan memilih untuk 
+melanjutkan (Next) atau melakukan retake sebelum melanjutkan. 
+FR-FIT-06 Sistem harus menampilkan item-selection screen dan menghasilkan AI fitting result yang 
+merefleksikan item yang dipilih, dengan retake path kembali ke item selection. 
+FR-FIT-07 Sistem harus menampilkan background-selection screen dan menghasilkan AI result yang 
+merefleksikan background yang dipilih, dengan retake path kembali ke background selection. 
+FR-FIT-08 Sistem harus menampilkan Final Result screen yang menggabungkan item dan background yang 
+dipilih. 
+FR-FIT-09 Sistem harus mengumpulkan email customer terlepas dari pilihan consent, karena email merupakan 
+satu-satunya delivery channel bagi customer yang menolak consent. 
+FR-FIT-10a Jika consent diberikan: saat Finish, sistem harus menyimpan session dan final image ke database, 
+menerbitkan photo code yang terkait dengan session tersebut, dan menyediakan code tersebut kepada 
+customer (melalui on-screen dan/atau email) untuk digunakan kemudian di Photo Printer. 
+
+===== PAGE 6 =====
+FR-FIT-10b Jika consent ditolak: saat Finish, sistem TIDAK boleh menyimpan session atau image ke database 
+dan TIDAK boleh menerbitkan photo code. Sistem hanya akan mengirimkan final image kepada customer 
+melalui email. 
+FR-FIT-11 Untuk session yang memberikan consent, sistem harus menetapkan retention cut-off pada pukul 
+23.59 waktu lokal store pada hari foto dibuat. Seluruh input photo, hasil generate AI, dan turunannya harus 
+dihapus otomatis pada cut-off tersebut, terlepas dari status print. Session yang menolak consent tidak 
+menyimpan image secara permanen. 
+FR-FIT-12 Untuk session yang memberikan consent, sistem harus mengaitkan session dengan product(s) yang 
+dicoba, untuk digunakan kemudian oleh eligibility check pada Photo Printer. 
+FR-FIT-13 Customer yang menolak consent tidak dapat mengambil atau mencetak hasil mereka melalui Photo 
+Printer, karena tidak ada session atau photo code yang dibuat untuk kunjungan tersebut — email menjadi 
+satu-satunya cara bagi customer untuk menerima image. 
+FR-FIT-14 Berdasarkan hasil pengujian yang disepakati, minor error pada hasil generate AI maksimal 5% dan 
+major error harus 0%. Perubahan wajah atau bentuk tubuh customer diklasifikasikan sebagai major error dan 
+tidak boleh diterima pada hasil final. 
+3.3 Table Product Knowledge (Table Expedition Hub) 
+Sesuai dengan site map / IA: Idle Screen → Scan RFID → Home → (product name / available size / available 
+colors / More Detail / product suggestions), dengan Item Lost path yang kembali ke Idle. 
+FR-TABLE-01 Sistem harus menampilkan Idle Screen ketika tidak ada item yang terdeteksi, dan harus kembali 
+ke screen tersebut jika item yang diletakkan di atas meja diambil (“Item Lost”). 
+FR-TABLE-02 Sistem harus mendeteksi item yang memiliki RFID tag yang diletakkan di atas meja dan 
+berpindah ke Home screen untuk produk tersebut. 
+FR-TABLE-03 Home screen harus menampilkan product name, available size, dan available colors, serta 
+menyediakan aksi More Detail dan aksi product suggestion. 
+FR-TABLE-04 Sistem harus menampilkan hingga lima similar-product suggestions, yang bersumber dari 
+konfigurasi similar-product pada Admin Console. 
+FR-TABLE-05 More Detail screen harus menampilkan General Information (nama, harga, ukuran, stok, dan 
+gambar), description, feature, technical details, Ideal For, video, serta informasi lain yang tersedia dari PIM 
+dan CARE. Informasi yang tidak tersedia tidak ditampilkan. 
+FR-TABLE-06 Sistem harus menyediakan AI Summary untuk produk pada More Detail path. 
+FR-TABLE-07 Sistem harus menyediakan Usage Instructions screen yang dapat diakses dari Idle, serta 
+menyediakan aksi Back dari setiap sub-screen untuk kembali ke screen sebelumnya. 
+3.4 Immersive Ambience Digital (LED Dynamic Content) 
+Sesuai dengan site map / IA: Idle Screen (video + audio) → RFID Scan (1/2/3) → Ambience scene yang sesuai 
+(video + audio) → Item Lost kembali ke Idle. 
+FR-AMB-01 Sistem harus memutar idle ambience video dan audio yang telah dikonfigurasi ketika tidak ada 
+item RFID yang terdeteksi. 
+FR-AMB-02 Saat mendeteksi RFID tag yang telah dikonfigurasi, sistem harus berpindah ke ambience scene 
+yang sesuai dan memutar video serta audio yang telah dikonfigurasi. 
+FR-AMB-03 Sistem harus kembali ke Idle Screen ketika item yang terdeteksi diambil. 
+FR-AMB-04 Admin Console harus memungkinkan staff untuk mengonfigurasi konten video/audio dan RFID-to-
+scene mapping untuk setiap ambience scene, termasuk idle dan default states. 
+
+===== PAGE 7 =====
+3.5 Product Catalog (Interactive Display) 
+Sesuai dengan site map / IA: Featured Product Screen → Recommendation → Product Suggestion Screen → 
+individual Product screens, dengan 2-minute no-action timeout yang mengembalikan ke state sebelumnya, serta 
+Home action yang tersedia di seluruh flow. 
+FR-CAT-01 Sistem harus menampilkan Featured Product Screen yang secara default menampilkan produk 
+utama sesuai konfigurasi CMS, beserta General Information, gambar, harga, ukuran, warna, dan status stok 
+yang tersedia. 
+FR-CAT-02 Sistem harus menyediakan aksi Recommendation yang mengarah ke Product Suggestion Screen 
+yang menampilkan daftar produk yang tersedia beserta ketersediaan stock. 
+FR-CAT-03 Setiap produk dalam daftar suggestion harus dapat dibuka ke Product Screen yang menampilkan 
+nama dan stats produk tersebut, serta menyediakan aksi Back. 
+FR-CAT-04 Sistem harus kembali ke Featured Product Screen setelah 2 menit tanpa interaksi dari Product 
+Suggestion Screen atau individual Product Screen. 
+FR-CAT-05 Sistem harus menyediakan aksi Home yang langsung kembali ke Featured Product Screen dari 
+Product Suggestion Screen. 
+3.6 Print Photo (Photo Printer) 
+Sesuai dengan site map / IA (post-review revision): Struct Code entry → Photo Code entry → Eligibility Check → 
+Confirmation → Photo Preview → Print, dengan 2-minute no-action timeouts dan Decline paths yang kembali ke 
+code entry. 
+FR-PRINT-01 Sistem harus menyediakan input form untuk struct (receipt/transaction) code, dengan aksi 
+Submit. 
+FR-PRINT-02 Sistem harus menyediakan input form kedua untuk photo code, dengan aksi Submit. 
+FR-PRINT-03 Setelah kedua code dikirimkan, sistem harus mengevaluasi Print Rules yang sedang dikonfigurasi 
+(minimum transaction, EAC membership, atau keduanya) sebelum menampilkan Photo Preview. 
+FR-PRINT-04 Jika minimum-transaction rule aktif, sistem harus memverifikasi jumlah transaksi melalui live 
+lookup ke CARE menggunakan struct code. 
+FR-PRINT-05 Jika EAC-membership rule aktif, sistem harus memverifikasi status membership melalui live 
+check ke Loyalty/EAC. 
+FR-PRINT-06 Jika eligibility check gagal, sistem harus menampilkan pesan not-eligible yang jelas kepada 
+customer dan tidak melanjutkan ke Photo Preview. 
+FR-PRINT-07 Jika eligibility check berhasil, sistem harus menampilkan Confirmation Dialog Box sebelum 
+menampilkan Photo Preview. 
+FR-PRINT-08 Sistem harus kembali ke Struct Code entry jika customer menolak pada tahap code-entry atau 
+preview confirmation. 
+FR-PRINT-09 Sistem harus kembali ke code entry setelah 2 menit tanpa interaksi pada tahap photo-code atau 
+photo-preview. 
+FR-PRINT-10 Saat Print, sistem harus mencatat print job yang mereferensikan session, code yang digunakan, 
+konfigurasi rule yang berlaku, dan hasil eligibility. 
+FR-PRINT-11 Sistem dapat mengirimkan receipt/confirmation email setelah print berhasil dengan batasan 1x 
+print per customer, sesuai dengan kebutuhan EIGER. 
+ 
+ 
+
+===== PAGE 8 =====
+4. Persyaratan Antarmuka Eksternal 
+4.1 User Interfaces 
+Aplikasi Tipe Antarmuka 
+CMS Admin Console Dashboard berbasis web, memerlukan login untuk staff. 
+AI Fit & Go Touchscreen kiosk dengan kamera. 
+Table Expedition Hub Touchscreen yang terintegrasi pada meja fisik, dengan RFID reader. 
+LED Dynamic Content Large-format display, RFID reader, tanpa input touch secara langsung. 
+Interactive Display Tablet touchscreen. 
+Photo Printer Touchscreen kiosk yang terhubung ke physical printer 
+4.2 Antarmuka Hardware 
+• RFID readers — digunakan pada Table Expedition Hub dan LED Dynamic Content. 
+• GPU workstation — didedikasikan untuk AI Fit & Go image-generation pipeline. 
+• Physical photo printer — terhubung ke aplikasi Photo Printer. 
+• On-site server — menjadi host untuk core backend; penempatan secara spesifik terhadap EIGER-provided 
+NAS. 
+• EIGER-provided NAS — menerima konten PIM file-drop; tidak termasuk dalam perhitungan biaya hardware 
+proyek ini. 
+ 
+ 
+ 
+4.3 Antarmuka Software (Sistem Eksternal) 
+Sistem Data yang Dipertukarkan Tipe Integrasi 
+CARE Data stok, harga, store-zone, dan transaction 
+lookup. 
+Scheduled API poll (catalog sync) + dua live 
+calls (stock/price check, transaction check). 
+PIM Konten produk (images, video, dan 
+kemungkinan structured data). 
+File-drop ke EIGER-provided NAS; di-ingest 
+melalui folder-watcher, tanpa API call. 
+Loyalty / EAC Status membership eligibility. Live call, hanya untuk Print Photo flow. 
+4.4 Antarmuka Komunikasi 
+• Semua aplikasi berkomunikasi dengan backend secara eksklusif melalui satu versioned API (/api/v1/...); 
+tidak ada aplikasi yang berkomunikasi langsung dengan CARE, PIM, atau NAS. 
+• Backend menginisiasi seluruh outbound calls ke CARE; backend tidak pernah menerima inbound calls dari 
+CARE atau PIM untuk catalog sync. 
+5. Digital Store Sitemap 
+ 
+
+===== PAGE 9 =====
+ 
+Berikut 6 platform yang akan dikerjakan didalam ekosistem Digital Platform: 
+# Produk Fungsi bagi pelanggan 
+1 Virtual Fitting Try-On Mencoba produk EIGER secara virtual dan mengambil foto hasilnya 
+2 Print Photo Mencetak hasil virtual fitting 
+3 Table Product Knowledge Melihat detail lengkap produk yang dipilih 
+4 Product Catalog Menjelajah seluruh produk EIGER, termasuk yang tidak ada di rak 
+5 Immersive Ambience Digital Merasakan suasana toko berubah mengikuti produk yang disimpan 
+6 Content Management System (internal) Web tim dan store ops mengatur kelima produk di atas 
+Lima produk pertama dipakai langsung oleh pelanggan. Produk keenam, CMS, adalah pusat kendalinya — dari 
+satu tempat, tim bisnis mengatur produk apa yang ditampilkan di tiap layar, aturan cetak foto, aset ambience, 
+dan pemetaan RFID. Perubahan dapat dilakukan tanpa bantuan tim engineering. 
+Digital Store Platform tidak menyimpan informasi stok dan harga, namun data seperti SKU, nama, video, foto 
+akan disimpan di data master digital store. Ada tiga titik integrasi: 
+Integrasi Sistem Notes 
+Data 
+produk 
+PIM (Product 
+Information 
+Management) 
+PIM push data SKU, nama, deskripsi, mc level, gambar, dan video ke 
+Digital Store 
+Stok dan 
+harga CARE Digital Store membaca stok dan harga dari CARE 
+Syarat 
+cetak foto CARE POS 
+Syarat cetak foto ada 2 : 
+1. Bertransaksi dengan nilai minimal X (dapat di custom) 
+2. Member EIGER Adventure Club (dapat diaktifkan 
+ataupun dimatikan) 
+Syarat akan diatur pada Care, dari sisi Digital Platform hanya perlu 
+Integrasi apakah nomor yang dimasukkan oleh customer berhak 
+mencetak foto atau  tidak 
+Ketentuan yang sudah disepakati: 
+• Hasil try-on keluar dalam 5–10 detik; tampilan product knowledge dalam 1–2 detik 
+• Cetak foto hanya untuk pelanggan yang memenuhi minimal nilai transaksi dan/atau berstatus Member 
+EAC, dan ketentuan ini dapat diubah dari CMS 
+• Foto pelanggan yang memperoleh consent hanya disimpan sampai pukul 23.59 waktu lokal store pada 
+hari foto dibuat, dengan pencatatan consent dan pendaftaran ROPA sesuai UU Pelindungan Data 
+Pribadi.  
+• Deteksi produk menggunakan RFID, dengan rencana 50 ID dan 2 Reader terpasang, pemetaan tag 
+dikelola dari CMS 
+Kebutuhan baru di sisi CARE yang harus disiapkan agar modul cetak foto dapat berjalan: pengiriman struk ke 
+email, kemampuan mencetak foto setelah transaksi, dan zone group. 
+Di luar lingkup Digital Store Platform, namun bersinggungan dan dikerjakan tim lain: Maps Guidance dari 
+Apps/Brandsite, ATOM, BOPIS di digital store, Landing Page Digital Store, dan VR game Climbing. 
+ 
+
+===== PAGE 10 =====
+ 
+Gambar 2 detail sitemap 
+ 
+Virtual Fitting Try-on 
+Flow 
+ 
+Gambar 3 Flow Virtual Fitting Try On 
+ 
+Detail per Screen 
+ 
+Gambar 4 All Virtual Fitting Screen 
+• Screen Introduction 
+Detail : 
+- Terdapat penjelasan wahana 
+- Terdapat TnC yang menjelaskan kalau anda akan di foto (dibuat pop up) 
+- ada wording kalau anda lanjut maka anda menyetujui tnc 
+• Screen Choose activity 
+Detail : 
+- Terdapat list pilihan activity 
+- Data activity akan ambil dari Care MC Level 2 
+- Setiap activity terdapat gambarnya 
+• Screen Choose category and background 
+Detail : 
+- Terdapat list pilihan category 
+- Category yang jadi pilihan sudah di set dari digital store 
+- Berikut mapping category nya dengan MC level 3/4 
+
+
+===== PAGE 11 =====
+    - Hat : Headwear (mc 3) 
+    - Apparel: Shirt, Top, Jacket, sweater, vest (mc 4) 
+    - Pants : Pants, Short (mc 4) 
+    - Footwear : Footwear (mc 3) 
+• Screen Choose Product 
+Detail : 
+- Saat user telah memilih category maka terdapat list product recommendation 
+- Recommendation menggunakan algoritma : hanya menampilkan irisan dari category dan activity terpilih dan di sort 15 
+product terbaru (bisa di scroll) 
+- Jika tidak ada produk yg dia cari, customer dapat mencari barang 
+• Screen Search Product 
+Detail : 
+- Terdapat search bar 
+- Saat search akan mencari produk berdasarkan naming, category, dan activity. Dan menampilkan seluruh produk yang 
+relevan 
+- untuk referensi di ATOM menggunakan Elastic search 
+• Result Photo dan Download 
+Detail : 
+- Terdapat loading screen dulu sebelum hasil nya terlihat 
+- Akan menampilkan hasil photo akhir saja 
+- CTA untuk download terdapat dihalaman yang sama 
+- Customer perlu memasukkan email untuk mendapatkan produknya 
+- Customer akan mendapatkan foto dan kode print di emailnya 
+• Lihat Stock di toko dan di luar toko 
+Detail : 
+- Terdapat list barang yang di coba 
+- Terdapat informasi stock hingga per ukurannya (contoh : sepatu merah ukuran 42) 
+- Dapat melihat stok ada di toko mana (arahkan untuk melakukan endless aisles, hubungi kasir) 
+Print Photo 
+Flow 
+ 
+Gambar 5 Flow Print Photo 
+ 
+Detail per Screen 
+
+
+===== PAGE 12 =====
+ 
+Gambar 6 Print Photo Screen 
+ 
+• Screen Introduction 
+Detail : 
+- Terdapat penjelasan wahana 
+- Terdapat penjelasan yang lebih mudah terkait flow untuk print photo 
+• Screen Submit Code to Print Photo 
+Detail : 
+- Terdapat form untuk submit kode yang didapatkan dari Struk belanja EIGER (khusus di Digital Store) 
+- Jika code valid maka akan lanjut ke halaman untuk memilih foto 
+- Jika code tidak valid maka akan tetap dihalaman yang sama lalu keluar alert kalau code tidak sesuai 
+• Screen Submit Code to Choose Photo 
+Detail : 
+- Terdapat form untuk submit kode yang didapatkan dari Foto AI Virtual Fitting 
+- Jika code valid maka akan lanjut ke halaman untuk cetak foto 
+- Jika code tidak valid maka akan tetap dihalaman yang sama lalu keluar alert kalau code tidak sesuai 
+• Screen Show Result to Print Photo 
+Detail : 
+- Terdapat hasil foto sesuai code yang dimasukkan 
+- Terdapat button untuk cetak foto 
+ 
+Tablet Product Knowledge 
+Cakupan pekerjaan 
+ 
+Gambar 7 Table Product Knowledge Screen 
+• Standby screen without product 
+Detail : 
+- Terdapat penjelasan wahana 
+
+
+===== PAGE 13 =====
+- Terdapat tampilan dimana produk dapat disimpan 
+• Screen product in the middle 
+Detail : 
+- Saat produk disimpan diatas monitor, maka layar akan menampilkan informasi : 
+   - General information (nama, harga, ukuran, stok, Image) ; 
+   - Description 
+   - Feature 
+   - Detail Technical 
+   - Ideal For 
+   - Video 
+- Informasi yang tidak ada maka tidak akan ditampilkan 
+• Choose Product to Compare 
+Detail : 
+- Saat produk diletakkan terdapat pilihan produk serupa berdasarkan kategori dan activity (Jika memungkinkan akan 
+diintegrasikan dengan insider) 
+• Product Comparison and Suggestion 
+Detail : 
+- Pada setiap informasinya terdapat informasi kedua produk yang dibandingkan 
+- Mendapatkan summary berbasis AI dari hasil perbandingan dua produk 
+ 
+Product Catalog 
+Cakupan pekerjaan 
+ 
+• Login Page (get id, to define "standby screen") 
+Detail : 
+- Terdapat halaman login untuk mendapatkan ID per device nya (metode login bisa disesuaikan) 
+- Setiap 1 ID hanya dapat login di satu device yang sama 
+• Standby screen product information 
+Detail : 
+- Product yang standby akan mengikuti dari CMS 
+- Setiap tablet tidak ada interaksi selama 3 menit maka akan kembali ke product standby 
+- informasi yang ditampilkan : 
+   - General information (nama, harga, ukuran, stok, Image) ; 
+   - Description 
+   - Feature 
+   - Detail Technical 
+   - Ideal For 
+   - Video 
+- Informasi yang tidak ada maka tidak akan ditampilkan 
+• Similar product Screen 
+Detail : 
+- Terdapat pilihan produk serupa berdasarkan kategori dan activity (Jika memungkinkan akan diintegrasikan dengan insider) 
+
+
+===== PAGE 14 =====
+• Search 
+Detail : 
+- User dapat mencari produk berdasarkan Nama, kategori, dan activity 
+- Saat user ketik, walaupun belum selesai terdapat saran produk 
+• List Product Screen 
+Detail : 
+- Terdapat kumpulan product hasil dari pencarian 
+- Informasi yang diberikan : foto, nama produk, varian warna yang tersedia 
+Immersive Ambience Digital 
+Cakupan pekerjaan 
+- Suasana toko berubah secara dinamis melalui pencahayaan dan tampilan video yang menarik 
+- Dilengkapi audio yang sesuai dengan produk (misalnya suara suasana hiking untuk gear 
+pendakian) 
+- Perubahan suasana (audio, pencahayaan, dan video) dipicu secara otomatis berdasarkan produk 
+yang diletakkan 
+- Terdapat 2 sisi yang memiliki Ambience yang sama berasal dari trigger penempatan produk 
+Content Management System 
+Cakupan pekerjaan 
+- Memungkinkan pengaturan produk yang ditampilkan pada Virtual Fitting, Product Knowledge 
+Table, dan Product Catalog 
+- Tersedia daftar riwayat foto beserta kodenya untuk membantu pengguna yang lupa atau 
+kehilangan kode foto 
+- Memungkinkan pengelolaan konten suara dan video pada Immersive Ambience Digital 
+- Memungkinkan pengaturan produk yang ditampilkan sebagai tampilan standby pada Product 
+Catalog setiap Devicenya 
+- Konfigurasi RFID dan produk EIGER 
+- Autentikasi akan dibuat level aksesnya (RBAC) 
+- Super Admin dapat mengelola user akses 
+ 
+5. Persyaratan Non-Fungsional 
+Kategori Persyaratan 
+Performa 
+Hasil Virtual Fitting Try-On harus tampil dalam waktu 5–10 detik setelah capture. Detail 
+Table Product Knowledge harus tampil dalam waktu 1–2 detik setelah RFID terdeteksi. 
+Catalog sync harus selesai dalam setiap siklus 5–15 menit. 
+Ketersediaan 
+Data katalog yang di-cache (Table Product Knowledge, LED Dynamic Content, Interactive 
+Display) harus tetap tersedia jika CARE atau PIM sementara tidak dapat diakses. Deployment 
+menggunakan single-server tanpa failover; gangguan penuh pada server akan memengaruhi 
+seluruh enam aplikasi. 
+Keamanan 
+Tidak ada inbound network exposure dari CARE atau PIM untuk catalog sync. Mekanisme 
+autentikasi untuk dua live-call integrations (API key / OAuth2 / mTLS) akan dikonfirmasi 
+bersama EIGER IT. 
+
+===== PAGE 15 =====
+Kepatuhan  
+Foto fitting-session harus dihapus paling lambat 6 jam setelah capture, tanpa pengecualian. 
+Explicit consent harus diperoleh sebelum foto apa pun diambil. Logging harus dibuat secara 
+terstruktur untuk mendukung dokumentasi ROPA EIGER. 
+Integritas Data Sistem tidak boleh membuat, memperbarui, atau menghapus data di CARE, PIM, atau 
+Loyalty/EAC. 
+Kemudahan 
+Penggunaan 
+Staff store harus dapat melakukan seluruh tugas konfigurasi Admin Console (Section 3.1) 
+tanpa keterlibatan developer. Customer-facing flows (Table Expedition Hub, LED Dynamic 
+Content, Interactive Display, Photo Printer) tidak boleh memerlukan login, selain jika 
+diperlukan, dengan memasukkan codes. 
+Pemeliharaan Print eligibility rules harus dapat diubah oleh staff dan berlaku secara langsung tanpa 
+memerlukan deployment. 
+6. Kebutuhan Data 
+Core entity yang di-maintain oleh backend, dikelompokkan berdasarkan origin: 
+Catalog data (from CARE + PIM) 
+• Products — name, category, image, material, description, featured flag, discontinued flag, last-updated 
+timestamp. 
+• Sync State — last sync cursor, timestamp, dan status, yang mengolah health-check endpoint. 
+• Zones / Product-Zone mapping — di-source dari zone data milik CARE. 
+Session data (generated by this system) 
+• Fitting Sessions — input photo, output yang di-generate AI, background yang dipilih, consent flag, 
+scheduled deletion time, status. 
+• Fitting Session Items — menghubungkan setiap session ke product yang dicoba. 
+• RFID Tags — me-map tag fisik ke product; di-share oleh Table Expedition Hub dan LED Dynamic Content. 
+Print flow data 
+• Print Rules — single configurable record: minimum-transaction requirement, EAC-membership 
+requirement, di-enable/disable secara independen. 
+• Print Jobs — session reference, struct/photo code yang digunakan, EAC dan transaction reference yang di-
+check, eligibility outcome, print timestamp. 
+7. Gambaran Umum Arsitektur Sistem 
+Backend diorganisir sebagai lima proses terpisah secara logis dalam satu server: CARE Sync (poll API terjadwal), 
+PIM Folder Watcher (memindai NAS yang disediakan EIGER untuk file-drop content, tanpa API call), Core API 
+(single interface yang digunakan setiap aplikasi), Real-Time Query Path (digunakan hanya oleh Virtual Fitting Try-
+On dan Print Photo untuk live check), Consent & Retention Job (menjalankan aturan photo deletion setiap jam 
+23.59), dan Admin Console. Diagram arsitektur lengkap dan detail tingkat komponen disediakan dalam dokumen 
+Infrastructure Overview pendamping. 
+8. Kriteria Keberhasilan / Penerimaan 
+
+===== PAGE 16 =====
+• Semua functional requirement di Bagian 3 dapat didemonstrasikan terhadap sistem CARE, PIM, dan 
+Loyalty/EAC asli milik EIGER (atau ekuivalen staging-nya), bukan mocked data. 
+• Perubahan katalog yang dibuat di CARE atau PIM terefleksi di semua aplikasi berbasis cache dalam satu 
+sync cycle, tanpa intervensi manual. 
+• Zero write operation yang terjadi terhadap CARE, PIM, atau Loyalty selama masa pakai sistem. 
+• Hasil pengujian Virtual Fitting memenuhi minor error maksimal 5% dan major error 0% berdasarkan 
+dataset, skenario, serta metode penilaian UAT yang disepakati. 
+• Kesesuaian penyelesaian keseluruhan projek berdasarkan base on timeline. 
+ 
+ 

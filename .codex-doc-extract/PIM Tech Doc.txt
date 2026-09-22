@@ -1,0 +1,497 @@
+
+===== PAGE 1 =====
+   
+ 
+   
+ 
+ 
+  
+  
+Continuous Doc PIM 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+Article Publish 
+To Channel 
+  
+  
+  
+  
+ Prepared by:   
+ 
+Digitar Development Design – ICT Division 
+ 
+ 
+ 
+ 
+
+
+===== PAGE 2 =====
+   
+ 
+   
+ 
+Alur Kerja Modul Article Publish 
+Validasi kelengkapan 100%, pemilihan channel tujuan (ATOM/Marketplace), eksekusi asynchronous batch publish melalui 
+queue job, dan integrasi payload komprehensif ke EIGER ATOM. 
+ 
+Syarat Mutlak Publikasi: 
+ 1. Nilai 'completeness_percentages' pada artikel generic dan seluruh varian warna HARUS bernilai 100. 
+ 2. Status artikel TIDAK BOLEH Draft ('is_draft = 0' dan status SAP Generic 'complete'). 
+ 3. Setiap varian wajib memiliki pemetaan warna, ukuran, dan aset visual utama. 
+ 
+PUBLISH PROCESS (PimArticlesPublishController)                                                  
+- Filter ketat di GET /publish-list: Hanya menampilkan artikel dengan completeness = 100%      
+- User memilih artikel & channel (GET /channel-list -> 'ATOM')                                
+- POST /publish (Batch Trigger):                                                                
+        a. DB Transaction & Pessimistic Lock pada baris enrichment                                  
+         b. Insert pim_article_enrichment_publish (Status: 'On Progress')                           
+         c. Insert pim_article_enrichment_publish_variant (Status: 'In Progress')                   
+         d. Dispatch asynchronous PimPublishArticleJob ke Queue                                    
+     - Worker Background Execution:                                                                 
+        * AtomChannel -> PimArticlePublishBackJob::dispatchSync                                    
+        * Transform data pengayaan, media, rating, varian -> Kirim ke EIGER ATOM API                
+        * Update status final: 'Published' / 'Failed' & tulis log ke pim_transaction_publish_log   
+ 
+ 
+  
+
+===== PAGE 3 =====
+   
+ 
+   
+ 
+Article Publish (Spesifikasi API, Batch & Atom Integration) 
+Modul Publish adalah gerbang akhir distribusi katalog ke sistem penjualan. Modul ini memiliki proteksi 
+ketat dan arsitektur pengiriman asinkron. 
+1 List Article Siap Publish (Completeness 100%) 
+• Endpoint: GET /api/articles/publish-list?page=1&limit=10&search=ACROSS 
+• Filter Otomatis: Hanya menampilkan artikel dengan 'completeness_percentages = 100' dan 'is_draft = 
+0'. 
+💻 Response Sukses (200 OK): 
+{ 
+   "status": true, 
+   "message": "Success get articles publish", 
+   "data": { 
+     "data": [ 
+       { 
+         "sap_id": "910012408", 
+         "name": "ACROSS 1.6 WINDPROOF V3", 
+         "mc_name": "APPAREL", 
+         "mc_id": "B5DB661B-B376-4F6F-AED7-D6B3B80F8F4F", 
+         "article_enrichment_id": "b18d2f78-2cf5-4bc9-93e1-3843193e5069", 
+         "completeness_percentages": 100, 
+         "thumbnails_image": 
+"https://storage.eigeradventure.com/assets/articles/910012408/thumb.jpg", 
+         "expanded": false, 
+         "children": [ 
+           { 
+             "color": "BLK", 
+             "completeness_percentages": 100, 
+             "child": [ 
+               { 
+                 "sap_id": "910012408001", 
+                 "name": "ACROSS 1.6 WINDPROOF V3 - BLK - M", 
+                 "mc_name": "APPAREL", 
+                 "mc_id": "B5DB661B-B376-4F6F-AED7-D6B3B80F8F4F", 
+                 "completeness_percentages": null, 
+                 "article_enrichment_id": "b18d2f78-2cf5-4bc9-93e1-3843193e5069" 
+               }, 
+               { 
+                 "sap_id": "910012408002", 
+                 "name": "ACROSS 1.6 WINDPROOF V3 - BLK - L", 
+                 "mc_name": "APPAREL", 
+                 "mc_id": "B5DB661B-B376-4F6F-AED7-D6B3B80F8F4F", 
+                 "completeness_percentages": null, 
+                 "article_enrichment_id": "b18d2f78-2cf5-4bc9-93e1-3843193e5069" 
+               } 
+             ] 
+           } 
+         ] 
+       } 
+     ], 
+     "pagination": { 
+
+===== PAGE 4 =====
+   
+ 
+   
+ 
+       "page": 1, 
+       "limit": 10, 
+       "total": 1, 
+       "total_pages": 1 
+     } 
+   } 
+ } 
+  
+2 List Saluran Penjualan (Channel List) 
+• Endpoint: GET /api/articles/channel-list 
+💻 Response Sukses (200 OK): 
+{ 
+   "status": true, 
+   "message": "Success get sap channels", 
+   "data": [ 
+     { 
+       "id": "uuid-channel-atom", 
+       "code": "ATOM", 
+       "name": "EIGER ATOM (Online Store)", 
+       "description": "Integration with Eiger Atom Headless E-Commerce" 
+     }, 
+     { 
+       "id": "uuid-channel-mp", 
+       "code": "MARKETPLACE", 
+       "name": "Marketplace Hub", 
+       "description": "Shopee, Tokopedia, Lazada" 
+     } 
+   ] 
+ } 
+  
+3 Trigger Batch Publish Articles 
+• Endpoint: POST /api/articles/publish 
+ • Middleware: throttle:articles-publish 
+ • Mekanisme: Request langsung mengembalikan status sukses (200 OK) dalam hitungan milidetik, 
+sementara pengiriman sebenarnya dikerjakan di latar belakang oleh antrean worker.  
+💻 Request Body (POST /api/articles/publish): 
+{ 
+   "articles": [ 
+     { 
+       "articles_parent": "910012408", 
+       "article_enrichment_id": "b18d2f78-2cf5-4bc9-93e1-3843193e5069", 
+       "articles_child": [ 
+         { 
+           "article_number": "910012408001" 
+         }, 
+         { 
+
+===== PAGE 5 =====
+   
+ 
+   
+ 
+           "article_number": "910012408002" 
+         } 
+       ], 
+       "channels": [ 
+         { 
+           "code": "ATOM" 
+         } 
+       ] 
+     } 
+   ] 
+ } 
+  
+💻 Response Sukses Segera (200 OK): 
+{ 
+   "status": true, 
+   "message": "Publishing to channel is in progress" 
+ } 
+  
+  
+
+===== PAGE 6 =====
+   
+ 
+   
+ 
+ 
+4 Payload Outbound Integrasi ke Channel EIGER ATOM 
+Payload komprehensif yang disusun oleh 'PimArticlePublishBackJob' dan dikirimkan via HTTP POST ke 
+EIGER ATOM Base URL (env: EIGER_ATOM_BASE_URL):  
+💻 Payload Outbound ke EIGER ATOM: 
+Payload product Detail 
+ 
+{ 
+   "generic": "910012408", 
+   "name": "ACROSS 1.6 WINDPROOF V3", 
+   "mainImage": 
+"https://storage.eigeradventure.com/assets/articles/910012408/main_image_910012408.jp
+g", 
+   "weight": 450, 
+   "variant": [ 
+     { 
+       "sku": "910012408001", 
+       "name": "ACROSS 1.6 WINDPROOF V3 - BLK - M", 
+       "color": "BLK", 
+       "size": "M", 
+       "moq": "1", 
+       "ecmsku": "910012408001", 
+       "customAttributes": [] 
+     }, 
+     { 
+       "sku": "910012408002", 
+       "name": "ACROSS 1.6 WINDPROOF V3 - BLK - L", 
+       "color": "BLK", 
+       "size": "L", 
+       "moq": "1", 
+       "ecmsku": "910012408002", 
+       "customAttributes": [] 
+     } 
+   ], 
+   "media": [ 
+     { 
+       "attributeCode": "SIZE_CHART", 
+       "name": "Size Chart", 
+       "files": [ 
+         { 
+           "value": 
+"https://storage.eigeradventure.com/assets/articles/910012408/size_chart.jpg", 
+           "description": "Apparel Size Chart" 
+         } 
+       ] 
+     } 
+   ], 
+   "customAtributes": [ 
+     { 
+       "attributeCode": "short_description", 
+
+===== PAGE 7 =====
+   
+ 
+   
+ 
+       "value": "Jaket windproof tangguh untuk hiking dan berkendara." 
+     }, 
+     { 
+       "attributeCode": "long_description", 
+       "value": "<p>Jaket ini dilengkapi ventilasi punggung dan saku fungsional.</p>" 
+     }, 
+     { 
+       "attributeCode": "tag_product", 
+       "value": "windproof,jacket,outdoor,hiking" 
+     }, 
+     { 
+       "attributeCode": "gender", 
+       "value": "Adult Unisex" 
+     }, 
+     { 
+       "attributeCode": "dimension", 
+       "value": "5X15X10" 
+     }, 
+     { 
+       "attributeCode": "category", 
+       "value": "A" 
+     }, 
+     { 
+       "attributeCode": "product_group", 
+       "value": "A01" 
+     }, 
+     { 
+       "attributeCode": "activity", 
+       "value": "A03008" 
+     }, 
+     { 
+       "attributeCode": "waterproof", 
+       "value": "Water Repellent" 
+     }, 
+     { 
+       "attributeCode": "breathability", 
+       "value": "Moderate Breathable" 
+     } 
+   ], 
+   "technology": [ 
+     { 
+       "id": "uuid-tech-tropic-windblock", 
+       "name": "TROPIC WINDBLOCK", 
+       "description": "Teknologi penahan terpaan angin dingin pegunungan.", 
+       "image": "https://storage.eigeradventure.com/assets/tech/tropic_windblock.png" 
+     } 
+   ], 
+   "activity": [ 
+     { 
+       "id": "uuid-val-wind-resistance", 
+       "name": "Wind Resistance", 
+       "description": "Tingkat perlindungan terhadap terpaan angin", 
+       "selected": "4", 
+       "rating": "4", 
+       "desc_rating": "Sangat Baik (Mampu menahan angin hingga kecepatan 45 km/jam)" 
+
+===== PAGE 8 =====
+   
+ 
+   
+ 
+     } 
+   ], 
+   "specification": [ 
+     { 
+       "code": "PRODUCT_LENGTH", 
+       "name": "Product Length", 
+       "value": "15" 
+     }, 
+     { 
+       "code": "PRODUCT_WIDTH", 
+       "name": "Product Width", 
+       "value": "10" 
+     }, 
+     { 
+       "code": "PRODUCT_HEIGHT", 
+       "name": "Product Height", 
+       "value": "5" 
+     }, 
+     { 
+       "code": "PRODUCT_WEIGHT", 
+       "name": "Product Weight", 
+       "value": "450" 
+     } 
+   ] 
+ } 
+Payload Image to Channel 
+{ 
+  "generic": [ 
+    { 
+      "sku": "910011926", 
+      "image": [ 
+        { 
+          "id": "86E6044E-DD32-4588-A074-D25AB87B1722", 
+          "type": "main_image", 
+          "url": "https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-
+3.amazonaws.com/media/1787559064_14_910005551.BLK.36.JPG?X-Amz-Content-Sha256=UNSIGNED-
+PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-
+southeast-3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-
+Expires=86400&X-Amz-Signature=f35173e23bb94650b3093c0ef64c0303c247fdd318ac34c94be60e98ba45138d", 
+          "source": "PIM" 
+        } 
+      ] 
+    } 
+
+===== PAGE 9 =====
+   
+ 
+   
+ 
+  ], 
+  "variant": [ 
+    { 
+      "sku": "910011926002", 
+      "image": [ 
+        { 
+          "id": "A62B97F7-BE52-4F22-8C2D-DB8393EE3676", 
+          "type": "main_image", 
+          "url": "https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-
+3.amazonaws.com/media/1787818848_0_910006877.BRW.01resize.jpg?X-Amz-Content-Sha256=UNSIGNED-
+PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-
+southeast-3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-
+Expires=86400&X-Amz-Signature=b2200c4cc28032af9599e29d013ddaaac65acac7c7a66111391a82ca768a2690", 
+          "source": "PIM" 
+        }, 
+        { 
+          "id": "507EEE89-F0E4-476D-BA40-23B75644B7E0", 
+          "type": "image2", 
+          "url": "https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-
+3.amazonaws.com/media/1787799385_13_980000201.BRW.14.JPG?X-Amz-Content-Sha256=UNSIGNED-
+PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-
+southeast-3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-
+Expires=86400&X-Amz-Signature=3465e3535c8023fb6752094a6071f8444784d703eada1d7fa673950775bf515a", 
+          "source": "PIM" 
+        } 
+      ] 
+    }, 
+    { 
+      "sku": "910011926004", 
+      "image": [ 
+        { 
+          "id": "E1D85FAC-AFE4-4926-AB65-37A0CF6D3208", 
+          "type": "main_image", 
+          "url": "https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-
+3.amazonaws.com/media/1787799382_7_980000201.BRW.08.JPG?X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-
+Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-southeast-
+
+===== PAGE 10 =====
+   
+ 
+   
+ 
+3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-
+Expires=86400&X-Amz-Signature=f877b15cc9831ce39ba22e2a692d19e06b07447d282ccb103be36e330b885188", 
+          "source": "PIM" 
+        }, 
+        { 
+          "id": "F13ECA60-4F6D-465F-A96C-3D813DBF40FB", 
+          "type": "image2", 
+          "url": "https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-
+3.amazonaws.com/media/1787799384_11_980000201.BRW.12.JPG?X-Amz-Content-Sha256=UNSIGNED-
+PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-
+southeast-3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-
+Expires=86400&X-Amz-Signature=de50dad8d63b1e79ad13823e67719dfb5be57a2d408d505a32935144c6f34101", 
+          "source": "PIM" 
+        } 
+      ] 
+    }, 
+    { 
+      "sku": "910011926005", 
+      "image": [ 
+        { 
+          "id": "032B3499-667A-47F8-89A1-6BB3CBFE6D44", 
+          "type": "main_image", 
+          "url": "https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-
+3.amazonaws.com/media/1787799381_4_980000201.BRW.05.JPG?X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-
+Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-southeast-
+3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-
+Expires=86400&X-Amz-Signature=745b68362feaf58ca1ff774ee8707dce5da0a54d1055982ed852bad0bd649300", 
+          "source": "PIM" 
+        }, 
+        { 
+          "id": "F13ECA60-4F6D-465F-A96C-3D813DBF40FB", 
+          "type": "image2", 
+          "url": "https://pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-
+3.amazonaws.com/media/1787799384_11_980000201.BRW.12.JPG?X-Amz-Content-Sha256=UNSIGNED-
+PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5SKN33IRLJFD6NHE%2F20260902%2Fap-
+southeast-3%2Fs3%2Faws4_request&X-Amz-Date=20260902T062314Z&X-Amz-SignedHeaders=host&X-Amz-
+Expires=86400&X-Amz-Signature=de50dad8d63b1e79ad13823e67719dfb5be57a2d408d505a32935144c6f34101", 
+          "source": "PIM" 
+
+===== PAGE 11 =====
+   
+ 
+   
+ 
+        } 
+      ] 
+    } 
+  ] 
+} 
+  
+5 Monitoring & Logs Publikasi 
+• Endpoint Histori Status: GET /api/articles/list-index-publish?search=ACROSS 
+ • Endpoint Log Transaksi Integrasi: GET /api/publish-logs?channel=ATOM&status=Failed 
+💻 Response Sukses (200 OK): 
+{ 
+   "status": true, 
+   "message": "Success get log publish list", 
+   "data": [ 
+     { 
+       "id": "uuid-log-1", 
+       "request_id": "REQ-PUB-910012408", 
+       "article_generic": "910012408", 
+       "channel_code": "ATOM", 
+       "status": "Success", 
+       "error_message": null, 
+       "created_at": "2026-09-04 08:30:00" 
+     } 
+   ], 
+   "pagination": { 
+     "current_page": 1, 
+     "per_page": 10, 
+     "total": 1, 
+     "total_pages": 1 
+   } 
+ } 
+  
+ 
+  
+
+===== PAGE 12 =====
+   
+ 
+   
+ 
+ 

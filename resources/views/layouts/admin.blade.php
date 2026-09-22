@@ -609,7 +609,7 @@
             <a href="{{ route('admin.tablets.index') }}"
                class="nav-link {{ request()->routeIs('admin.tablets.*') ? 'active' : '' }}">
                 <i class="bi bi-tablet-landscape-fill"></i>
-                <span>Interactive Table</span>
+                <span>Interactive Tablet</span>
             </a>
             <a href="{{ route('admin.led-ambience.index') }}"
                class="nav-link {{ request()->routeIs('admin.led-ambience.*') ? 'active' : '' }}">
@@ -645,14 +645,14 @@
             </a>
         </div>
 
-        <div class="sidebar-footer">
+        <!-- <div class="sidebar-footer">
             <div class="d-flex align-items-center gap-2 mb-1">
                 <span class="status-dot" style="position:static"></span>
                 <span style="color:#94a3b8">Online</span>
             </div>
             <div style="font-weight:600;color:#cbd5e1">EIGER Backend v1.0</div>
             <div style="color:#475569">Laravel {{ app()->version() }} • {{ PHP_VERSION }}</div>
-        </div>
+        </div> -->
     </nav>
 
     {{-- ===== MAIN CONTENT ===== --}}
