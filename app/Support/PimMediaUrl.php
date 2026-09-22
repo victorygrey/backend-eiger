@@ -25,10 +25,12 @@ class PimMediaUrl
             && (int) ($source['port'] ?? self::defaultPort($source['scheme'] ?? null))
                 === (int) ($pimBase['port'] ?? self::defaultPort($pimBase['scheme'] ?? null));
 
-        if ($samePimHost
-            && preg_match('/^\/media\/([a-f0-9]{64})\.(jpg|png|webp)$/i', $path)
-            && is_file(rtrim((string) config('pim.media_path'), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$filename)) {
-            return url('/api/pim-media/'.$filename);
+        if ($samePimHost && preg_match('/^\/media\/([a-f0-9]{64})\.(jpg|jpeg|png|webp|mp4|webm)$/i', $path)) {
+            foreach (['media_path', 'legacy_media_path'] as $key) {
+                if (is_file(rtrim((string) config('pim.'.$key), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$filename)) {
+                    return url('/api/pim-media/'.$filename);
+                }
+            }
         }
 
         return $mediaUrl;

@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Products
-Route::get('pim-media/{filename}', [PimMediaController::class, 'show']);
+Route::get('pim-media/{path}', [PimMediaController::class, 'show'])->where('path', '.*');
 Route::post('integrations/pim/product', [PimProductController::class, 'store']);
 Route::post('integrations/pim/image', [PimProductController::class, 'storeImage']);
 Route::apiResource('products', ProductController::class);

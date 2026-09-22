@@ -16,23 +16,26 @@ class PimCatalogSync
         $page = 1;
         $codes = [];
         try {
-        do {
-            $response = Http::acceptJson()->connectTimeout(3)->timeout(config('pim.timeout'))
-                ->get($base.'/api/ui/articles', ['page' => $page, 'limit' => 100]);
-            $response->throw();
-            foreach ($response->json('data') ?? [] as $article) {
-                if (!empty($article['sap_id'])) $codes[] = (string) $article['sap_id'];
-            }
-            $lastPage = (int) ($response->json('pagination.total_pages') ?? 1);
-            $page++;
-        } while ($page <= $lastPage);
+            do {
+                $response = Http::acceptJson()->connectTimeout(3)->timeout(config('pim.timeout'))
+                    ->get($base.'/api/ui/articles', ['page' => $page, 'limit' => 100]);
+                $response->throw();
+                foreach ($response->json('data') ?? [] as $article) {
+                    if (! empty($article['sap_id'])) {
+                        $codes[] = (string) $article['sap_id'];
+                    }
+                }
+                $lastPage = (int) ($response->json('pagination.total_pages') ?? 1);
+                $page++;
+            } while ($page <= $lastPage);
         } catch (\Throwable $error) {
             $message = 'Daftar artikel PIM tidak dapat dibaca: '.$error->getMessage();
             SyncLog::create(['source' => 'pim-'.$source, 'status' => 'failed', 'message' => $message, 'synced_at' => now()]);
+
             return ['success' => false, 'count' => 0, 'synced' => 0, 'variants' => 0,
                 'failed' => [$message], 'message' => $message];
         }
-        if (!$codes) {
+        if (! $codes) {
             return ['success' => false, 'count' => 0, 'synced' => 0, 'variants' => 0,
                 'failed' => ['Katalog PIM kosong.'], 'message' => 'Katalog PIM kosong; tidak ada data CMS yang diubah.'];
         }
@@ -59,8 +62,12 @@ class PimCatalogSync
                     $parent = Product::firstOrNew(['sku' => $detail['generic']]);
                     $parent->name = $detail['name'];
                     $parent->pim_catalog_active = true;
-                    if ($description !== null) $parent->description = $description;
-                    if ($attributes->has('material')) $parent->material = $attributes->get('material');
+                    if ($description !== null) {
+                        $parent->description = $description;
+                    }
+                    if ($attributes->has('material')) {
+                        $parent->material = $attributes->get('material');
+                    }
                     $this->setImage($parent, $parentMedia['image']);
                     $parent->save();
 
@@ -68,7 +75,9 @@ class PimCatalogSync
                         $product = Product::firstOrNew(['sku' => $variant['sku']]);
                         $product->name = $variant['name'];
                         $product->pim_catalog_active = true;
-                        if ($description !== null) $product->description = $description;
+                        if ($description !== null) {
+                            $product->description = $description;
+                        }
                         $this->setImage($product, $perSku[$variant['sku']]['image']);
                         $product->save();
                         $dataStore->replace($product, $detail, $image, $perSku[$variant['sku']]['pim_media'], source: 'pim-catalog');
@@ -82,6 +91,7 @@ class PimCatalogSync
                                     ->where('sku', '!=', $parent->sku)
                                     ->whereNull('image')->update(['image' => $parentMedia['image']]);
                             }
+
                             continue;
                         }
                         $savedVariant = ProductVariant::updateOrCreate(['sku' => $variant['sku']], [
@@ -101,7 +111,9 @@ class PimCatalogSync
                 $result['synced']++;
                 $result['variants'] += count($detail['variant']);
                 $activeSkus[] = $detail['generic'];
-                foreach ($detail['variant'] as $variant) $activeSkus[] = $variant['sku'];
+                foreach ($detail['variant'] as $variant) {
+                    $activeSkus[] = $variant['sku'];
+                }
             } catch (\Throwable $error) {
                 $result['failed'][] = $code.': '.$error->getMessage();
             }
@@ -115,33 +127,28 @@ class PimCatalogSync
             $result['synced'], $result['count'], $result['variants'], count($result['failed']));
         SyncLog::create(['source' => 'pim-'.$source, 'status' => $result['success'] ? 'success' : 'failed',
             'message' => $result['message'], 'synced_at' => now()]);
+
         return $result;
     }
 
     private function mediaReferences(PimPayload $assets, array $product, array $image, string $sku): array
     {
-        $media = [];
-        foreach ($assets->assets($product, $image, $sku) as $asset) {
-            $role = $asset['type'] === 'main_image' ? 'main_image' : 'gallery';
-            $entry = ['url' => $asset['url'], 'role' => $role,
-                'source' => $asset['source'] ?? 'PIM', 'sku' => $sku];
-            if (config('pim.copy_http_media')
-                && str_starts_with($asset['url'], rtrim(config('pim.url'), '/').'/media/')) {
-                $entry = array_merge($entry,
-                    app(PimHttpMediaImporter::class)->import($asset['url'], $role),
-                    ['source_url' => $asset['url']]);
-            }
-            $media[] = $entry;
-        }
-        $media = array_merge($media, $assets->supplementalMedia($product));
-        return ['pim_media' => $media,
-            'image' => collect($media)->firstWhere('role', 'main_image')['url'] ?? ($media[0]['url'] ?? null)];
+        return $assets->mediaValues(
+            $product,
+            $image,
+            $sku,
+            $sku === (string) ($product['generic'] ?? '')
+        );
     }
 
     private function setImage(Product $product, ?string $source): void
     {
-        if (!$source) return;
-        if ($product->image && str_starts_with($product->image, '/api/pim-media/')) return;
+        if (! $source) {
+            return;
+        }
+        if ($product->image && str_starts_with($product->image, '/api/pim-media/')) {
+            return;
+        }
         $product->image = $source;
     }
 }

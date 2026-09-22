@@ -57,11 +57,18 @@ class PimProductDataStore
                 ]);
             }
 
+            $localizedBySource = collect($media)
+                ->filter(fn ($row) => is_array($row)
+                    && is_string($row['source_url'] ?? null)
+                    && is_string($row['url'] ?? null))
+                ->pluck('url', 'source_url');
+
             $product->technologiesRelation()->delete();
             foreach (array_values($payload['technology'] ?? []) as $position => $row) {
                 $product->technologiesRelation()->create([
                     'pim_id' => $row['id'] ?? null, 'name' => $row['name'] ?? 'Technology',
-                    'description' => $row['description'] ?? null, 'image_url' => $row['image'] ?? null,
+                    'description' => $row['description'] ?? null,
+                    'image_url' => $localizedBySource->get($row['image'] ?? '') ?? ($row['image'] ?? null),
                     'sort_order' => $position,
                 ]);
             }

@@ -59,6 +59,11 @@ class PimPayloadContractTest extends TestCase
             ]], 'variant' => []]];
     }
 
+    private function storedMediaUrl(string $name = 'Bag', string $sku = 'P1'): string
+    {
+        return '/api/pim-media/products/photos/'.strtolower($name).'--'.strtolower($sku).'/'.hash('sha256', $this->png).'.png';
+    }
+
     public function test_publish_retains_full_contract_and_core_api_exposes_it(): void
     {
         Http::fake(['storage.eigeradventure.com/*' => Http::response($this->png, 200)]);
@@ -71,12 +76,13 @@ class PimPayloadContractTest extends TestCase
         $this->assertSame($payload['image'], $saved->pim_image_payload);
         $this->assertEquals(250000, $saved->price);
         $this->assertSame(5, $saved->stock);
-        $this->assertSame('/api/pim-media/'.hash('sha256', $this->png).'.png', $saved->image);
+        $this->assertSame($this->storedMediaUrl(), $saved->image);
         $parent = Product::where('sku', 'P1')->firstOrFail();
         $this->assertSame('1', $parent->variants()->first()->moq);
         $this->assertSame('ECM1', $parent->variants()->first()->ecmsku);
-        $this->assertSame('/api/pim-media/'.hash('sha256', $this->png).'.png', $parent->variants()->first()->image);
+        $this->assertSame($this->storedMediaUrl(), $parent->variants()->first()->image);
         $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
+        $this->assertTrue(collect($parent->pim_media)->every(fn ($item) => str_starts_with($item['url'], '/api/pim-media/')));
         $this->assertCount(3, $parent->mediaRelation()->whereNull('product_variant_id')->get());
         $this->assertCount(1, $parent->mediaRelation()->whereNotNull('product_variant_id')->get());
         $this->assertFalse($parent->mediaRelation()->whereNotNull('product_variant_id')->get()->contains('role', 'SIZE_CHART'));
@@ -86,11 +92,11 @@ class PimPayloadContractTest extends TestCase
             ->assertJsonPath('data.pim_payload.technology.0.id', 'T1');
         $this->getJson('/api/products/'.$parent->id)->assertOk()
             ->assertJsonPath('data.variants.0.sku', 'P1-M')
-            ->assertJsonPath('data.variants.0.image', url('/api/pim-media/'.hash('sha256', $this->png).'.png'));
+            ->assertJsonPath('data.variants.0.image', url($this->storedMediaUrl()));
 
         $this->get(route('admin.products.edit', $parent))->assertOk()
             ->assertSee('1 Foto Tersedia')
-            ->assertSee('https://storage.eigeradventure.com/technology.jpg', false)
+            ->assertSee(url($this->storedMediaUrl()), false)
             ->assertSee('Buka media asli');
     }
 
@@ -165,7 +171,7 @@ class PimPayloadContractTest extends TestCase
         $this->assertSame('Real description', $saved->pim_payload['customAtributes'][0]['value']);
         $this->assertCount(3, $saved->pim_media);
         $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
-        $path = $this->mediaDir.'/'.hash('sha256', $this->png).'.png';
+        $path = $this->mediaDir.'/products/photos/bag--p1/'.hash('sha256', $this->png).'.png';
         $this->assertFileExists($path);
         if (DIRECTORY_SEPARATOR === '/') {
             $this->assertSame(0644, fileperms($path) & 0777);
@@ -214,6 +220,23 @@ class PimPayloadContractTest extends TestCase
         Http::assertSentCount(1);
         $this->expectException(ValidationException::class);
         $importer->import('http://pim.test/media/'.str_repeat('0', 64).'.png', 'main_image');
+    }
+
+    public function test_product_and_led_ambience_videos_use_separate_folders(): void
+    {
+        $mp4 = hex2bin('00000018667479706d703432000000006d70343269736f6d');
+        Http::fake(['storage.eigeradventure.com/*' => Http::response($mp4, 200)]);
+        $context = ['product_name' => 'Bag Trail 20L', 'generic_sku' => '910000001'];
+        $importer = app(PimHttpMediaImporter::class);
+
+        $productVideo = $importer->import('https://storage.eigeradventure.com/product.mp4', 'PRODUCT_IN_ACTION', $context);
+        $ambienceVideo = $importer->import('https://storage.eigeradventure.com/ambience.mp4', 'LED_AMBIENCE_VIDEO', $context);
+
+        $hash = hash('sha256', $mp4);
+        $this->assertSame('/api/pim-media/products/videos/bag-trail-20l--910000001/'.$hash.'.mp4', $productVideo['url']);
+        $this->assertSame('/api/pim-media/led-ambience/videos/bag-trail-20l--910000001/'.$hash.'.mp4', $ambienceVideo['url']);
+        $this->get($productVideo['url'])->assertOk()->assertHeader('Content-Type', 'video/mp4');
+        $this->get($ambienceVideo['url'])->assertOk()->assertHeader('Content-Type', 'video/mp4');
     }
 
     public function test_missing_endpoint_is_not_reported_as_missing_article(): void

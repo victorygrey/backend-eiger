@@ -24,6 +24,7 @@ class PimIntegrationWebTest extends TestCase
     public function test_pim_web_sync_triggers_and_redirects(): void
     {
         config(['pim.url' => 'http://pim.test']);
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=');
         $existing = Product::factory()->create(['sku' => '910009029001', 'price' => 250000, 'stock' => 7]);
         $product = ['generic' => '910009029', 'name' => 'TOURER WANDER 1.1 22L 1A',
             'mainImage' => 'https://storage.eigeradventure.com/tourer.jpg', 'weight' => 725,
@@ -42,6 +43,7 @@ class PimIntegrationWebTest extends TestCase
                 'pagination' => ['total_pages' => 1]], 200),
             '*/api/articles/910009029/product-payload' => Http::response($product, 200),
             '*/api/articles/910009029/image-payload' => Http::response($images, 200),
+            'storage.eigeradventure.com/*' => Http::response($png, 200),
         ]);
 
         $response = $this->post(route('admin.pim.sync'));

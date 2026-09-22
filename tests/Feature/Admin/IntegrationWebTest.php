@@ -39,6 +39,8 @@ class IntegrationWebTest extends TestCase
 
     public function test_sync_all_triggers_both_pim_and_care(): void
     {
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=');
+        $storedImage = '/api/pim-media/products/photos/tourer-wander-11-22l-1a--910009029/'.hash('sha256', $png).'.png';
         Http::fake([
             '*/api/ui/articles*' => Http::response([
                 'data' => [['sap_id' => '910009029']],
@@ -47,12 +49,13 @@ class IntegrationWebTest extends TestCase
             '*/api/articles/910009029/product-payload' => Http::response([
                 'generic' => '910009029',
                 'name' => 'TOURER WANDER 1.1 22L 1A',
-                'mainImage' => 'https://example.com/cover.jpg',
+                'mainImage' => 'https://storage.eigeradventure.com/cover.jpg',
                 'variant' => [['sku' => '910009029', 'name' => 'TOURER WANDER 1.1 22L 1A']],
             ], 200),
             '*/api/articles/910009029/image-payload' => Http::response([
                 'generic' => [], 'variant' => [],
             ], 200),
+            'storage.eigeradventure.com/*' => Http::response($png, 200),
             '*/api/server/pricing_details*' => Http::response([
                 'data' => [
                     [
@@ -85,11 +88,11 @@ class IntegrationWebTest extends TestCase
         $this->assertDatabaseHas('products', [
             'sku' => '910009029',
             'name' => 'TOURER WANDER 1.1 22L 1A',
-            'image' => 'https://example.com/cover.jpg',
+            'image' => $storedImage,
             'price' => 250000,
             'stock' => 15,
         ]);
-        $this->assertSame('https://example.com/cover.jpg', Product::where('sku', '910009029')->value('image'));
+        $this->assertSame($storedImage, Product::where('sku', '910009029')->value('image'));
 
         $this->assertDatabaseHas('product_variants', [
             'sku' => '910009029001',

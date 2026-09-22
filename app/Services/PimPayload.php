@@ -131,11 +131,15 @@ class PimPayload
     public function mediaValues(array $product, array $image, string $sku, bool $includeSupplemental = true): array
     {
         $assets = $this->assets($product, $image, $sku);
-        $media = array_map(function ($asset) {
+        $context = [
+            'product_name' => $product['name'] ?? $sku,
+            'generic_sku' => $product['generic'] ?? $sku,
+        ];
+        $media = array_map(function ($asset) use ($context) {
             $role = $asset['type'] === 'main_image' ? 'main_image' : 'gallery';
 
             $stored = config('pim.copy_http_media')
-                ? app(PimHttpMediaImporter::class)->import($asset['url'], $role)
+                ? app(PimHttpMediaImporter::class)->import($asset['url'], $role, $context)
                 : ['url' => $asset['url'], 'role' => $role];
 
             return array_merge($asset, $stored, [
@@ -145,24 +149,39 @@ class PimPayload
         }, $assets);
 
         return [
-            'pim_media' => array_merge($media, $includeSupplemental ? $this->supplementalMedia($product) : []),
+            'pim_media' => array_merge($media, $includeSupplemental ? $this->supplementalMedia($product, true) : []),
             'image' => collect($media)->firstWhere('role', 'main_image')['url'] ?? ($media[0]['url'] ?? null),
         ];
     }
 
-    public function supplementalMedia(array $product): array
+    public function supplementalMedia(array $product, bool $storeLocally = false): array
     {
         $media = [];
+        $context = [
+            'product_name' => $product['name'] ?? $product['generic'] ?? 'product',
+            'generic_sku' => $product['generic'] ?? 'unknown',
+        ];
         foreach ($product['media'] ?? [] as $group) {
             foreach ($group['files'] ?? [] as $file) {
-                $media[] = ['url' => $file['value'], 'role' => $group['attributeCode'],
-                    'description' => $file['description'] ?? '', 'sku' => $product['generic']];
+                $role = (string) $group['attributeCode'];
+                $entry = ['url' => $file['value'], 'role' => $role,
+                    'description' => $file['description'] ?? '', 'sku' => $product['generic'],
+                    'source_url' => $file['value'], 'attributeCode' => $role];
+                if ($storeLocally && config('pim.copy_http_media')) {
+                    $entry = array_merge($entry, app(PimHttpMediaImporter::class)->import($file['value'], $role, $context));
+                }
+                $media[] = $entry;
             }
         }
         foreach ($product['technology'] ?? [] as $technology) {
             if (! empty($technology['image'])) {
-                $media[] = ['url' => $technology['image'], 'role' => 'technology',
-                    'description' => $technology['name'] ?? '', 'sku' => $product['generic']];
+                $entry = ['url' => $technology['image'], 'role' => 'technology',
+                    'description' => $technology['name'] ?? '', 'sku' => $product['generic'],
+                    'source_url' => $technology['image']];
+                if ($storeLocally && config('pim.copy_http_media')) {
+                    $entry = array_merge($entry, app(PimHttpMediaImporter::class)->import($technology['image'], 'technology', $context));
+                }
+                $media[] = $entry;
             }
         }
 

@@ -125,7 +125,7 @@ class PimProductController extends Controller
         }
         $genericMedia = $service->mediaValues($data['product'], $data['image'], $data['product']['generic']);
         $catalog = $mapper->map($data['product'], $data['image']);
-        $count = DB::transaction(function () use ($data, $media, $genericMedia, $catalog, $service) {
+        $count = DB::transaction(function () use ($data, $media, $genericMedia, $catalog) {
             $detail = $data['product'];
             $dataStore = app(PimProductDataStore::class);
             foreach ($detail['variant'] as $pimVariant) {
@@ -139,7 +139,10 @@ class PimProductController extends Controller
                     ]);
                     $legacyMedia = array_merge(
                         $media[$pimVariant['sku']]['pim_media'] ?? [],
-                        $service->supplementalMedia($detail),
+                        array_values(array_filter(
+                            $genericMedia['pim_media'] ?? [],
+                            fn ($item) => ! in_array($item['role'] ?? null, ['main_image', 'gallery'], true),
+                        )),
                     );
                     $dataStore->replace($existingLegacyProduct, $detail, $data['image'],
                         $legacyMedia, source: 'pim-http');

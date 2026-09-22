@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Product;
 use App\Models\SyncLog;
+use App\Support\EigerMediaPath;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
@@ -13,45 +14,61 @@ class PimFolderImporter
     public function scan(bool $retryFailed = false): array
     {
         $root = realpath(config('pim.folder'));
-        if ($root === false || !is_dir($root) || !is_readable($root)) {
+        if ($root === false || ! is_dir($root) || ! is_readable($root)) {
             throw new RuntimeException('Folder PIM tidak dapat dibaca. Periksa PIM_FOLDER dan akses SMB/mount.');
         }
         // All manual/scheduled scans use the same OS lock, released even if PHP exits.
         $lock = fopen(storage_path('framework/pim-import.lock'), 'c');
-        if (!$lock) throw new RuntimeException('Tidak dapat membuka lock scanner.');
-        if (!flock($lock, LOCK_EX | LOCK_NB)) {
+        if (! $lock) {
+            throw new RuntimeException('Tidak dapat membuka lock scanner.');
+        }
+        if (! flock($lock, LOCK_EX | LOCK_NB)) {
             fclose($lock);
             throw new RuntimeException('Pemindaian PIM lain masih berjalan.');
         }
         $result = ['imported' => 0, 'failed' => 0, 'skipped' => 0];
         try {
             $entries = scandir($root);
-            if ($entries === false) throw new RuntimeException('Tidak dapat membaca isi folder PIM.');
+            if ($entries === false) {
+                throw new RuntimeException('Tidak dapat membaca isi folder PIM.');
+            }
             $processed = 0;
             foreach ($entries as $entry) {
-                if (!preg_match('/^([A-Za-z0-9_-]{1,100})\.ready$/D', $entry, $match)) continue;
+                if (! preg_match('/^([A-Za-z0-9_-]{1,100})\.ready$/D', $entry, $match)) {
+                    continue;
+                }
                 $batch = $match[1];
                 $directory = $root.DIRECTORY_SEPARATOR.$entry;
-                if (!is_dir($directory) || is_link($directory)) continue;
+                if (! is_dir($directory) || is_link($directory)) {
+                    continue;
+                }
                 $record = DB::table('pim_imports')->where('batch_id', $batch)->first();
                 // Ready batches are immutable. A correction must have a new batch ID.
                 if ($record && $record->status === 'imported') {
                     $result['skipped']++;
+
                     continue;
                 }
                 $checksum = '';
                 $attempted = false;
                 try {
                     $manifestPath = $this->safeFile($directory, 'manifest.json');
-                    if (filesize($manifestPath) > 2 * 1024 * 1024) throw new RuntimeException('Manifest melebihi 2 MiB.');
+                    if (filesize($manifestPath) > 2 * 1024 * 1024) {
+                        throw new RuntimeException('Manifest melebihi 2 MiB.');
+                    }
                     $raw = file_get_contents($manifestPath);
-                    if ($raw === false) throw new RuntimeException('Gagal membaca manifest.');
+                    if ($raw === false) {
+                        throw new RuntimeException('Gagal membaca manifest.');
+                    }
                     $checksum = hash('sha256', $raw);
-                    if ($record && $record->checksum === $checksum && !$retryFailed) {
+                    if ($record && $record->checksum === $checksum && ! $retryFailed) {
                         $result['skipped']++;
+
                         continue;
                     }
-                    if ($processed >= 100) break;
+                    if ($processed >= 100) {
+                        break;
+                    }
                     $processed++;
                     $attempted = true;
                     $manifest = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
@@ -61,7 +78,7 @@ class PimFolderImporter
                         $media = [];
                         foreach ($product['media'] as $asset) {
                             $file = $this->safeFile($directory, $asset['file']);
-                            $media[] = $this->copyMedia($file, $asset);
+                            $media[] = $this->copyMedia($file, $asset, $product);
                         }
                         $prepared[] = [
                             'sku' => $product['sku'], 'name' => $product['name'],
@@ -76,7 +93,9 @@ class PimFolderImporter
                         foreach ($prepared as $values) {
                             $product = Product::firstOrNew(['sku' => $values['sku']]);
                             // Old drops arriving late must never overwrite more recent content.
-                            if ($product->pim_version && strcmp($product->pim_version, $version) >= 0) continue;
+                            if ($product->pim_version && strcmp($product->pim_version, $version) >= 0) {
+                                continue;
+                            }
                             $media = $values['pim_media'];
                             unset($values['pim_media']);
                             $product->fill($values);
@@ -104,12 +123,15 @@ class PimFolderImporter
                     $result['imported']++;
                 } catch (\Throwable $error) {
                     // Do not flood logs for an unchanged failed batch on every scheduled scan.
-                    if ($record && $record->status === 'failed' && $record->checksum === $checksum && !$retryFailed) {
+                    if ($record && $record->status === 'failed' && $record->checksum === $checksum && ! $retryFailed) {
                         $result['skipped']++;
+
                         continue;
                     }
-                    if (!$attempted) {
-                        if ($processed >= 100) break;
+                    if (! $attempted) {
+                        if ($processed >= 100) {
+                            break;
+                        }
                         $processed++;
                     }
                     $message = mb_substr($error->getMessage(), 0, 2000);
@@ -118,6 +140,7 @@ class PimFolderImporter
                     $result['failed']++;
                 }
             }
+
             return $result;
         } finally {
             flock($lock, LOCK_UN);
@@ -139,7 +162,7 @@ class PimFolderImporter
             'products.*.media' => 'required|array|min:1|max:30',
             'products.*.media.*.file' => 'required|string|max:255',
             'products.*.media.*.sha256' => ['required', 'regex:/^[a-f0-9]{64}$/D'],
-            'products.*.media.*.role' => 'required|in:main_image,image,video',
+            'products.*.media.*.role' => 'required|in:main_image,image,video,led_ambience_video',
         ])->validate();
         foreach ($manifest['products'] as $product) {
             if (collect($product['media'])->where('role', 'main_image')->count() !== 1) {
@@ -150,52 +173,82 @@ class PimFolderImporter
 
     private function safeFile(string $directory, string $relative): string
     {
-        if (!preg_match('#^[A-Za-z0-9_/-]+\.[A-Za-z0-9]+$#D', $relative) || str_contains($relative, '..')) {
+        if (! preg_match('#^[A-Za-z0-9_/-]+\.[A-Za-z0-9]+$#D', $relative) || str_contains($relative, '..')) {
             throw new RuntimeException('Path file tidak valid.');
         }
         $candidate = $directory;
         foreach (explode('/', $relative) as $part) {
             $candidate .= DIRECTORY_SEPARATOR.$part;
-            if (is_link($candidate)) throw new RuntimeException('Symlink tidak diizinkan dalam paket.');
+            if (is_link($candidate)) {
+                throw new RuntimeException('Symlink tidak diizinkan dalam paket.');
+            }
         }
         $file = realpath($candidate);
         $parent = realpath($directory).DIRECTORY_SEPARATOR;
-        if (!$file || !str_starts_with($file, $parent) || !is_file($file) || !is_readable($file)) {
+        if (! $file || ! str_starts_with($file, $parent) || ! is_file($file) || ! is_readable($file)) {
             throw new RuntimeException('File paket tidak tersedia: '.$relative);
         }
+
         return $file;
     }
 
-    private function copyMedia(string $file, array $asset): array
+    private function copyMedia(string $file, array $asset, array $product): array
     {
-        if (filesize($file) > 100 * 1024 * 1024) throw new RuntimeException('Media melebihi 100 MiB.');
+        if (filesize($file) > 100 * 1024 * 1024) {
+            throw new RuntimeException('Media melebihi 100 MiB.');
+        }
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         $allowed = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp', 'mp4' => 'video/mp4', 'webm' => 'video/webm'];
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file);
-        if (!isset($allowed[$ext]) || $mime !== $allowed[$ext]) throw new RuntimeException('Tipe media tidak didukung atau tidak cocok.');
-        if (($asset['role'] === 'video') !== str_starts_with($mime, 'video/')) throw new RuntimeException('Role media tidak cocok dengan tipe file.');
-        $targetRoot = config('pim.media_path');
-        if (!is_dir($targetRoot) && !mkdir($targetRoot, 0755, true) && !is_dir($targetRoot)) throw new RuntimeException('Tidak dapat membuat folder media CMS.');
+        if (! isset($allowed[$ext]) || $mime !== $allowed[$ext]) {
+            throw new RuntimeException('Tipe media tidak didukung atau tidak cocok.');
+        }
+        $videoRole = in_array($asset['role'], ['video', 'led_ambience_video'], true);
+        if ($videoRole !== str_starts_with($mime, 'video/')) {
+            throw new RuntimeException('Role media tidak cocok dengan tipe file.');
+        }
+        $targetRoot = rtrim((string) config('pim.media_path'), DIRECTORY_SEPARATOR);
+        $relativeDirectory = EigerMediaPath::directory($mime, $asset['role'], [
+            'product_name' => $product['name'],
+            'generic_sku' => $product['sku'],
+        ]);
+        $targetDirectory = $targetRoot.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relativeDirectory);
+        if (! is_dir($targetDirectory) && ! mkdir($targetDirectory, 0755, true) && ! is_dir($targetDirectory)) {
+            throw new RuntimeException('Tidak dapat membuat folder media CMS.');
+        }
         $name = $asset['sha256'].'.'.$ext;
-        $destination = $targetRoot.DIRECTORY_SEPARATOR.$name;
-        $temporary = tempnam($targetRoot, 'import-');
-        if ($temporary === false) throw new RuntimeException('Tidak dapat menyiapkan media CMS.');
+        $destination = $targetDirectory.DIRECTORY_SEPARATOR.$name;
+        $temporary = tempnam($targetDirectory, 'import-');
+        if ($temporary === false) {
+            throw new RuntimeException('Tidak dapat menyiapkan media CMS.');
+        }
         try {
-            if (!copy($file, $temporary) || hash_file('sha256', $temporary) !== $asset['sha256']) {
+            if (! copy($file, $temporary) || hash_file('sha256', $temporary) !== $asset['sha256']) {
                 throw new RuntimeException('Checksum media tidak cocok; paket belum lengkap atau rusak.');
             }
-            if (!is_file($destination)) {
-                if (!rename($temporary, $destination)) throw new RuntimeException('Gagal menyimpan media CMS.');
+            if (! is_file($destination)) {
+                if (! rename($temporary, $destination)) {
+                    throw new RuntimeException('Gagal menyimpan media CMS.');
+                }
             } elseif (hash_file('sha256', $destination) !== $asset['sha256']) {
                 throw new RuntimeException('Media CMS yang tersimpan rusak.');
             }
         } finally {
-            if (is_file($temporary)) unlink($temporary);
+            if (is_file($temporary)) {
+                unlink($temporary);
+            }
         }
-        if (!@chmod($destination, 0644)) {
+        if (! @chmod($destination, 0644)) {
             throw new RuntimeException('Tidak dapat mengatur izin baca media CMS.');
         }
-        return ['url' => '/api/pim-media/'.$name, 'role' => $asset['role'], 'sha256' => $asset['sha256'], 'mime' => $mime];
+
+        return [
+            'url' => EigerMediaPath::publicUrl($relativeDirectory.'/'.$name),
+            'role' => $asset['role'],
+            'sha256' => $asset['sha256'],
+            'mime' => $mime,
+            'type' => str_starts_with($mime, 'video/') ? 'video' : 'image',
+        ];
     }
 
     private function record(string $batch, string $checksum, string $status, string $message, ?object $previous): void
