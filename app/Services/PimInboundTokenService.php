@@ -46,6 +46,12 @@ class PimInboundTokenService
             return false;
         }
 
+        $static = config('pim.inbound_token');
+        if ((bool) config('pim.allow_static_inbound_token')
+            && is_string($static) && $static !== '' && hash_equals($static, $plain)) {
+            return true;
+        }
+
         if (str_starts_with($plain, 'pim_')) {
             $token = PimApiToken::query()
                 ->where('token_hash', hash('sha256', $plain))
@@ -60,9 +66,6 @@ class PimInboundTokenService
             return true;
         }
 
-        $legacy = config('pim.inbound_token');
-
-        return (bool) config('pim.allow_static_inbound_token')
-            && is_string($legacy) && $legacy !== '' && hash_equals($legacy, $plain);
+        return false;
     }
 }

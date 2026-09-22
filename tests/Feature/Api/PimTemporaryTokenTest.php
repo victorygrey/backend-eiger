@@ -48,4 +48,21 @@ class PimTemporaryTokenTest extends TestCase
         Carbon::setTestNow('2026-09-17 14:00:01');
         $this->withToken($issued['token'])->postJson('/api/integrations/pim/product', $payload)->assertUnauthorized();
     }
+
+    public function test_static_token_with_pim_prefix_does_not_expire(): void
+    {
+        Carbon::setTestNow('2026-09-22 12:00:00');
+        $token = 'pim_static-token-for-eiger';
+        config([
+            'pim.inbound_token' => $token,
+            'pim.allow_static_inbound_token' => true,
+        ]);
+
+        $service = app(PimInboundTokenService::class);
+        $this->assertTrue($service->authenticate($token));
+
+        Carbon::setTestNow('2027-09-22 12:00:00');
+        $this->assertTrue($service->authenticate($token));
+        $this->assertFalse($service->authenticate('pim_wrong-token'));
+    }
 }
