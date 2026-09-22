@@ -14,9 +14,11 @@ use App\Services\CareSyncService;
 use App\Services\PimFolderImporter;
 use App\Services\PimInboundTokenService;
 use App\Services\PimSyncService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -37,9 +39,6 @@ class IntegrationController extends Controller
         if (! is_dir($folder) && $folder === storage_path('app/pim-drop')) {
             @mkdir($folder, 0775, true);
         }
-
-        $pimConnection = $this->pimSync->testConnection();
-        $careConnection = $this->careSync->testConnection();
 
         $totalProducts = Product::count();
         $totalVariants = ProductVariant::count();
@@ -65,8 +64,6 @@ class IntegrationController extends Controller
         $importCounts = DB::table('pim_imports')->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
         return view('admin.integrations.index', [
-            'pimConnection' => $pimConnection,
-            'careConnection' => $careConnection,
             'totalProducts' => $totalProducts,
             'totalVariants' => $totalVariants,
             'pricedProducts' => $pricedProducts,
@@ -80,9 +77,9 @@ class IntegrationController extends Controller
             'importCounts' => $importCounts,
             'storeCode' => config('services.care.store_code', '2022'),
             'storeName' => 'Toko Flagship Setiabudi (Bandung)',
-            'careUrl' => $careConnection['url'],
-            'careMasterUrl' => $careConnection['master_url'],
-            'careWmsUrl' => $careConnection['wms_url'],
+            'careUrl' => rtrim((string) config('services.care.master_url'), '/'),
+            'careMasterUrl' => rtrim((string) config('services.care.master_url'), '/'),
+            'careWmsUrl' => rtrim((string) config('services.care.wms_url'), '/'),
             'atomMasterCounts' => [
                 'categories' => AtomProductCategory::count(),
                 'sub_categories' => AtomProductSubCategory::count(),
@@ -91,6 +88,19 @@ class IntegrationController extends Controller
             ],
             'pimUrl' => config('pim.url', 'http://192.168.18.31:8001'),
         ]);
+    }
+
+    /**
+     * Check external services without blocking the initial page render.
+     */
+    public function connectionStatus(): JsonResponse
+    {
+        $status = Cache::remember('admin.integrations.connection-status', now()->addSeconds(30), fn () => [
+            'pim' => $this->pimSync->testConnection(),
+            'care' => $this->careSync->testConnection(),
+        ]);
+
+        return response()->json($status);
     }
 
     /**

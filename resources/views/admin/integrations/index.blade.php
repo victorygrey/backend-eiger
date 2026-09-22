@@ -79,22 +79,16 @@
             <div>
                 <div class="stat-label">Server PIM (Katalog)</div>
                 <div class="mt-2">
-                    @if(!empty($pimConnection['online']))
-                        <span class="badge-soft badge-success-soft fs-6">
-                            <i class="bi bi-check-circle-fill"></i> Online
-                        </span>
-                    @else
-                        <span class="badge-soft badge-danger-soft fs-6">
-                            <i class="bi bi-x-circle-fill"></i> Offline
-                        </span>
-                    @endif
+                    <span id="pim-status-badge" class="badge-soft badge-gray-soft fs-6">
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Memeriksa
+                    </span>
                 </div>
                 <div class="text-muted small mt-1 text-truncate font-monospace" style="max-width: 170px;" title="{{ $pimUrl }}">
                     {{ $pimUrl }}
                 </div>
             </div>
-            <div class="stat-icon {{ !empty($pimConnection['online']) ? 'bg-success text-success' : 'bg-danger text-danger' }} bg-opacity-10">
-                <i class="bi {{ !empty($pimConnection['online']) ? 'bi-cloud-check-fill' : 'bi-cloud-slash-fill' }}"></i>
+            <div id="pim-status-icon" class="stat-icon bg-secondary text-secondary bg-opacity-10">
+                <i class="bi bi-cloud-arrow-down-fill"></i>
             </div>
         </div>
     </div>
@@ -105,22 +99,16 @@
             <div>
                 <div class="stat-label">Server CARE (Ritel & Stok)</div>
                 <div class="mt-2">
-                    @if(!empty($careConnection['online']))
-                        <span class="badge-soft badge-success-soft fs-6">
-                            <i class="bi bi-check-circle-fill"></i> Online
-                        </span>
-                    @else
-                        <span class="badge-soft badge-danger-soft fs-6">
-                            <i class="bi bi-x-circle-fill"></i> Offline
-                        </span>
-                    @endif
+                    <span id="care-status-badge" class="badge-soft badge-gray-soft fs-6">
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Memeriksa
+                    </span>
                 </div>
                 <div class="text-muted small mt-1 text-truncate font-monospace" style="max-width: 170px;" title="{{ $careUrl }}">
                     {{ $storeName }}
                 </div>
             </div>
-            <div class="stat-icon {{ !empty($careConnection['online']) ? 'bg-success text-success' : 'bg-danger text-danger' }} bg-opacity-10">
-                <i class="bi {{ !empty($careConnection['online']) ? 'bi-shop-window' : 'bi-shop' }}"></i>
+            <div id="care-status-icon" class="stat-icon bg-secondary text-secondary bg-opacity-10">
+                <i class="bi bi-shop"></i>
             </div>
         </div>
     </div>
@@ -186,15 +174,13 @@
                 <div class="p-3 bg-light rounded-3 mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="small text-muted">Status Koneksi API:</span>
-                        @if(!empty($pimConnection['online']))
-                            <span class="badge bg-success"><i class="bi bi-check me-1"></i>Terhubung</span>
-                        @else
-                            <span class="badge bg-danger"><i class="bi bi-x me-1"></i>Terputus</span>
-                        @endif
+                        <span id="pim-status-detail" class="badge bg-secondary">
+                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Memeriksa
+                        </span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="small text-muted">Artikel Siap di PIM:</span>
-                        <strong class="text-dark">{{ number_format($pimConnection['article_count'] ?? 0) }} artikel</strong>
+                        <strong id="pim-article-count" class="text-dark">—</strong>
                     </div>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="small text-muted">Produk Terisi Foto PIM:</span>
@@ -205,7 +191,7 @@
                 <div class="d-flex gap-2 mb-4">
                     <form action="{{ route('admin.integrations.sync-pim') }}" method="POST" class="w-100" onsubmit="this.querySelector('button').disabled = true;">
                         @csrf
-                        <button type="submit" class="btn btn-outline-warning text-dark w-100 btn-sm fw-semibold" {{ empty($pimConnection['online']) ? 'disabled' : '' }}>
+                        <button type="submit" class="btn btn-outline-warning text-dark w-100 btn-sm fw-semibold">
                             <i class="bi bi-cloud-arrow-down me-1"></i>Sinkronkan Katalog PIM Saja
                         </button>
                     </form>
@@ -289,11 +275,9 @@
                 <div class="p-3 bg-light rounded-3 mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="small text-muted">Status Koneksi API:</span>
-                        @if(!empty($careConnection['online']))
-                            <span class="badge bg-success"><i class="bi bi-check me-1"></i>Terhubung</span>
-                        @else
-                            <span class="badge bg-danger"><i class="bi bi-x me-1"></i>Terputus</span>
-                        @endif
+                        <span id="care-status-detail" class="badge bg-secondary">
+                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Memeriksa
+                        </span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="small text-muted">Toko Aktif:</span>
@@ -312,7 +296,7 @@
                 <div class="d-flex gap-2 mb-4">
                     <form action="{{ route('admin.integrations.sync-care') }}" method="POST" class="w-100" onsubmit="this.querySelector('button').disabled = true;">
                         @csrf
-                        <button type="submit" class="btn btn-outline-success w-100 btn-sm fw-semibold" {{ empty($careConnection['online']) ? 'disabled' : '' }}>
+                        <button type="submit" class="btn btn-outline-success w-100 btn-sm fw-semibold">
                             <i class="bi bi-arrow-repeat me-1"></i>Sinkronkan Harga & Stok CARE Saja
                         </button>
                     </form>
@@ -407,3 +391,48 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    (() => {
+        const renderStatus = (kind, status) => {
+            const online = status?.online === true;
+            const badge = document.getElementById(`${kind}-status-badge`);
+            const detail = document.getElementById(`${kind}-status-detail`);
+            const icon = document.getElementById(`${kind}-status-icon`);
+            const successIcon = kind === 'pim' ? 'bi-cloud-check-fill' : 'bi-shop-window';
+            const offlineIcon = kind === 'pim' ? 'bi-cloud-slash-fill' : 'bi-shop';
+
+            badge.className = `badge-soft ${online ? 'badge-success-soft' : 'badge-danger-soft'} fs-6`;
+            badge.innerHTML = `<i class="bi ${online ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}"></i> ${online ? 'Online' : 'Offline'}`;
+            badge.title = status?.message || '';
+
+            detail.className = `badge ${online ? 'bg-success' : 'bg-danger'}`;
+            detail.innerHTML = `<i class="bi ${online ? 'bi-check' : 'bi-x'} me-1"></i>${online ? 'Terhubung' : 'Terputus'}`;
+            detail.title = status?.message || '';
+
+            icon.className = `stat-icon ${online ? 'bg-success text-success' : 'bg-danger text-danger'} bg-opacity-10`;
+            icon.querySelector('i').className = `bi ${online ? successIcon : offlineIcon}`;
+        };
+
+        fetch(@json(route('admin.integrations.connection-status')), {
+            headers: {'Accept': 'application/json'},
+            credentials: 'same-origin',
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                renderStatus('pim', data.pim);
+                renderStatus('care', data.care);
+                document.getElementById('pim-article-count').textContent = `${Number(data.pim?.article_count || 0).toLocaleString('id-ID')} artikel`;
+            })
+            .catch(() => {
+                renderStatus('pim', {online: false, message: 'Status koneksi tidak dapat diperiksa.'});
+                renderStatus('care', {online: false, message: 'Status koneksi tidak dapat diperiksa.'});
+                document.getElementById('pim-article-count').textContent = 'Tidak tersedia';
+            });
+    })();
+</script>
+@endpush

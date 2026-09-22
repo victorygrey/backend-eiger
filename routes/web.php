@@ -40,6 +40,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // Unified PIM & CARE Integration
     Route::prefix('integrations')->name('integrations.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\IntegrationController::class, 'index'])->name('index');
+        Route::get('/connection-status', [\App\Http\Controllers\Admin\IntegrationController::class, 'connectionStatus'])->name('connection-status');
         Route::post('/sync', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncAll'])->name('sync-all');
         Route::post('/sync-pim', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncPim'])->name('sync-pim');
         Route::post('/sync-care', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncCare'])->name('sync-care');

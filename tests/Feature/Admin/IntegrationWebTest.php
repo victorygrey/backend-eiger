@@ -35,6 +35,32 @@ class IntegrationWebTest extends TestCase
         $response->assertSee('2. Ritel & Stok CARE OMNI', false);
         $response->assertSee('Jadwal Auto-Sync');
         $response->assertSee('Tiap 10 Menit');
+        $response->assertSee('Memeriksa');
+        Http::assertNothingSent();
+    }
+
+    public function test_connection_status_is_loaded_separately_from_the_page(): void
+    {
+        config(['pim.test_connection' => true]);
+        Http::fake([
+            '*/api/articles/channel-list*' => Http::response([
+                'status' => true,
+                'data' => ['pagination' => ['total' => 60]],
+            ], 200),
+            '*/api/articles/publish-list*' => Http::response([
+                'status' => true,
+                'data' => ['pagination' => ['total' => 60]],
+            ], 200),
+            '*/api/server/pricing_details*' => Http::response(['data' => []], 200),
+            '*/api/server/inventories/bybin*' => Http::response(['data' => []], 200),
+        ]);
+
+        $response = $this->getJson(route('admin.integrations.connection-status'));
+
+        $response->assertOk()
+            ->assertJsonPath('pim.online', true)
+            ->assertJsonPath('pim.article_count', 60)
+            ->assertJsonPath('care.online', true);
     }
 
     public function test_sync_all_triggers_both_pim_and_care(): void
