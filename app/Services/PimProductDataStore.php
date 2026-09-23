@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PimProductDataStore
 {
@@ -19,11 +20,19 @@ class PimProductDataStore
     ): void {
         DB::transaction(function () use ($product, $payload, $imagePayload, $media, $version, $source, $variantMedia) {
             $attributes = $this->attributes($payload['customAtributes'] ?? $payload['customAttributes'] ?? []);
-            $categoryValue = $attributes['sub_category'] ?? $attributes['subcategory']
-                ?? $attributes['category'] ?? $payload['category'] ?? null;
-            $category = app(AtomMasterDataResolver::class)->category($categoryValue);
+            $categoryValue = $attributes['category'] ?? $attributes['category_code']
+                ?? $attributes['product_category'] ?? $attributes['product_category_code']
+                ?? $payload['category'] ?? $payload['categoryCode'] ?? $payload['category_code'] ?? null;
+            $subCategoryValue = $attributes['sub_category'] ?? $attributes['subcategory']
+                ?? $attributes['sub_category_code'] ?? $attributes['subcategory_code']
+                ?? $attributes['product_sub_category'] ?? $attributes['product_subcategory']
+                ?? $attributes['product_sub_category_code'] ?? $payload['subCategory']
+                ?? $payload['sub_category'] ?? $payload['subcategory'] ?? null;
+            $category = app(AtomMasterDataResolver::class)->category($categoryValue, $subCategoryValue);
+            $displayCategory = $category['sub_category_name'] ?? $category['category_name']
+                ?? $subCategoryValue ?? $categoryValue;
             $product->updateQuietly([
-                'category' => $attributes['category'] ?? $payload['category'] ?? null,
+                'category' => $displayCategory,
                 'atom_product_category_id' => $category['category_id'],
                 'atom_product_sub_category_id' => $category['sub_category_id'],
                 'gender' => $attributes['gender'] ?? $payload['gender'] ?? null,
@@ -77,12 +86,17 @@ class PimProductDataStore
             $storedActivityIds = [];
             foreach (array_values($payload['activity'] ?? []) as $position => $row) {
                 $master = app(AtomMasterDataResolver::class)->activity($row);
+                $pimId = $row['external_id'] ?? $row['externalId'] ?? $row['code']
+                    ?? $row['activity_code'] ?? $row['activityCode'] ?? $row['id']
+                    ?? $master?->external_id;
                 $product->activitiesRelation()->create([
-                    'pim_id' => $row['id'] ?? null, 'name' => $row['name'] ?? 'Activity',
+                    'pim_id' => $pimId, 'name' => $master?->name ?? $row['name'] ?? 'Activity',
                     'atom_product_activity_id' => $master?->id,
-                    'description' => $row['description'] ?? null, 'is_selected' => (bool) ($row['selected'] ?? false),
+                    'description' => $row['description'] ?? $master?->description,
+                    'is_selected' => filter_var($row['selected'] ?? false, FILTER_VALIDATE_BOOL),
                     'rating' => is_numeric($row['rating'] ?? null) ? $row['rating'] : null,
-                    'rating_description' => $row['desc_rating'] ?? null, 'sort_order' => $position,
+                    'rating_description' => $row['desc_rating'] ?? $row['rating_desc'] ?? $master?->rating_description,
+                    'sort_order' => $position,
                 ]);
                 if ($master) {
                     $storedActivityIds[$master->id] = true;
@@ -190,7 +204,7 @@ class PimProductDataStore
     {
         $result = [];
         foreach ($rows as $row) {
-            $code = strtolower(trim((string) ($row['attributeCode'] ?? '')));
+            $code = Str::snake(str_replace(['-', ' '], '_', trim((string) ($row['attributeCode'] ?? ''))));
             if ($code !== '') {
                 $result[$code] = $this->scalarValue($row['value'] ?? null);
             }

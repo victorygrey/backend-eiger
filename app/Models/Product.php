@@ -116,6 +116,21 @@ class Product extends Model
             'id' => $item->pim_id, 'name' => $item->name, 'description' => $item->description,
             'selected' => $item->is_selected, 'rating' => $item->rating,
             'desc_rating' => $item->rating_description,
+            'master_code' => $item->atomActivity?->external_id,
+            'master_activity' => $item->atomActivity ? [
+                'id' => $item->atomActivity->id,
+                'source_id' => $item->atomActivity->source_id,
+                'external_id' => $item->atomActivity->external_id,
+                'name' => $item->atomActivity->name,
+                'slug' => $item->atomActivity->slug,
+                'group' => $item->atomActivity->group ? [
+                    'id' => $item->atomActivity->group->id,
+                    'source_id' => $item->atomActivity->group->source_id,
+                    'external_id' => $item->atomActivity->group->external_id,
+                    'name' => $item->atomActivity->group->name,
+                    'slug' => $item->atomActivity->group->slug,
+                ] : null,
+            ] : null,
         ], fn ($value) => $value !== null))->values()->all();
     }
 

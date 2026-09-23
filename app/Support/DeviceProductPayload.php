@@ -16,7 +16,7 @@ class DeviceProductPayload
             'atomSubCategory',
             'variants.attributesRelation',
             'technologiesRelation',
-            'activitiesRelation',
+            'activitiesRelation.atomActivity.group',
             'specificationsRelation',
             'customAttributesRelation',
             'mediaRelation',
