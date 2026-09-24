@@ -3,12 +3,25 @@
             $html = preg_replace('~<br\s*/?>|</(?:p|div|li|h[1-6])>~i', ' ', (string) $value);
             return trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
         };
-        $pimMediaKind = static function ($url): string {
+        $pimMediaKind = static function ($media): string {
+            $type = strtolower((string) (is_array($media) ? ($media['type'] ?? '') : ''));
+            $mime = strtolower((string) (is_array($media) ? ($media['mime'] ?? '') : ''));
+            if ($type === 'image' || str_starts_with($mime, 'image/')) return 'image';
+            if ($type === 'video' || str_starts_with($mime, 'video/')) return 'video';
+
+            $url = is_array($media) ? ($media['url'] ?? $media['value'] ?? '') : $media;
             $path = strtolower((string) parse_url((string) $url, PHP_URL_PATH));
             if (preg_match('/\.(?:jpe?g|png|webp|gif|svg)$/', $path)) return 'image';
             if (preg_match('/\.(?:mp4|webm|ogg)$/', $path)) return 'video';
             return 'link';
         };
+        $pimExtraMedia = isset($product)
+            ? collect($product->pim_media ?? [])->filter(static function ($media): bool {
+                if (!is_array($media)) return false;
+                $role = strtolower((string) ($media['role'] ?? $media['type'] ?? ''));
+                return !in_array($role, ['main_image', 'gallery', 'technology'], true);
+            })->unique(static fn ($media) => ($media['role'] ?? '').'|'.($media['url'] ?? ''))->values()
+            : collect();
     @endphp
     <div id="pim-enrichment-card" class="col-12 {{ (isset($product) && !empty($product->pim_payload)) ? '' : 'd-none' }}">
         <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
@@ -109,36 +122,47 @@
             </div>
             <div class="mt-3 border-top pt-3">
                 <label class="form-label small fw-bold text-muted mb-2"><i class="bi bi-images me-1 text-primary"></i>Media tambahan PIM</label>
-                <div id="pim-extra-media" class="small">
-                    @if(isset($product) && !empty($product->pim_payload['media']))
-                        @foreach($product->pim_payload['media'] as $group)
-                            @foreach($group['files'] ?? [] as $file)
-                                @php($mediaUrl = (string) ($file['value'] ?? ''))
-                                <div class="p-2 mb-2 border rounded-2 bg-light bg-opacity-50">
-                                    <div class="d-flex gap-3 align-items-start">
-                                        @if($pimMediaKind($mediaUrl) === 'image')
-                                            <a href="{{ $mediaUrl }}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0">
-                                                <img src="{{ $mediaUrl }}" alt="{{ $group['name'] ?? 'Media PIM' }}" class="rounded border bg-white object-fit-contain" style="width: 112px; height: 82px;">
-                                            </a>
-                                        @elseif($pimMediaKind($mediaUrl) === 'video')
-                                            <video controls preload="metadata" class="rounded border bg-dark flex-shrink-0" style="width: 180px; max-height: 110px;">
-                                                <source src="{{ $mediaUrl }}">
-                                            </video>
-                                        @endif
+                <div id="pim-extra-media" class="row g-2 small">
+                    @if($pimExtraMedia->isNotEmpty())
+                        @foreach($pimExtraMedia as $media)
+                            @php
+                                $mediaUrl = (string) ($media['url'] ?? $media['value'] ?? '');
+                                $mediaRole = (string) ($media['attributeCode'] ?? $media['role'] ?? 'Media');
+                                $mediaKind = $pimMediaKind($media);
+                            @endphp
+                            <div class="col-sm-6 col-xl-4">
+                                <div class="p-2 border rounded-2 bg-light bg-opacity-50 h-100" data-pim-extra-media="{{ $mediaKind }}">
+                                    @if($mediaKind === 'image')
+                                        <a href="{{ $mediaUrl }}" target="_blank" rel="noopener noreferrer" class="d-block mb-2">
+                                            <img src="{{ $mediaUrl }}" alt="{{ $mediaRole }}" class="rounded border bg-white object-fit-contain w-100" style="height: 150px;">
+                                        </a>
+                                    @elseif($mediaKind === 'video')
+                                        <video controls preload="metadata" class="rounded border bg-dark w-100 mb-2" style="height: 150px;">
+                                            <source src="{{ $mediaUrl }}" type="{{ $media['mime'] ?? '' }}">
+                                        </video>
+                                    @else
+                                        <div class="d-flex align-items-center justify-content-center rounded border bg-white text-muted mb-2" style="height: 150px;">
+                                            <i class="bi bi-file-earmark fs-1"></i>
+                                        </div>
+                                    @endif
+                                    <div class="d-flex align-items-start justify-content-between gap-2">
                                         <div class="min-w-0">
-                                            <strong>{{ $group['name'] ?? $group['attributeCode'] ?? 'Media' }}</strong>
-                                            <span class="badge bg-light text-dark ms-1">{{ $group['attributeCode'] ?? '' }}</span>
-                                    <div class="text-muted">{{ $plainPimText($file['description'] ?? '') }}</div>
-                                            @if($mediaUrl !== '')
-                                                <a href="{{ $mediaUrl }}" target="_blank" rel="noopener noreferrer" class="small text-break">Buka media asli <i class="bi bi-box-arrow-up-right"></i></a>
+                                            <strong class="d-block text-break">{{ $mediaRole }}</strong>
+                                            @if(!empty($media['description']))
+                                                <div class="text-muted">{{ $plainPimText($media['description']) }}</div>
                                             @endif
                                         </div>
+                                        @if($mediaUrl !== '')
+                                            <a href="{{ $mediaUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary flex-shrink-0" title="Buka ukuran penuh">
+                                                <i class="bi bi-arrows-fullscreen"></i>
+                                            </a>
+                                        @endif
                                     </div>
                                 </div>
-                            @endforeach
+                            </div>
                         @endforeach
                     @else
-                        <span class="text-muted fst-italic">Belum ada media tambahan.</span>
+                        <div class="col-12"><span class="text-muted fst-italic">Belum ada media tambahan.</span></div>
                     @endif
                 </div>
             </div>

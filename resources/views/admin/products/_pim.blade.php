@@ -133,14 +133,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mediaContainer) {
             const files = (p.media || []).flatMap(group => (group.files || []).map(file => ({group, file})));
             mediaContainer.innerHTML = files.length ? files.map(({group, file}) => `
-                <div class="p-2 mb-2 border rounded-2 bg-light bg-opacity-50">
-                    <div class="d-flex gap-3 align-items-start">
-                        ${mediaPreview(file.value, group.name || group.attributeCode || 'Media')}
-                        <div class="min-w-0">
-                            <strong>${escapeHtml(group.name || group.attributeCode || 'Media')}</strong>
-                            <span class="badge bg-light text-dark ms-1">${escapeHtml(group.attributeCode || '')}</span>
-                            <div class="text-muted">${escapeHtml(plainText(file.description || ''))}</div>
-                            ${safeMediaUrl(file.value) ? `<a href="${escapeHtml(safeMediaUrl(file.value))}" target="_blank" rel="noopener noreferrer" class="small text-break">Buka media asli <i class="bi bi-box-arrow-up-right"></i></a>` : ''}
+                <div class="col-sm-6 col-xl-4">
+                    <div class="p-2 border rounded-2 bg-light bg-opacity-50 h-100">
+                        ${mediaPreview(file.value, group.name || group.attributeCode || 'Media', false, true)}
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <div class="min-w-0">
+                                <strong class="d-block text-break">${escapeHtml(group.name || group.attributeCode || 'Media')}</strong>
+                                ${file.description ? `<div class="text-muted">${escapeHtml(plainText(file.description))}</div>` : ''}
+                            </div>
+                            ${safeMediaUrl(file.value) ? `<a href="${escapeHtml(safeMediaUrl(file.value))}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary flex-shrink-0" title="Buka ukuran penuh"><i class="bi bi-arrows-fullscreen"></i></a>` : ''}
                         </div>
                     </div>
                 </div>`).join('') : '<span class="text-muted fst-italic">Belum ada media tambahan.</span>';
@@ -180,18 +181,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function mediaPreview(value, label, compact = false) {
+    function mediaPreview(value, label, compact = false, fullWidth = false) {
         const url = safeMediaUrl(value);
         if (!url) return '';
         const path = new URL(url).pathname.toLowerCase();
         if (/\.(?:jpe?g|png|webp|gif|svg)$/.test(path)) {
-            const size = compact ? 'width:72px;height:72px' : 'width:112px;height:82px';
-            return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0"><img src="${escapeHtml(url)}" alt="${escapeHtml(label || 'Media PIM')}" class="rounded border bg-white object-fit-contain" style="${size}"></a>`;
+            const size = compact ? 'width:72px;height:72px' : (fullWidth ? 'width:100%;height:150px' : 'width:112px;height:82px');
+            const margin = fullWidth ? 'd-block mb-2' : 'flex-shrink-0';
+            return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="${margin}"><img src="${escapeHtml(url)}" alt="${escapeHtml(label || 'Media PIM')}" class="rounded border bg-white object-fit-contain" style="${size}"></a>`;
         }
         if (/\.(?:mp4|webm|ogg)$/.test(path)) {
-            return `<video controls preload="metadata" class="rounded border bg-dark flex-shrink-0" style="width:180px;max-height:110px"><source src="${escapeHtml(url)}"></video>`;
+            const size = fullWidth ? 'width:100%;height:150px' : 'width:180px;max-height:110px';
+            const margin = fullWidth ? ' mb-2' : ' flex-shrink-0';
+            return `<video controls preload="metadata" class="rounded border bg-dark${margin}" style="${size}"><source src="${escapeHtml(url)}"></video>`;
         }
-        return '';
+        return fullWidth ? '<div class="d-flex align-items-center justify-content-center rounded border bg-white text-muted mb-2" style="height:150px"><i class="bi bi-file-earmark fs-1"></i></div>' : '';
     }
 
     btnFetch.addEventListener('click', async () => {

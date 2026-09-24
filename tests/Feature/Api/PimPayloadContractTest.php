@@ -98,7 +98,9 @@ class PimPayloadContractTest extends TestCase
         $this->get(route('admin.products.edit', $parent))->assertOk()
             ->assertSee('1 Foto Tersedia')
             ->assertSee(url($this->storedMediaUrl()), false)
-            ->assertSee('Buka media asli');
+            ->assertSee('data-pim-extra-media="image"', false)
+            ->assertSee('src="'.$this->storedMediaUrl().'"', false)
+            ->assertSee('title="Buka ukuran penuh"', false);
     }
 
     public function test_publish_normalizes_queryable_pim_data_out_of_products_table(): void
