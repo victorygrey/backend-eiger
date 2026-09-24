@@ -39,6 +39,7 @@ class TableExpeditionApiTest extends TestCase
             ],
         ]);
         $this->assertCount(2, $response->json('data.instructions'));
+        $response->assertJsonMissingPath('data.usage_instructions');
     }
 
     public function test_api_can_scan_mapped_product(): void
@@ -118,11 +119,11 @@ class TableExpeditionApiTest extends TestCase
             ],
         ]);
 
-        $this->assertCount(1, $response->json('data.features'));
-        $this->assertEquals('45L', $response->json('data.technical_details.Capacity'));
-        $this->assertEquals('Ya', $response->json('data.technical_details.waterproof'));
-        $this->assertContains('M', $response->json('data.variants.sizes'));
-        $this->assertContains('Olive', $response->json('data.variants.colors'));
+        $response->assertJsonMissingPath('data.features');
+        $response->assertJsonMissingPath('data.technical_details');
+        $response->assertJsonMissingPath('data.variants');
+        $this->assertContains('M', $response->json('data.product.available_sizes'));
+        $this->assertContains('Olive', $response->json('data.product.available_colors'));
         $this->assertContains('SKU-RHINOS-45-OLV-M', collect($response->json('data.product.variants'))->pluck('sku')->all());
         $this->assertSame(url('/api/pim-media/rhinos-cover.jpg'), $response->json('data.product.variants.0.image'));
         $this->assertSame('Airflow', $response->json('data.product.technologies.0.name'));
@@ -234,6 +235,8 @@ class TableExpeditionApiTest extends TestCase
                 ],
             ],
         ]);
+        $response->assertJsonMissingPath('data.product_1');
+        $response->assertJsonMissingPath('data.product_2');
     }
 
     public function test_api_can_get_status(): void
@@ -252,8 +255,9 @@ class TableExpeditionApiTest extends TestCase
             'status' => 'success',
             'data' => [
                 'mode' => 'standby',
-                'active_items_count' => 1,
+                'active_items' => 1,
             ],
         ]);
+        $response->assertJsonMissingPath('data.active_items_count');
     }
 }

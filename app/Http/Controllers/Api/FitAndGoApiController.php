@@ -87,7 +87,6 @@ class FitAndGoApiController extends Controller
                 'kiosk' => [
                     'id' => $device->id,
                     'slug' => $device->device_code,
-                    'device_code' => $device->device_code,
                     'name' => $device->name,
                     'location' => $device->location,
                     'status' => $device->status,

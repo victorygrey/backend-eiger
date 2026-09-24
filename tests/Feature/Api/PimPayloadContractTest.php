@@ -97,7 +97,9 @@ class PimPayloadContractTest extends TestCase
             ->assertJsonPath('data.pim_payload.technology.0.id', 'T1');
         $this->getJson('/api/products/'.$parent->id)->assertOk()
             ->assertJsonPath('data.variants.0.sku', 'P1-M')
-            ->assertJsonPath('data.variants.0.image', url($this->storedMediaUrl()));
+            ->assertJsonPath('data.variants.0.image', url($this->storedMediaUrl()))
+            ->assertJsonPath('data.performances.0.name', 'Grip')
+            ->assertJsonMissingPath('data.performance');
 
         $this->get(route('admin.products.edit', $parent))->assertOk()
             ->assertSee('1 Foto Tersedia')

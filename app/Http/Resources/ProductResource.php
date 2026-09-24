@@ -32,7 +32,6 @@ class ProductResource extends JsonResource
             'technologies'    => $this->technologies,
             'activities'      => $this->activities,
             'performances'    => $this->performances,
-            'performance'     => $this->performances,
             'specifications'  => $this->specifications,
             'custom_attributes' => $this->custom_attributes_list,
             'data_sources'     => [

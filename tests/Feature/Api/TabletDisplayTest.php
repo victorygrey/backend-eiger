@@ -53,6 +53,10 @@ class TabletDisplayTest extends TestCase
             ->assertJsonPath('featured.variants.0.sku', 'VOYAGER-BLK-M')
             ->assertJsonPath('featured.variants.0.image', url('/api/pim-media/voyager-cover.jpg'))
             ->assertJsonPath('featured.available_sizes.0', 'M')
+            ->assertJsonMissingPath('featured.imageUrl')
+            ->assertJsonMissingPath('featured.features')
+            ->assertJsonMissingPath('featured.materials')
+            ->assertJsonMissingPath('featured.activity')
             ->assertJsonPath('recommendations.0.name', 'Greenland Pro');
     }
 

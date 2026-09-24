@@ -105,53 +105,6 @@ class TabletDisplayController extends Controller
 
     private function productPayload(Product $product): array
     {
-        $payload = DeviceProductPayload::make($product);
-        $activity = collect($payload['activities'])
-            ->first(fn (array $item): bool => (bool) ($item['selected'] ?? false))
-            ?? collect($payload['activities'])->first();
-        $features = collect($payload['technologies'])->map(function (array $technology): string {
-            $name = $technology['name'] ?? '';
-            $description = $technology['description'] ?? '';
-
-            return trim($name.($name && $description ? ': ' : '').$description);
-        })->filter()->values()->all();
-
-        if ($features === []) {
-            $features = ['Detail produk mengikuti informasi terbaru dari CMS.'];
-        }
-
-        $dimensions = collect($payload['specifications'])
-            ->filter(fn (array $specification): bool => str_contains(strtolower((string) ($specification['code'] ?? $specification['name'] ?? '')), 'dimension'))
-            ->pluck('value')
-            ->filter()
-            ->implode(' × ');
-
-        $careAttribute = collect($payload['custom_attributes'])
-            ->first(fn (array $attribute): bool => strtolower((string) ($attribute['attributeCode'] ?? '')) === 'product_care_instruction');
-        $careInstructions = is_array($careAttribute) ? ($careAttribute['value'] ?? null) : null;
-        $care = collect(preg_split('/(?:\r?\n|<br\s*\/?>|<\/p>)/i', (string) $careInstructions) ?: [])
-            ->map(fn (string $instruction): string => trim(strip_tags($instruction)))
-            ->filter()
-            ->values()
-            ->all();
-        if ($care === []) {
-            $care = [
-                'Ikuti petunjuk perawatan pada label produk.',
-                'Simpan di tempat kering setelah digunakan.',
-            ];
-        }
-
-        return array_merge($payload, [
-            'id' => (string) $product->id,
-            'activity' => $activity['name'] ?? $product->zone?->name ?? 'Daily Wear',
-            'gender' => $product->gender ?: 'UNISEX',
-            'weight' => $payload['weight'] ?? '—',
-            'dimension' => $dimensions ?: '—',
-            'materials' => $product->material ? [$product->material] : ['—'],
-            'description' => $product->description ?: 'Informasi produk akan diperbarui melalui CMS.',
-            'features' => $features,
-            'care' => $care,
-            'imageUrl' => $payload['image'] ?: '/products/bogota.jpg',
-        ]);
+        return DeviceProductPayload::make($product);
     }
 }

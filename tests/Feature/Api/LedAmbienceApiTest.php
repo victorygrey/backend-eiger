@@ -106,7 +106,6 @@ class LedAmbienceApiTest extends TestCase
             'matched' => true,
             'data' => [
                 'rfid_tag' => 'E28011606000020468900111',
-                'activity_slug' => 'mountaineering',
                 'product' => [
                     'id' => $product->id,
                     'name' => 'EIGER Expedition Parka',
@@ -119,7 +118,9 @@ class LedAmbienceApiTest extends TestCase
         ]);
         $response->assertJsonPath('data.activity.slug', 'mountaineering');
         $response->assertJsonPath('data.activity.name', 'Mountaineering');
-        $response->assertJsonPath('data.video_path', 'https://example.com/mountain.mp4');
+        $response->assertJsonPath('data.scene.video_url', 'https://example.com/mountain.mp4');
+        $response->assertJsonMissingPath('data.activity_slug');
+        $response->assertJsonMissingPath('data.video_path');
         $response->assertJsonPath('data.product.variants.0.image', url('/api/pim-media/parka-cover.jpg'));
         $response->assertJsonStructure(['data' => ['product' => ['variants', 'media', 'technologies', 'activities', 'performances', 'specifications', 'custom_attributes', 'data_sources']]]);
 

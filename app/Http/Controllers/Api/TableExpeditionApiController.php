@@ -33,7 +33,6 @@ class TableExpeditionApiController extends Controller
                 'title' => $title,
                 'subtitle' => $subtitle,
                 'instructions' => $instructions,
-                'usage_instructions' => $instructions,
             ],
         ]);
     }
@@ -68,8 +67,6 @@ class TableExpeditionApiController extends Controller
         $product = null;
         $idealFor = null;
         $videoUrl = null;
-        $features = [];
-        $technicalDetails = [];
         $aiSummary = null;
         $similarProducts = collect();
 
@@ -103,37 +100,6 @@ class TableExpeditionApiController extends Controller
             ], 404);
         }
 
-        // Available sizes & colors from variants (SRS FR-TABLE-03)
-        $variants = $product->variants ?? collect();
-        $availableSizes = $variants->pluck('size')->filter()->unique()->values()->all();
-        $availableColors = $variants->pluck('color')->filter()->unique()->values()->all();
-
-        $features = array_values(array_filter(array_map(
-            fn ($technology) => trim(($technology['name'] ?? $technology['code'] ?? '').': '.($technology['description'] ?? '')),
-            $product->technologies
-        )));
-        $technicalDetails = ['SKU' => $product->sku];
-        if ($product->material) {
-            $technicalDetails['Material'] = $product->material;
-        }
-        if ($product->zone?->name) {
-            $technicalDetails['Zone'] = $product->zone->name;
-        }
-        if ($product->weight) {
-            $technicalDetails['Berat'] = $product->weight.' gram';
-        }
-        foreach ($product->specifications as $spec) {
-            $label = $spec['name'] ?? $spec['code'] ?? null;
-            if ($label && isset($spec['value'])) {
-                $technicalDetails[$label] = $spec['value'];
-            }
-        }
-        foreach ($product->custom_attributes_list as $attribute) {
-            $label = $attribute['attributeCode'] ?? $attribute['name'] ?? null;
-            if ($label && isset($attribute['value'])) {
-                $technicalDetails[$label] = strip_tags((string) $attribute['value']);
-            }
-        }
         foreach ($product->pim_media ?? [] as $media) {
             $url = is_string($media) ? $media : ($media['url'] ?? $media['value'] ?? null);
             if (is_string($url) && (preg_match('/\.(mp4|webm)(\?|$)/i', $url) || (is_array($media) && stripos((string) ($media['type'] ?? ''), 'video') !== false))) {
@@ -172,13 +138,7 @@ class TableExpeditionApiController extends Controller
                 'activity_slug' => $item?->activity_slug,
                 'ideal_for' => $idealFor ?: 'Aktivitas Outdoor & Penjelajahan Harian',
                 'video_url' => $videoUrl,
-                'features' => $features,
-                'technical_details' => $technicalDetails,
                 'ai_summary' => $aiSummary,
-                'variants' => [
-                    'sizes' => $availableSizes,
-                    'colors' => $availableColors,
-                ],
                 'product' => DeviceProductPayload::make($product),
                 'similar_products' => $similarFormatted,
             ],
@@ -250,8 +210,6 @@ class TableExpeditionApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => [
-                'product_1' => $data1,
-                'product_2' => $data2,
                 'primary' => [
                     'rfid_tag' => $request->input('rfid_primary'),
                     'product' => $data1,
@@ -279,7 +237,6 @@ class TableExpeditionApiController extends Controller
                 'mode' => 'standby',
                 'total_mapped_items' => TableExpeditionItem::count(),
                 'active_items' => $activeCount,
-                'active_items_count' => $activeCount,
                 'server_time' => now()->toIso8601String(),
             ],
         ]);

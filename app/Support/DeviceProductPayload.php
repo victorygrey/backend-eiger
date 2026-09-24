@@ -105,12 +105,7 @@ class DeviceProductPayload
             'weight' => $product->weight,
             'price' => (float) $product->price,
             'stock' => (int) $product->stock,
-            'pricing' => [
-                'currency' => 'IDR',
-                'price' => (float) $product->price,
-                'total_stock' => (int) $product->stock,
-                'care_synced_at' => $product->care_synced_at?->toIso8601String(),
-            ],
+            'currency' => 'IDR',
             'zone' => $product->zone ? [
                 'id' => $product->zone->id,
                 'code' => $product->zone->code,
@@ -129,17 +124,13 @@ class DeviceProductPayload
                 'name' => $product->atomSubCategory->name,
             ] : null,
             'image' => $primaryImage,
-            'image_url' => $primaryImage,
             'media' => $media->all(),
             'variants' => $variants->all(),
             'available_sizes' => $variants->pluck('size')->filter()->unique()->values()->all(),
             'available_colors' => $variants->pluck('color')->filter()->unique()->values()->all(),
             'technologies' => $technologies,
-            'features' => $technologies,
             'activities' => $activities,
             'performances' => $performances,
-            // Keep the documented PIM field name available to device clients.
-            'performance' => $performances,
             'specifications' => $specifications,
             'custom_attributes' => $customAttributes,
             'data_sources' => [
@@ -148,7 +139,6 @@ class DeviceProductPayload
                 'pim_synced_at' => $product->pim_synced_at?->toIso8601String(),
                 'care_synced_at' => $product->care_synced_at?->toIso8601String(),
             ],
-            'pim_synced_at' => $product->pim_synced_at?->toIso8601String(),
         ];
     }
 

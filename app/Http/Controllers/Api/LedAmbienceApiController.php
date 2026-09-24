@@ -117,9 +117,7 @@ class LedAmbienceApiController extends Controller
                     'data' => [
                         'rfid_tag' => $rfidTag,
                         'product' => DeviceProductPayload::make($product),
-                        'activity_slug' => $activitySlug,
                         'activity' => $this->activityPayload($activitySlug),
-                        'video_path' => $matchedScene?->video_url,
                         'scene' => $this->scenePayload($matchedScene),
                     ],
                 ]);
@@ -155,11 +153,9 @@ class LedAmbienceApiController extends Controller
             'source' => 'led_ambience_custom',
             'data' => [
                 'rfid_tag' => $item->rfid_tag,
-                'activity_slug' => $item->activity_slug,
                 'activity' => $this->activityPayload($item->activity_slug),
                 'notes' => $item->notes,
                 'product' => $product ? DeviceProductPayload::make($product) : null,
-                'video_path' => $scene?->video_url,
                 'scene' => $this->scenePayload($scene),
             ],
         ]);

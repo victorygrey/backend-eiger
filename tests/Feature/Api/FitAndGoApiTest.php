@@ -110,6 +110,7 @@ class FitAndGoApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.kiosk.slug', 'fit-kiosk-01')
+            ->assertJsonMissingPath('data.kiosk.device_code')
             ->assertJsonPath('data.categories.0.code', 'apparel')
             ->assertJsonPath('data.categories.0.shown_items.0.sku', '910000999')
             ->assertJsonPath('data.categories.0.shown_items.0.variants.0.image', url('/api/pim-media/kiosk-cover.jpg'));
@@ -283,10 +284,15 @@ class FitAndGoApiTest extends TestCase
             ->assertJsonPath('activity.slug', 'mountaineering')
             ->assertJsonPath('data.0.sku', '910000123')
             ->assertJsonPath('data.0.variants.0.sku', '910000123001')
-            ->assertJsonPath('data.0.pricing.total_stock', 7)
+            ->assertJsonPath('data.0.stock', 7)
+            ->assertJsonPath('data.0.currency', 'IDR')
             ->assertJsonPath('data.0.technologies.0.name', 'Storm Shield')
             ->assertJsonPath('data.0.performances.0.name', 'Weather Protection')
-            ->assertJsonPath('data.0.performance.0.rating', 5)
+            ->assertJsonMissingPath('data.0.performance')
+            ->assertJsonMissingPath('data.0.pricing')
+            ->assertJsonMissingPath('data.0.image_url')
+            ->assertJsonMissingPath('data.0.features')
+            ->assertJsonMissingPath('data.0.pim_synced_at')
             ->assertJsonPath('data.0.custom_attributes.0.attributeCode', 'fit');
 
         $this->getJson('/api/v1/fit-and-go/products/'.$product->id)
