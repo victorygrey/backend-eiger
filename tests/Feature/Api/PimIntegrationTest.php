@@ -125,6 +125,47 @@ class PimIntegrationTest extends TestCase
         $this->assertDatabaseHas('product_variants', ['sku' => '910012408001', 'price' => 0, 'stock' => 0]);
     }
 
+    public function test_inbound_audit_identifies_failure_stage_without_logging_secrets_or_payload_urls(): void
+    {
+        $this->fakeEmptyCare();
+        config(['pim.inbound_token' => 'test-secret']);
+
+        $logPath = storage_path('logs/pim-inbound-test-'.uniqid().'.log');
+        config(['logging.channels.pim_inbound' => [
+            'driver' => 'single',
+            'path' => $logPath,
+            'level' => 'debug',
+        ]]);
+        app('log')->forgetChannel('pim_inbound');
+
+        try {
+            $this->withToken('test-secret')
+                ->withHeader('X-Request-ID', 'eiger-pim-test-request')
+                ->withHeader('X-Simulate-Atom-Failure', 'true')
+                ->postJson('/api/integrations/pim/product', $this->payload())
+                ->assertStatus(500)
+                ->assertHeader('X-Request-ID', 'eiger-pim-test-request')
+                ->assertJsonPath('request_id', 'eiger-pim-test-request');
+
+            app('log')->forgetChannel('pim_inbound');
+            $contents = file_get_contents($logPath);
+
+            $this->assertIsString($contents);
+            $this->assertStringContainsString('eiger-pim-test-request', $contents);
+            $this->assertStringContainsString('910012408', $contents);
+            $this->assertStringContainsString('simulation.failure', $contents);
+            $this->assertStringContainsString('PIM inbound request failed', $contents);
+            $this->assertStringNotContainsString('test-secret', $contents);
+            $this->assertStringNotContainsString('https://example.com/main.jpg', $contents);
+            $this->assertStringNotContainsString('https://example.com/variant.jpg', $contents);
+        } finally {
+            app('log')->forgetChannel('pim_inbound');
+            if (is_file($logPath)) {
+                unlink($logPath);
+            }
+        }
+    }
+
     public function test_cms_proxies_all_read_endpoints_and_publish_without_changing_contract(): void
     {
         config(['pim.url' => 'http://pim.test:8001/']);
