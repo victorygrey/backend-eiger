@@ -226,6 +226,24 @@ class PimPayloadContractTest extends TestCase
         );
     }
 
+    public function test_publish_keeps_remote_media_url_when_all_download_attempts_fail(): void
+    {
+        config(['pim.media_download_attempts' => 1]);
+        Http::fake(fn () => throw new ConnectionException('DNS unavailable'));
+
+        $payload = $this->payload();
+        $this->withToken('test')->postJson('/api/integrations/pim/product', $payload)->assertOk();
+
+        $product = Product::where('sku', 'P1')->firstOrFail();
+        $this->assertSame($payload['product']['mainImage'], $product->image);
+        $this->assertDatabaseHas('product_media', [
+            'product_id' => $product->id,
+            'role' => 'main_image',
+            'url' => $payload['product']['mainImage'],
+            'source' => 'pim_remote_fallback',
+        ]);
+    }
+
     public function test_rejects_unapproved_hosts_and_redirects(): void
     {
         $payload = $this->payload();

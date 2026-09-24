@@ -110,6 +110,7 @@ class PimProductController extends Controller
             $genericMedia = $service->mediaValues($data['product'], $data['image'], $data['product']['generic']);
             $audit->stage('media.completed', [
                 'stored_media_count' => count($genericMedia['pim_media']) + collect($media)->sum(fn ($item) => count($item['pim_media'] ?? [])),
+                'remote_fallback_count' => $this->remoteFallbackCount($genericMedia, $media),
             ], true);
 
             // Unduhan media selesai sebelum transaksi agar URL kadaluwarsa atau
@@ -196,6 +197,7 @@ class PimProductController extends Controller
         $genericMedia = $service->mediaValues($data['product'], $data['image'], $data['product']['generic']);
         $audit->stage('media.completed', [
             'stored_media_count' => count($genericMedia['pim_media']) + collect($media)->sum(fn ($item) => count($item['pim_media'] ?? [])),
+            'remote_fallback_count' => $this->remoteFallbackCount($genericMedia, $media),
         ], true);
 
         $audit->stage('care.enrichment');
@@ -356,6 +358,14 @@ class PimProductController extends Controller
         }
 
         return 500;
+    }
+
+    private function remoteFallbackCount(array $genericMedia, array $variantMedia): int
+    {
+        return collect([$genericMedia, ...array_values($variantMedia)])
+            ->flatMap(fn ($item) => $item['pim_media'] ?? [])
+            ->where('source', 'pim_remote_fallback')
+            ->count();
     }
 
     private function findProductForImage(array $image): ?Product

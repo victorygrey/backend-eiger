@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -138,9 +139,7 @@ class PimPayload
         $media = array_map(function ($asset) use ($context) {
             $role = $asset['type'] === 'main_image' ? 'main_image' : 'gallery';
 
-            $stored = config('pim.copy_http_media')
-                ? app(PimHttpMediaImporter::class)->import($asset['url'], $role, $context)
-                : ['url' => $asset['url'], 'role' => $role];
+            $stored = $this->storeOrLink($asset['url'], $role, $context);
 
             return array_merge($asset, $stored, [
                 'source_url' => $asset['url'],
@@ -168,7 +167,7 @@ class PimPayload
                     'description' => $file['description'] ?? '', 'sku' => $product['generic'],
                     'source_url' => $file['value'], 'attributeCode' => $role];
                 if ($storeLocally && config('pim.copy_http_media')) {
-                    $entry = array_merge($entry, app(PimHttpMediaImporter::class)->import($file['value'], $role, $context));
+                    $entry = array_merge($entry, $this->storeOrLink($file['value'], $role, $context));
                 }
                 $media[] = $entry;
             }
@@ -179,12 +178,35 @@ class PimPayload
                     'description' => $technology['name'] ?? '', 'sku' => $product['generic'],
                     'source_url' => $technology['image']];
                 if ($storeLocally && config('pim.copy_http_media')) {
-                    $entry = array_merge($entry, app(PimHttpMediaImporter::class)->import($technology['image'], 'technology', $context));
+                    $entry = array_merge($entry, $this->storeOrLink($technology['image'], 'technology', $context));
                 }
                 $media[] = $entry;
             }
         }
 
         return $media;
+    }
+
+    private function storeOrLink(string $url, string $role, array $context): array
+    {
+        if (! config('pim.copy_http_media')) {
+            return ['url' => $url, 'role' => $role];
+        }
+
+        try {
+            return app(PimHttpMediaImporter::class)->import($url, $role, $context);
+        } catch (ConnectionException|\RuntimeException) {
+            $path = strtolower((string) parse_url($url, PHP_URL_PATH));
+            $isVideo = str_contains(strtolower($role), 'video')
+                || str_ends_with($path, '.mp4')
+                || str_ends_with($path, '.webm');
+
+            return [
+                'url' => $url,
+                'role' => $role,
+                'type' => $isVideo ? 'video' : 'image',
+                'source' => 'pim_remote_fallback',
+            ];
+        }
     }
 }
