@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\EigerMediaPath;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
@@ -59,15 +60,22 @@ class PimHttpMediaImporter
             $maximum = $expectsVideo
                 ? (int) config('pim.max_video_bytes')
                 : (int) config('pim.max_image_bytes');
-            $response = Http::connectTimeout(5)->timeout(120)->withOptions([
-                'allow_redirects' => false,
-                'sink' => $temp,
-                'progress' => function ($total, $received) use ($maximum) {
-                    if ($total > $maximum || $received > $maximum) {
-                        throw new \RuntimeException('PIM media exceeds the configured size limit');
-                    }
-                },
-            ])->get($url);
+            $response = Http::connectTimeout((int) config('pim.media_connect_timeout', 10))
+                ->timeout(120)
+                ->retry(
+                    max(1, (int) config('pim.media_download_attempts', 4)),
+                    fn (int $attempt) => min(250 * (2 ** ($attempt - 1)), 2000),
+                    fn (?\Throwable $exception) => $exception instanceof ConnectionException,
+                    false,
+                )->withOptions([
+                    'allow_redirects' => false,
+                    'sink' => $temp,
+                    'progress' => function ($total, $received) use ($maximum) {
+                        if ($total > $maximum || $received > $maximum) {
+                            throw new \RuntimeException('PIM media exceeds the configured size limit');
+                        }
+                    },
+                ])->get($url);
             if (filesize($temp) === 0 && $response->body() !== '') {
                 $body = $response->body();
                 if (strlen($body) > $maximum) {
@@ -133,7 +141,9 @@ class PimHttpMediaImporter
 
     private function makeReadable(string $path): void
     {
-        if (! @chmod($path, 0644)) {
+        // TrueNAS ACL datasets can reject chmod even though the mounted file is
+        // already readable by the www-data user that serves /api/pim-media.
+        if (! @chmod($path, 0644) && ! is_readable($path)) {
             throw new \RuntimeException('Cannot make PIM media readable');
         }
     }

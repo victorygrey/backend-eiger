@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Services\PimHttpMediaImporter;
 use App\Services\PimPayload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -196,6 +197,33 @@ class PimPayloadContractTest extends TestCase
         $this->withToken('test')->postJson('/api/integrations/pim/product', $this->payload())->assertUnprocessable();
         $this->assertSame('Original', $saved->fresh()->name);
         $this->assertNull($saved->fresh()->pim_payload);
+    }
+
+    public function test_media_download_retries_transient_connection_failures(): void
+    {
+        config(['pim.media_download_attempts' => 2]);
+        $attempts = 0;
+        Http::fake(function () use (&$attempts) {
+            $attempts++;
+
+            if ($attempts === 1) {
+                throw new ConnectionException('Temporary DNS failure');
+            }
+
+            return Http::response($this->png, 200);
+        });
+
+        $media = app(PimHttpMediaImporter::class)->import(
+            'https://storage.eigeradventure.com/retry.png',
+            'main_image',
+            ['product_name' => 'Retry Bag', 'generic_sku' => 'P1'],
+        );
+
+        $this->assertSame(2, $attempts);
+        $this->assertSame(
+            '/api/pim-media/products/photos/retry-bag--p1/'.hash('sha256', $this->png).'.png',
+            $media['url'],
+        );
     }
 
     public function test_rejects_unapproved_hosts_and_redirects(): void

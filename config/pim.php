@@ -6,6 +6,8 @@ return [
     'legacy_media_path' => env('PIM_LEGACY_MEDIA_PATH') ?: storage_path('app/pim-media'),
     'max_image_bytes' => (int) env('PIM_MEDIA_MAX_IMAGE_MB', 10) * 1024 * 1024,
     'max_video_bytes' => (int) env('PIM_MEDIA_MAX_VIDEO_MB', 250) * 1024 * 1024,
+    'media_connect_timeout' => (int) env('PIM_MEDIA_CONNECT_TIMEOUT', 10),
+    'media_download_attempts' => (int) env('PIM_MEDIA_DOWNLOAD_ATTEMPTS', 4),
     'copy_http_media' => env('PIM_COPY_HTTP_MEDIA', false),
     'media_hosts' => array_values(array_filter(array_map('trim', explode(',', strtolower(env('PIM_MEDIA_HOSTS', 'storage.eigeradventure.com,pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-3.amazonaws.com')))))),
     'scan_enabled' => env('PIM_SCAN_ENABLED', true),
