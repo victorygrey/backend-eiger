@@ -59,6 +59,7 @@ class TableExpeditionApiTest extends TestCase
                 'category' => 'Mountaineering',
                 'material' => 'Polyester 600D, Ripstop Nylon',
                 'technology' => [['name' => 'Airflow', 'description' => 'Ventilasi optimal']],
+                'performance' => [['name' => 'Load Stability', 'selected' => 3, 'rating' => 4]],
                 'specification' => [['name' => 'Capacity', 'value' => '45L']],
                 'customAtributes' => [['attributeCode' => 'waterproof', 'value' => 'Ya']],
             ],
@@ -125,6 +126,7 @@ class TableExpeditionApiTest extends TestCase
         $this->assertContains('SKU-RHINOS-45-OLV-M', collect($response->json('data.product.variants'))->pluck('sku')->all());
         $this->assertSame(url('/api/pim-media/rhinos-cover.jpg'), $response->json('data.product.variants.0.image'));
         $this->assertSame('Airflow', $response->json('data.product.technologies.0.name'));
+        $this->assertSame('Load Stability', $response->json('data.product.performances.0.name'));
         $this->assertSame('waterproof', $response->json('data.product.custom_attributes.0.attributeCode'));
         $this->assertCount(1, $response->json('data.similar_products'));
         $this->assertEquals('EIGER Equator Tarp', $response->json('data.similar_products.0.name'));

@@ -77,6 +77,32 @@
                             @endif
                         </div>
                     </div>
+
+                    <div class="mt-3">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-speedometer2 me-1 text-warning"></i>Performa Produk (Performance)</label>
+                        <div id="pim-performance-container" class="d-flex flex-column gap-2">
+                            @if(isset($product) && !empty($product->performances))
+                                @foreach($product->performances as $performance)
+                                    <div class="p-2 border rounded-2 bg-light bg-opacity-50">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <span class="fw-semibold small text-dark">{{ $performance['name'] ?? 'Performance' }}</span>
+                                            @if(isset($performance['rating']))
+                                                <span class="badge bg-warning text-dark">{{ rtrim(rtrim(number_format((float) $performance['rating'], 2, '.', ''), '0'), '.') }} / 5</span>
+                                            @endif
+                                        </div>
+                                        @if(!empty($performance['desc_rating']))
+                                            <div class="small fw-semibold text-warning-emphasis">{{ $plainPimText($performance['desc_rating']) }}</div>
+                                        @endif
+                                        @if(!empty($performance['description']))
+                                            <div class="small text-muted">{{ $plainPimText($performance['description']) }}</div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            @else
+                                <span class="text-muted small fst-italic">Belum ada data performa.</span>
+                            @endif
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Column 2: Specifications & Custom Attributes -->

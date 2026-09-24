@@ -7,6 +7,7 @@ use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
+use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -18,7 +19,7 @@ class ProductController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $products = Product::with(['zone', 'atomCategory', 'atomSubCategory'])
+        $products = Product::with(DeviceProductPayload::relations())
             ->withCount('variants')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $query->where(function ($q) use ($request) {
@@ -44,7 +45,7 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product created successfully.',
-            'data'    => new ProductResource($product->load(['zone', 'atomCategory', 'atomSubCategory'])),
+            'data'    => new ProductResource($product->load(DeviceProductPayload::relations())),
         ], 201);
     }
 
@@ -56,7 +57,7 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product retrieved successfully.',
-            'data'    => new ProductResource($product->load(['zone', 'atomCategory', 'atomSubCategory', 'rfidTag', 'variants'])),
+            'data'    => new ProductResource($product->load(array_merge(DeviceProductPayload::relations(), ['rfidTag']))),
         ]);
     }
 
@@ -70,7 +71,7 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product updated successfully.',
-            'data'    => new ProductResource($product->fresh()->load(['zone', 'atomCategory', 'atomSubCategory'])),
+            'data'    => new ProductResource($product->fresh()->load(DeviceProductPayload::relations())),
         ]);
     }
 

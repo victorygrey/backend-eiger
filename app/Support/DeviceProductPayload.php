@@ -17,6 +17,7 @@ class DeviceProductPayload
             'variants.attributesRelation',
             'technologiesRelation',
             'activitiesRelation.atomActivity.group',
+            'performancesRelation',
             'specificationsRelation',
             'customAttributesRelation',
             'mediaRelation',
@@ -87,6 +88,7 @@ class DeviceProductPayload
 
         $technologies = $product->technologies;
         $activities = $product->activities;
+        $performances = $product->performances;
         $specifications = $product->specifications;
         $customAttributes = $product->custom_attributes_list;
 
@@ -135,8 +137,17 @@ class DeviceProductPayload
             'technologies' => $technologies,
             'features' => $technologies,
             'activities' => $activities,
+            'performances' => $performances,
+            // Keep the documented PIM field name available to device clients.
+            'performance' => $performances,
             'specifications' => $specifications,
             'custom_attributes' => $customAttributes,
+            'data_sources' => [
+                'product' => 'PIM',
+                'commercial' => 'CARE',
+                'pim_synced_at' => $product->pim_synced_at?->toIso8601String(),
+                'care_synced_at' => $product->care_synced_at?->toIso8601String(),
+            ],
             'pim_synced_at' => $product->pim_synced_at?->toIso8601String(),
         ];
     }

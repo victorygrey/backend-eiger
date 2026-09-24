@@ -93,7 +93,7 @@ class PimProductDataStore
                     'pim_id' => $pimId, 'name' => $master?->name ?? $row['name'] ?? 'Activity',
                     'atom_product_activity_id' => $master?->id,
                     'description' => $row['description'] ?? $master?->description,
-                    'is_selected' => filter_var($row['selected'] ?? false, FILTER_VALIDATE_BOOL),
+                    'is_selected' => $this->selected($row['selected'] ?? false),
                     'rating' => is_numeric($row['rating'] ?? null) ? $row['rating'] : null,
                     'rating_description' => $row['desc_rating'] ?? $row['rating_desc'] ?? $master?->rating_description,
                     'sort_order' => $position,
@@ -115,6 +115,23 @@ class PimProductDataStore
                     'is_selected' => true,
                     'rating_description' => $master->rating_description,
                     'sort_order' => $product->activitiesRelation()->count(),
+                ]);
+            }
+
+            $product->performancesRelation()->delete();
+            foreach (array_values($payload['performance'] ?? []) as $position => $row) {
+                $name = trim((string) ($row['name'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+                $product->performancesRelation()->create([
+                    'pim_id' => $row['id'] ?? null,
+                    'name' => $name,
+                    'description' => $row['description'] ?? null,
+                    'is_selected' => $this->selected($row['selected'] ?? false),
+                    'rating' => is_numeric($row['rating'] ?? null) ? $row['rating'] : null,
+                    'rating_description' => $row['desc_rating'] ?? $row['rating_desc'] ?? null,
+                    'sort_order' => $position,
                 ]);
             }
 
@@ -143,6 +160,7 @@ class PimProductDataStore
             $product->unsetRelation('customAttributesRelation');
             $product->unsetRelation('technologiesRelation');
             $product->unsetRelation('activitiesRelation');
+            $product->unsetRelation('performancesRelation');
             $product->unsetRelation('specificationsRelation');
             $product->unsetRelation('mediaRelation');
         });
@@ -224,5 +242,14 @@ class PimProductDataStore
             is_bool($value) => 'boolean', is_int($value) => 'integer', is_float($value) => 'decimal',
             is_array($value) => 'json', $value === null => 'null', default => 'text',
         };
+    }
+
+    private function selected(mixed $value): bool
+    {
+        if (is_numeric($value)) {
+            return (float) $value > 0;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOL);
     }
 }

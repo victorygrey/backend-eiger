@@ -134,6 +134,19 @@ class Product extends Model
         ], fn ($value) => $value !== null))->values()->all();
     }
 
+    /** Get product performance ratings supplied by PIM. */
+    public function getPerformancesAttribute(): array
+    {
+        return $this->performancesRelation->map(fn (ProductPerformance $item) => array_filter([
+            'id' => $item->pim_id,
+            'name' => $item->name,
+            'description' => $item->description,
+            'selected' => $item->is_selected,
+            'rating' => $item->rating === null ? null : (float) $item->rating,
+            'desc_rating' => $item->rating_description,
+        ], fn ($value) => $value !== null))->values()->all();
+    }
+
     /**
      * Get product specifications from PIM payload.
      */
@@ -245,4 +258,5 @@ class Product extends Model
     public function activitiesRelation(): HasMany { return $this->hasMany(ProductActivity::class)->orderBy('sort_order'); }
     public function specificationsRelation(): HasMany { return $this->hasMany(ProductSpecification::class)->orderBy('sort_order'); }
     public function mediaRelation(): HasMany { return $this->hasMany(ProductMedia::class)->orderBy('sort_order'); }
+    public function performancesRelation(): HasMany { return $this->hasMany(ProductPerformance::class)->orderBy('sort_order'); }
 }

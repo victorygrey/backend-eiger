@@ -262,6 +262,7 @@ class FitAndGoApiTest extends TestCase
                 'name' => 'Expedition Shell',
                 'technology' => [['name' => 'Storm Shield', 'description' => 'Perlindungan cuaca']],
                 'activity' => [['name' => 'Mountaineering', 'selected' => true, 'rating' => 5]],
+                'performance' => [['name' => 'Weather Protection', 'selected' => 3, 'rating' => 5, 'desc_rating' => 'Maximum']],
                 'specification' => [['name' => 'Waterproof Rating', 'value' => '10K']],
                 'customAtributes' => [['attributeCode' => 'fit', 'value' => 'Regular']],
             ],
@@ -284,6 +285,8 @@ class FitAndGoApiTest extends TestCase
             ->assertJsonPath('data.0.variants.0.sku', '910000123001')
             ->assertJsonPath('data.0.pricing.total_stock', 7)
             ->assertJsonPath('data.0.technologies.0.name', 'Storm Shield')
+            ->assertJsonPath('data.0.performances.0.name', 'Weather Protection')
+            ->assertJsonPath('data.0.performance.0.rating', 5)
             ->assertJsonPath('data.0.custom_attributes.0.attributeCode', 'fit');
 
         $this->getJson('/api/v1/fit-and-go/products/'.$product->id)

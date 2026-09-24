@@ -8,6 +8,7 @@ use App\Models\RfidTag;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
 use App\Support\DeviceProductPayload;
+use App\Support\PimMediaUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -141,6 +142,7 @@ class TableExpeditionApiController extends Controller
             }
         }
         $videoUrl ??= $item?->video_url;
+        $videoUrl = PimMediaUrl::toPublicUrl($videoUrl);
 
         if (empty($aiSummary)) {
             $aiSummary = "Produk {$product->name} merupakan salah satu perlengkapan unggulan EIGER yang menggabungkan durabilitas tangguh dan fungsionalitas tinggi untuk kenyamanan eksplorasi harian maupun petualangan teknis.";

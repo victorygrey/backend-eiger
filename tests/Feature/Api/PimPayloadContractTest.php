@@ -50,6 +50,10 @@ class PimPayloadContractTest extends TestCase
                 'image' => 'https://storage.eigeradventure.com/technology.jpg',
             ]],
             'activity' => [['name' => 'Hiking', 'rating' => '4']],
+            'performance' => [[
+                'id' => 'PERF-1', 'name' => 'Grip', 'description' => 'Cengkeraman optimal',
+                'selected' => '3', 'rating' => '5', 'desc_rating' => 'Sangat baik',
+            ]],
             'specification' => [['code' => 'PRODUCT_WEIGHT', 'value' => '725']]],
             'image' => ['generic' => [[
                 'sku' => 'P1',
@@ -98,6 +102,8 @@ class PimPayloadContractTest extends TestCase
         $this->get(route('admin.products.edit', $parent))->assertOk()
             ->assertSee('1 Foto Tersedia')
             ->assertSee(url($this->storedMediaUrl()), false)
+            ->assertSee('Performa Produk (Performance)')
+            ->assertSee('Grip')
             ->assertSee('data-pim-extra-media="image"', false)
             ->assertSee('src="'.$this->storedMediaUrl().'"', false)
             ->assertSee('title="Buka ukuran penuh"', false);
@@ -121,10 +127,12 @@ class PimPayloadContractTest extends TestCase
         $this->assertDatabaseHas('product_custom_attributes', ['product_id' => $parent->id, 'attribute_code' => 'long_description', 'value' => 'Real description']);
         $this->assertDatabaseHas('product_technologies', ['product_id' => $parent->id, 'pim_id' => 'T1', 'name' => 'Technology from PIM']);
         $this->assertDatabaseHas('product_activities', ['product_id' => $parent->id, 'name' => 'Hiking', 'rating' => 4]);
+        $this->assertDatabaseHas('product_performances', ['product_id' => $parent->id, 'name' => 'Grip', 'rating' => 5, 'is_selected' => true]);
         $this->assertDatabaseHas('product_specifications', ['product_id' => $parent->id, 'code' => 'PRODUCT_WEIGHT', 'value' => '725']);
         $this->assertDatabaseHas('product_media', ['product_id' => $parent->id, 'role' => 'main_image']);
         $this->assertDatabaseHas('product_variant_attributes', ['product_variant_id' => $variant->id, 'attribute_code' => 'lining', 'value' => 'Mesh']);
         $this->assertSame('Technology from PIM', $parent->fresh()->technologies[0]['name']);
+        $this->assertSame('Grip', $parent->fresh()->performances[0]['name']);
     }
 
     public function test_blank_activity_attribute_gets_stable_dummy_and_real_value_is_preserved(): void

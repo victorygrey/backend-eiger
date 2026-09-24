@@ -132,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
             section('Spesifikasi Teknis', product.specifications);
             section('Custom Attributes', product.custom_attributes);
             section('Aktivitas', product.activities);
+            section('Performance', product.performances);
             section('Varian', product.variants);
             empty.classList.add('d-none'); detail.classList.remove('d-none');
         } catch (error) {

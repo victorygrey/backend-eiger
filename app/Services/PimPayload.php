@@ -32,6 +32,7 @@ class PimPayload
             'product.media.*.files.*.value' => 'required|url|max:8192',
             'product.technology' => 'sometimes|array',
             'product.activity' => 'sometimes|array',
+            'product.performance' => 'sometimes|array',
             'product.specification' => 'sometimes|array',
             'image' => 'present|array',
         ];

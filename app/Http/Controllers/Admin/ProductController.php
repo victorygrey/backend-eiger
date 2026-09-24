@@ -83,6 +83,7 @@ class ProductController extends Controller
             'material' => $product->material,
             'technologies' => $product->technologies,
             'activities' => $product->activities,
+            'performances' => $product->performances,
             'specifications' => $product->specifications,
             'custom_attributes' => $product->custom_attributes_list,
             'weight' => $product->weight,

@@ -332,6 +332,10 @@ class FitAndGoApiController extends Controller
                     ->orWhereHas('activitiesRelation', fn ($activities) => $activities
                         ->where('name', 'like', "%{$q}%")
                         ->orWhere('description', 'like', "%{$q}%"))
+                    ->orWhereHas('performancesRelation', fn ($performances) => $performances
+                        ->where('name', 'like', "%{$q}%")
+                        ->orWhere('description', 'like', "%{$q}%")
+                        ->orWhere('rating_description', 'like', "%{$q}%"))
                     ->orWhereHas('specificationsRelation', fn ($specifications) => $specifications
                         ->where('code', 'like', "%{$q}%")
                         ->orWhere('name', 'like', "%{$q}%")

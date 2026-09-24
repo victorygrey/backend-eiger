@@ -121,7 +121,7 @@ class LedAmbienceApiTest extends TestCase
         $response->assertJsonPath('data.activity.name', 'Mountaineering');
         $response->assertJsonPath('data.video_path', 'https://example.com/mountain.mp4');
         $response->assertJsonPath('data.product.variants.0.image', url('/api/pim-media/parka-cover.jpg'));
-        $response->assertJsonStructure(['data' => ['product' => ['variants', 'media', 'technologies', 'activities', 'specifications', 'custom_attributes']]]);
+        $response->assertJsonStructure(['data' => ['product' => ['variants', 'media', 'technologies', 'activities', 'performances', 'specifications', 'custom_attributes', 'data_sources']]]);
 
         $item->refresh();
         $this->assertNotNull($item->last_scanned_at);

@@ -43,14 +43,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const techContainer = el('pim-tech-container');
         const actContainer = el('pim-activity-container');
+        const performanceContainer = el('pim-performance-container');
         const specContainer = el('pim-spec-container');
         const attrContainer = el('pim-attr-container');
         const mediaContainer = el('pim-extra-media');
         const variantContainer = el('pim-variant-data');
 
-        if (!p || (!p.technology?.length && !p.activity?.length && !p.specification?.length && !p.customAtributes?.length && !p.media?.length && !p.variant?.length)) {
+        if (!p || (!p.technology?.length && !p.activity?.length && !p.performance?.length && !p.specification?.length && !p.customAtributes?.length && !p.media?.length && !p.variant?.length)) {
             card.classList.add('d-none');
             return;
+        }
+
+        if (performanceContainer) {
+            const performances = p.performance || [];
+            performanceContainer.innerHTML = performances.length ? performances.map(item => `
+                <div class="p-2 border rounded-2 bg-light bg-opacity-50">
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                        <span class="fw-semibold small text-dark">${escapeHtml(item.name || 'Performance')}</span>
+                        ${item.rating !== undefined && item.rating !== null ? `<span class="badge bg-warning text-dark">${escapeHtml(String(item.rating))} / 5</span>` : ''}
+                    </div>
+                    ${item.desc_rating ? `<div class="small fw-semibold text-warning-emphasis">${escapeHtml(plainText(item.desc_rating))}</div>` : ''}
+                    ${item.description ? `<div class="small text-muted">${escapeHtml(plainText(item.description))}</div>` : ''}
+                </div>
+            `).join('') : '<span class="text-muted small fst-italic">Belum ada data performa.</span>';
         }
 
         card.classList.remove('d-none');
