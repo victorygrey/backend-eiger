@@ -65,8 +65,10 @@ class DeviceProductPayload
             ->values();
 
         $primaryImage = PimMediaUrl::toPublicUrl($product->image);
-        if ($primaryImage && ! $media->contains('url', $primaryImage)) {
-            $media->prepend(['type' => 'image', 'role' => 'main_image', 'url' => $primaryImage]);
+        if ($primaryImage) {
+            // The cover has one canonical location in `image`; `media` only
+            // contains supplemental assets so clients never receive the URL twice.
+            $media = $media->reject(fn (array $item): bool => ($item['url'] ?? null) === $primaryImage)->values();
         }
 
         $variants = $product->variants->map(fn ($variant): array => [
@@ -126,8 +128,6 @@ class DeviceProductPayload
             'image' => $primaryImage,
             'media' => $media->all(),
             'variants' => $variants->all(),
-            'available_sizes' => $variants->pluck('size')->filter()->unique()->values()->all(),
-            'available_colors' => $variants->pluck('color')->filter()->unique()->values()->all(),
             'technologies' => $technologies,
             'activities' => $activities,
             'performances' => $performances,

@@ -298,7 +298,9 @@ class FitAndGoApiTest extends TestCase
         $this->getJson('/api/v1/fit-and-go/products/'.$product->id)
             ->assertOk()
             ->assertJsonPath('data.name', 'Expedition Shell')
-            ->assertJsonPath('data.available_sizes.0', 'M')
-            ->assertJsonPath('data.available_colors.0', 'Black');
+            ->assertJsonPath('data.variants.0.size', 'M')
+            ->assertJsonPath('data.variants.0.color', 'Black')
+            ->assertJsonMissingPath('data.available_sizes')
+            ->assertJsonMissingPath('data.available_colors');
     }
 }

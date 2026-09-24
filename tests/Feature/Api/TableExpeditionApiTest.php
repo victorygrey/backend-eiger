@@ -122,8 +122,8 @@ class TableExpeditionApiTest extends TestCase
         $response->assertJsonMissingPath('data.features');
         $response->assertJsonMissingPath('data.technical_details');
         $response->assertJsonMissingPath('data.variants');
-        $this->assertContains('M', $response->json('data.product.available_sizes'));
-        $this->assertContains('Olive', $response->json('data.product.available_colors'));
+        $this->assertContains('M', collect($response->json('data.product.variants'))->pluck('size')->all());
+        $this->assertContains('Olive', collect($response->json('data.product.variants'))->pluck('color')->all());
         $this->assertContains('SKU-RHINOS-45-OLV-M', collect($response->json('data.product.variants'))->pluck('sku')->all());
         $this->assertSame(url('/api/pim-media/rhinos-cover.jpg'), $response->json('data.product.variants.0.image'));
         $this->assertSame('Airflow', $response->json('data.product.technologies.0.name'));
