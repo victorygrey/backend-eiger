@@ -11,6 +11,7 @@ services:
     environment:
       EIGER_MEDIA_PATH: /var/www/html/storage/app/eiger-media
       PIM_LEGACY_MEDIA_PATH: /var/www/html/storage/app/pim-media
+      PIM_ALLOW_STATIC_INBOUND_TOKEN: "true"
     volumes:
       - type: bind
         source: /mnt/Tank/eiger-backend/data

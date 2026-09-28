@@ -15,5 +15,7 @@ return [
     'url' => env('PIM_SIMULATOR_URL', 'http://127.0.0.1:8001'),
     'timeout' => (int) env('PIM_TIMEOUT', 10),
     'inbound_token' => env('PIM_INBOUND_TOKEN'),
-    'allow_static_inbound_token' => env('PIM_ALLOW_STATIC_INBOUND_TOKEN', false),
+    // The EIGER staging integration uses one long-lived token until go-live.
+    // Authentication still fails closed when PIM_INBOUND_TOKEN is empty.
+    'allow_static_inbound_token' => env('PIM_ALLOW_STATIC_INBOUND_TOKEN', true),
 ];
