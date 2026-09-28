@@ -47,8 +47,9 @@ class PimInboundTokenService
         }
 
         $static = config('pim.inbound_token');
-        if ((bool) config('pim.allow_static_inbound_token')
-            && is_string($static) && $static !== '' && hash_equals($static, $plain)) {
+        // A configured inbound token is the staging integration credential.
+        // Leaving PIM_INBOUND_TOKEN empty disables this path completely.
+        if (is_string($static) && $static !== '' && hash_equals($static, $plain)) {
             return true;
         }
 

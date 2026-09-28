@@ -55,7 +55,8 @@ class PimTemporaryTokenTest extends TestCase
         $token = 'pim_static-token-for-eiger';
         config([
             'pim.inbound_token' => $token,
-            'pim.allow_static_inbound_token' => true,
+            // A stale legacy flag must no longer disable a configured static token.
+            'pim.allow_static_inbound_token' => false,
         ]);
 
         $service = app(PimInboundTokenService::class);
