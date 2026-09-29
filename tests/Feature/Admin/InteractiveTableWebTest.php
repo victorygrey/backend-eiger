@@ -39,7 +39,7 @@ class InteractiveTableWebTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Interactive Table &amp; Display', false);
         $response->assertSee('Meja Ekspedisi 01');
-        $response->assertSee('/tablet/meja-01');
+        $response->assertSee('ID internal: meja-01');
         $response->assertSee('EIGER Streamline Daypack');
         $response->assertSee('2 produk');
         $response->assertSee('Online');
