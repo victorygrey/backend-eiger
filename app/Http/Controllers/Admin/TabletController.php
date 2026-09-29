@@ -31,9 +31,11 @@ class TabletController extends Controller
     public function store(StoreTabletRequest $request)
     {
         $tablet = DB::transaction(function () use ($request) {
+            $activationCode = Tablet::normalizeActivationCode((string) $request->string('activation_code'));
             $tablet = Tablet::create([
                 ...$request->safe()->except(['recommendation_ids', 'activation_code', 'is_active']),
-                'activation_code_hash' => Hash::make((string) $request->string('activation_code')),
+                'activation_code_hash' => Hash::make($activationCode),
+                'activation_code_lookup_hash' => Tablet::activationCodeLookupHash($activationCode),
                 'is_active' => $request->boolean('is_active'),
             ]);
 
@@ -66,7 +68,9 @@ class TabletController extends Controller
             ]);
 
             if ($request->filled('activation_code')) {
-                $tablet->activation_code_hash = Hash::make((string) $request->string('activation_code'));
+                $activationCode = Tablet::normalizeActivationCode((string) $request->string('activation_code'));
+                $tablet->activation_code_hash = Hash::make($activationCode);
+                $tablet->activation_code_lookup_hash = Tablet::activationCodeLookupHash($activationCode);
                 $tablet->device_token_hash = null;
             }
 

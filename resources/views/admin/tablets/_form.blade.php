@@ -28,12 +28,10 @@
                         @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-5">
-                        <label class="form-label fw-semibold">Slug URL / Device Identifier <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light text-muted small">/tablet/</span>
-                            <input type="text" id="tablet-slug" name="slug" class="form-control font-monospace @error('slug') is-invalid @enderror"
-                                   value="{{ old('slug', $tablet->slug ?? '') }}" placeholder="meja-01" required>
-                        </div>
+                        <label class="form-label fw-semibold">Identifier Internal <span class="text-danger">*</span></label>
+                        <input type="text" id="tablet-slug" name="slug" class="form-control font-monospace @error('slug') is-invalid @enderror"
+                               value="{{ old('slug', $tablet->slug ?? '') }}" placeholder="meja-01" required>
+                        <div class="form-text">Digunakan oleh sistem internal; perangkat melakukan pairing menggunakan kode aktivasi.</div>
                         @error('slug')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-12">
@@ -271,7 +269,7 @@
                         <dt class="col-6 text-muted">Terakhir Online:</dt>
                         <dd class="col-6">{{ $tablet->last_seen_at?->diffForHumans() ?? 'Belum terhubung' }}</dd>
 
-                        <dt class="col-6 text-muted">API Endpoint:</dt>
+                        <dt class="col-6 text-muted">Internal API:</dt>
                         <dd class="col-6 font-monospace small">/api/tablets/{{ $tablet->slug }}/display</dd>
                     </dl>
                 @endisset

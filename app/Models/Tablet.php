@@ -22,6 +22,7 @@ class Tablet extends Model
         'location',
         'featured_product_id',
         'activation_code_hash',
+        'activation_code_lookup_hash',
         'device_token_hash',
         'config_version',
         'last_seen_at',
@@ -31,6 +32,7 @@ class Tablet extends Model
 
     protected $hidden = [
         'activation_code_hash',
+        'activation_code_lookup_hash',
         'device_token_hash',
     ];
 
@@ -61,5 +63,15 @@ class Tablet extends Model
     public function incrementConfigVersion(): void
     {
         $this->forceFill(['config_version' => $this->config_version + 1])->save();
+    }
+
+    public static function normalizeActivationCode(string $code): string
+    {
+        return strtoupper(trim($code));
+    }
+
+    public static function activationCodeLookupHash(string $code): string
+    {
+        return hash_hmac('sha256', self::normalizeActivationCode($code), (string) config('app.key'));
     }
 }

@@ -73,7 +73,7 @@ Konfigurasi tablet dikelola dari `/admin/tablets`. Setiap perangkat memiliki sat
 # Aktivasi satu kali pada perangkat
 curl -X POST "http://127.0.0.1:8000/api/tablets/activate" \
   -H "Accept: application/json" -H "Content-Type: application/json" \
-  -d '{"slug":"lobby-01","activation_code":"LOBBY-01"}'
+  -d '{"activation_code":"LOBBY-01"}'
 
 # Ambil konfigurasi (ganti TOKEN dari respons aktivasi)
 curl "http://127.0.0.1:8000/api/tablets/lobby-01/display" \

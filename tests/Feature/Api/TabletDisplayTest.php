@@ -41,9 +41,10 @@ class TabletDisplayTest extends TestCase
         $tablet->recommendations()->attach($recommendation->id, ['sort_order' => 0]);
 
         $token = $this->postJson('/api/tablets/activate', [
-            'slug' => 'lobby-01',
             'activation_code' => 'LOBBY-01',
         ])->assertOk()->json('token');
+
+        $this->assertNotNull($tablet->fresh()->activation_code_lookup_hash);
 
         $this->withToken($token)
             ->getJson('/api/tablets/lobby-01/display')
