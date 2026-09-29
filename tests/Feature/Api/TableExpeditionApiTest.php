@@ -128,6 +128,8 @@ class TableExpeditionApiTest extends TestCase
         $this->assertSame(url('/api/pim-media/rhinos-cover.jpg'), $response->json('data.product.variants.0.image'));
         $this->assertSame('Airflow', $response->json('data.product.technologies.0.name'));
         $this->assertSame('Load Stability', $response->json('data.product.performances.0.name'));
+        $this->assertSame(3, $response->json('data.product.performances.0.selected'));
+        $this->assertSame(4, $response->json('data.product.performances.0.rating'));
         $this->assertSame('waterproof', $response->json('data.product.custom_attributes.0.attributeCode'));
         $this->assertCount(1, $response->json('data.similar_products'));
         $this->assertEquals('EIGER Equator Tarp', $response->json('data.similar_products.0.name'));

@@ -288,6 +288,8 @@ class FitAndGoApiTest extends TestCase
             ->assertJsonPath('data.0.currency', 'IDR')
             ->assertJsonPath('data.0.technologies.0.name', 'Storm Shield')
             ->assertJsonPath('data.0.performances.0.name', 'Weather Protection')
+            ->assertJsonPath('data.0.performances.0.selected', 3)
+            ->assertJsonPath('data.0.performances.0.rating', 5)
             ->assertJsonMissingPath('data.0.performance')
             ->assertJsonMissingPath('data.0.pricing')
             ->assertJsonMissingPath('data.0.image_url')

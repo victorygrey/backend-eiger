@@ -62,13 +62,23 @@
                         <div id="pim-activity-container" class="d-flex flex-column gap-2">
                             @if(isset($product) && !empty($product->activities))
                                 @foreach($product->activities as $act)
+                                    @php
+                                        $selectedRating = $act['selected'] ?? null;
+                                        $maximumRating = $act['rating'] ?? null;
+                                        $hasRatingScore = is_numeric($selectedRating) && !is_bool($selectedRating)
+                                            && is_numeric($maximumRating) && (float) $maximumRating > 0;
+                                        $formatRating = static fn ($value) => rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
+                                    @endphp
                                     <div class="p-2 border rounded-2 bg-light bg-opacity-50">
                                         <div class="d-flex align-items-center justify-content-between">
                                             <span class="fw-semibold small text-dark">{{ $act['name'] ?? 'Aktivitas' }}</span>
-                                            @if(isset($act['rating']) && $act['rating'] > 0)
-                                                <span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>{{ $plainPimText($act['desc_rating'] ?? ($act['rating'] . '/5')) }}</span>
+                                            @if($hasRatingScore)
+                                                <span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>{{ $formatRating($selectedRating) }} / {{ $formatRating($maximumRating) }}</span>
                                             @endif
                                         </div>
+                                        @if(!empty($act['desc_rating']))
+                                            <div class="small fw-semibold text-warning-emphasis">{{ $plainPimText($act['desc_rating']) }}</div>
+                                        @endif
                                         <div class="small text-muted">{{ $plainPimText($act['description'] ?? '') }}</div>
                                     </div>
                                 @endforeach
@@ -83,11 +93,18 @@
                         <div id="pim-performance-container" class="d-flex flex-column gap-2">
                             @if(isset($product) && !empty($product->performances))
                                 @foreach($product->performances as $performance)
+                                    @php
+                                        $selectedRating = $performance['selected'] ?? null;
+                                        $maximumRating = $performance['rating'] ?? null;
+                                        $hasRatingScore = is_numeric($selectedRating) && !is_bool($selectedRating)
+                                            && is_numeric($maximumRating) && (float) $maximumRating > 0;
+                                        $formatRating = static fn ($value) => rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
+                                    @endphp
                                     <div class="p-2 border rounded-2 bg-light bg-opacity-50">
                                         <div class="d-flex align-items-center justify-content-between gap-2">
                                             <span class="fw-semibold small text-dark">{{ $performance['name'] ?? 'Performance' }}</span>
-                                            @if(isset($performance['rating']))
-                                                <span class="badge bg-warning text-dark">{{ rtrim(rtrim(number_format((float) $performance['rating'], 2, '.', ''), '0'), '.') }} / 5</span>
+                                            @if($hasRatingScore)
+                                                <span class="badge bg-warning text-dark">{{ $formatRating($selectedRating) }} / {{ $formatRating($maximumRating) }}</span>
                                             @endif
                                         </div>
                                         @if(!empty($performance['desc_rating']))

@@ -94,6 +94,7 @@ class PimProductDataStore
                     'atom_product_activity_id' => $master?->id,
                     'description' => $row['description'] ?? $master?->description,
                     'is_selected' => $this->selected($row['selected'] ?? false),
+                    'selected_rating' => $this->selectedRating($row['selected'] ?? null),
                     'rating' => is_numeric($row['rating'] ?? null) ? $row['rating'] : null,
                     'rating_description' => $row['desc_rating'] ?? $row['rating_desc'] ?? $master?->rating_description,
                     'sort_order' => $position,
@@ -129,6 +130,7 @@ class PimProductDataStore
                     'name' => $name,
                     'description' => $row['description'] ?? null,
                     'is_selected' => $this->selected($row['selected'] ?? false),
+                    'selected_rating' => $this->selectedRating($row['selected'] ?? null),
                     'rating' => is_numeric($row['rating'] ?? null) ? $row['rating'] : null,
                     'rating_description' => $row['desc_rating'] ?? $row['rating_desc'] ?? null,
                     'sort_order' => $position,
@@ -251,5 +253,10 @@ class PimProductDataStore
         }
 
         return filter_var($value, FILTER_VALIDATE_BOOL);
+    }
+
+    private function selectedRating(mixed $value): float|int|null
+    {
+        return is_numeric($value) ? (float) $value : null;
     }
 }

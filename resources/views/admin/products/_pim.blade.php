@@ -37,6 +37,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const spinner = el('auto-fetch-spinner');
     const feedback = el('pim-feedback');
 
+    function ratingScore(item) {
+        const selected = item?.selected;
+        const maximum = item?.rating;
+        const numericSelected = typeof selected !== 'boolean' && selected !== '' && Number.isFinite(Number(selected));
+        const numericMaximum = maximum !== '' && Number.isFinite(Number(maximum)) && Number(maximum) > 0;
+        if (!numericSelected || !numericMaximum) return null;
+
+        const format = value => Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 });
+        return `${format(selected)} / ${format(maximum)}`;
+    }
+
     function renderPimEnrichment(p) {
         const card = el('pim-enrichment-card');
         if (!card) return;
@@ -60,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="p-2 border rounded-2 bg-light bg-opacity-50">
                     <div class="d-flex align-items-center justify-content-between gap-2">
                         <span class="fw-semibold small text-dark">${escapeHtml(item.name || 'Performance')}</span>
-                        ${item.rating !== undefined && item.rating !== null ? `<span class="badge bg-warning text-dark">${escapeHtml(String(item.rating))} / 5</span>` : ''}
+                        ${ratingScore(item) ? `<span class="badge bg-warning text-dark">${escapeHtml(ratingScore(item))}</span>` : ''}
                     </div>
                     ${item.desc_rating ? `<div class="small fw-semibold text-warning-emphasis">${escapeHtml(plainText(item.desc_rating))}</div>` : ''}
                     ${item.description ? `<div class="small text-muted">${escapeHtml(plainText(item.description))}</div>` : ''}
@@ -98,8 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="p-2 border rounded-2 bg-light bg-opacity-50">
                         <div class="d-flex align-items-center justify-content-between">
                             <span class="fw-semibold small text-dark">${escapeHtml(a.name || 'Aktivitas')}</span>
-                            ${a.rating ? `<span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>${escapeHtml(plainText(a.desc_rating || (a.rating + '/5')))}</span>` : ''}
+                            ${ratingScore(a) ? `<span class="badge bg-warning text-dark"><i class="bi bi-star-fill text-warning me-1"></i>${escapeHtml(ratingScore(a))}</span>` : ''}
                         </div>
+                        ${a.desc_rating ? `<div class="small fw-semibold text-warning-emphasis">${escapeHtml(plainText(a.desc_rating))}</div>` : ''}
                         <div class="small text-muted">${escapeHtml(plainText(a.description || ''))}</div>
                     </div>
                 `).join('');

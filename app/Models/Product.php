@@ -114,7 +114,8 @@ class Product extends Model
     {
         return $this->activitiesRelation->map(fn (ProductActivity $item) => array_filter([
             'id' => $item->pim_id, 'name' => $item->name, 'description' => $item->description,
-            'selected' => $item->is_selected, 'rating' => $item->rating,
+            'selected' => $item->selected_rating === null ? $item->is_selected : (float) $item->selected_rating,
+            'rating' => $item->rating === null ? null : (float) $item->rating,
             'desc_rating' => $item->rating_description,
             'master_code' => $item->atomActivity?->external_id,
             'master_activity' => $item->atomActivity ? [
@@ -141,7 +142,7 @@ class Product extends Model
             'id' => $item->pim_id,
             'name' => $item->name,
             'description' => $item->description,
-            'selected' => $item->is_selected,
+            'selected' => $item->selected_rating === null ? $item->is_selected : (float) $item->selected_rating,
             'rating' => $item->rating === null ? null : (float) $item->rating,
             'desc_rating' => $item->rating_description,
         ], fn ($value) => $value !== null))->values()->all();
