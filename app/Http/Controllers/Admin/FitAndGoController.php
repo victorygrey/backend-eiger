@@ -96,9 +96,13 @@ class FitAndGoController extends Controller
             : [];
         $selectionMode = $selectedDevice?->product_selection_mode ?? 'selected';
         $latestProductIds = $aiProducts->take(30)->pluck('id')->all();
+        $activeSelectedProductIds = array_values(array_intersect(
+            $selectedProductIds,
+            $aiProducts->pluck('id')->all()
+        ));
         $configuredProductCount = $selectionMode === 'latest'
             ? count($latestProductIds)
-            : count($selectedProductIds);
+            : count($activeSelectedProductIds);
 
         return view('admin.fit-and-go.index', [
             'currentTab' => $currentTab,

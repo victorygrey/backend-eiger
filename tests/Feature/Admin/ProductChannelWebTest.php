@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ProductChannelWebTest extends TestCase
@@ -142,5 +143,62 @@ class ProductChannelWebTest extends TestCase
             ->assertOk()
             ->assertSee('TABLET ACTIVE')
             ->assertDontSee('AI ACTIVE');
+    }
+
+    public function test_existing_device_mappings_are_backfilled_into_channel_statuses(): void
+    {
+        $aiProduct = Product::factory()->create([
+            'ai_fit_and_go_active' => false,
+            'interactive_tablet_active' => false,
+        ]);
+        $tabletFeatured = Product::factory()->create([
+            'ai_fit_and_go_active' => false,
+            'interactive_tablet_active' => false,
+        ]);
+        $tabletRecommendation = Product::factory()->create([
+            'ai_fit_and_go_active' => false,
+            'interactive_tablet_active' => false,
+        ]);
+
+        $deviceId = DB::table('fit_and_go_devices')->insertGetId([
+            'name' => 'Legacy Kiosk',
+            'device_code' => 'legacy-kiosk',
+            'status' => 'offline',
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('fit_and_go_item_visibilities')->insert([
+            'device_id' => $deviceId,
+            'product_id' => $aiProduct->id,
+            'category_code' => 'top',
+            'is_visible' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $tabletId = DB::table('tablets')->insertGetId([
+            'name' => 'Legacy Tablet',
+            'slug' => 'legacy-tablet',
+            'featured_product_id' => $tabletFeatured->id,
+            'activation_code_hash' => bcrypt('TABLET-01'),
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('tablet_recommendations')->insert([
+            'tablet_id' => $tabletId,
+            'product_id' => $tabletRecommendation->id,
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $migration = require database_path('migrations/2026_09_30_020000_backfill_device_product_channel_statuses.php');
+        $migration->up();
+
+        $this->assertTrue($aiProduct->fresh()->ai_fit_and_go_active);
+        $this->assertTrue($tabletFeatured->fresh()->interactive_tablet_active);
+        $this->assertTrue($tabletRecommendation->fresh()->interactive_tablet_active);
     }
 }
