@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\MasterDataAttributeTranslator;
 use App\Support\PimMediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -33,7 +34,7 @@ class ProductResource extends JsonResource
             'activities'      => $this->activities,
             'performances'    => $this->performances,
             'specifications'  => $this->specifications,
-            'custom_attributes' => $this->custom_attributes_list,
+            'custom_attributes' => app(MasterDataAttributeTranslator::class)->translate($this->custom_attributes_list),
             'data_sources'     => [
                 'product' => 'PIM',
                 'commercial' => 'CARE',
