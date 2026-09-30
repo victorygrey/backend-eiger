@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Product;
+use App\Services\MasterDataAttributeTranslator;
 use Illuminate\Support\Str;
 
 class DeviceProductPayload
@@ -71,6 +72,8 @@ class DeviceProductPayload
             $media = $media->reject(fn (array $item): bool => ($item['url'] ?? null) === $primaryImage)->values();
         }
 
+        $attributeTranslator = app(MasterDataAttributeTranslator::class);
+
         $variants = $product->variants->map(fn ($variant): array => [
             'id' => $variant->id,
             'sku' => $variant->sku,
@@ -85,14 +88,14 @@ class DeviceProductPayload
             'image' => PimMediaUrl::toPublicUrl($variant->image) ?? $primaryImage,
             'ecmsku' => $variant->ecmsku,
             'moq' => $variant->moq,
-            'custom_attributes' => $variant->custom_attributes,
+            'custom_attributes' => $attributeTranslator->translate($variant->custom_attributes),
         ])->values();
 
         $technologies = $product->technologies;
         $activities = $product->activities;
         $performances = $product->performances;
         $specifications = $product->specifications;
-        $customAttributes = $product->custom_attributes_list;
+        $customAttributes = $attributeTranslator->translate($product->custom_attributes_list);
 
         return [
             'id' => $product->id,

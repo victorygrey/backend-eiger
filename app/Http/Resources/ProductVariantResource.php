@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\MasterDataAttributeTranslator;
 use App\Support\PimMediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -24,7 +25,7 @@ class ProductVariantResource extends JsonResource
             'size'       => $this->size,
             'ecmsku'     => $this->ecmsku,
             'moq'        => $this->moq,
-            'custom_attributes' => $this->custom_attributes ?? [],
+            'custom_attributes' => app(MasterDataAttributeTranslator::class)->translate($this->custom_attributes ?? []),
             'price'      => $this->price,
             'stock'      => $this->stock,
             'image'      => PimMediaUrl::toPublicUrl($this->image),

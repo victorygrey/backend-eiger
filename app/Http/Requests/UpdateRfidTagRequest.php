@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\RfidTag;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,7 @@ class UpdateRfidTagRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -22,8 +23,9 @@ class UpdateRfidTagRequest extends FormRequest
         $tagId = $routeTag instanceof RfidTag ? $routeTag->id : $routeTag;
 
         return [
-            'uid'        => ['sometimes', 'required', 'string', 'max:100', 'regex:/\A[0-9A-Fa-f]+\z/', Rule::unique('rfid_tags', 'uid')->ignore($tagId)],
-            'name'       => ['nullable', 'string', 'max:255'],
+            'uid' => ['sometimes', 'required', 'string', 'max:100', 'regex:/\A[0-9A-Fa-f]+\z/', Rule::unique('rfid_tags', 'uid')->ignore($tagId)],
+            'name' => ['nullable', 'string', 'max:255'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
         ];
     }
 

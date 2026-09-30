@@ -99,6 +99,7 @@ class LedAmbienceApiController extends Controller
                 DeviceProductPayload::relations()
             ))->where('uid', $rfidTag)->first();
             if ($generalTag && $generalTag->product) {
+                $generalTag->update(['last_scanned_at' => now()]);
                 $product = $generalTag->product;
                 $activitySlug = collect($product->activities)
                     ->sortByDesc(fn (array $activity): bool => (bool) ($activity['selected'] ?? false))
@@ -133,6 +134,7 @@ class LedAmbienceApiController extends Controller
 
         // Update last scanned timestamp
         $item->update(['last_scanned_at' => now()]);
+        RfidTag::recordScan($rfidTag);
 
         // Resolve scene
         $scene = $item->scene;

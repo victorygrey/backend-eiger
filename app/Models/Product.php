@@ -266,6 +266,14 @@ class Product extends Model
         return $this->hasOne(RfidTag::class);
     }
 
+    /**
+     * Get every physical RFID tag mapped to this product.
+     */
+    public function rfidTags(): HasMany
+    {
+        return $this->hasMany(RfidTag::class);
+    }
+
     public function recommendedOnTablets(): BelongsToMany
     {
         return $this->belongsToMany(Tablet::class, 'tablet_recommendations')

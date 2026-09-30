@@ -6,10 +6,19 @@ use App\Models\AtomProductActivity;
 use App\Models\AtomProductActivityGroup;
 use App\Models\AtomProductCategory;
 use App\Models\AtomProductSubCategory;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class AtomMasterDataResolver
 {
+    private ?Collection $categories = null;
+
+    private ?Collection $subCategories = null;
+
+    private ?Collection $activityGroups = null;
+
+    private ?Collection $activities = null;
+
     /**
      * Translate one or more PIM codes to their canonical labels from the imported ATOM master tables.
      *
@@ -18,7 +27,9 @@ class AtomMasterDataResolver
     public function displayValues(?string $value, ?string $attributeCode = null): array
     {
         $value = trim((string) $value);
-        if ($value === '') return [];
+        if ($value === '') {
+            return [];
+        }
 
         $decoded = json_decode($value, true);
         $tokens = is_array($decoded)
@@ -37,12 +48,12 @@ class AtomMasterDataResolver
 
         $sets = [];
         if (! str_contains($attributeCode, 'activit')) {
-            $sets[] = ['type' => 'Category', 'items' => AtomProductCategory::query()->get(), 'parent' => fn () => null];
-            $sets[] = ['type' => 'Subcategory', 'items' => AtomProductSubCategory::query()->with('category')->get(), 'parent' => fn ($item) => $item->category?->name];
+            $sets[] = ['type' => 'Category', 'items' => $this->categories(), 'parent' => fn () => null];
+            $sets[] = ['type' => 'Subcategory', 'items' => $this->subCategories(), 'parent' => fn ($item) => $item->category?->name];
         }
         if (! str_contains($attributeCode, 'categor')) {
-            $sets[] = ['type' => 'Activity Group', 'items' => AtomProductActivityGroup::query()->get(), 'parent' => fn () => null];
-            $sets[] = ['type' => 'Activity', 'items' => AtomProductActivity::query()->with('group')->get(), 'parent' => fn ($item) => $item->group?->name];
+            $sets[] = ['type' => 'Activity Group', 'items' => $this->activityGroups(), 'parent' => fn () => null];
+            $sets[] = ['type' => 'Activity', 'items' => $this->activities(), 'parent' => fn ($item) => $item->group?->name];
         }
 
         $resolved = [];
@@ -52,7 +63,9 @@ class AtomMasterDataResolver
                 $match = $set['items']->first(fn ($item) => $this->matches($needle, [
                     $item->source_id, $item->external_id, $item->name, $item->slug,
                 ]));
-                if (! $match) continue;
+                if (! $match) {
+                    continue;
+                }
                 $resolved[] = [
                     'code' => (string) $token,
                     'name' => $match->name,
@@ -71,8 +84,8 @@ class AtomMasterDataResolver
     {
         $categoryValue = trim((string) $categoryValue);
         $subCategoryValue = trim((string) $subCategoryValue);
-        $categories = AtomProductCategory::query()->get();
-        $subCategories = AtomProductSubCategory::query()->with('category')->get();
+        $categories = $this->categories();
+        $subCategories = $this->subCategories();
 
         $subCategory = null;
         foreach (array_filter([$subCategoryValue, $categoryValue]) as $value) {
@@ -80,7 +93,9 @@ class AtomMasterDataResolver
             $subCategory = $subCategories->first(fn ($item) => $this->matches($needle, [
                 $item->source_id, $item->external_id, $item->name, $item->slug,
             ]));
-            if ($subCategory) break;
+            if ($subCategory) {
+                break;
+            }
         }
 
         if ($subCategory) {
@@ -98,7 +113,9 @@ class AtomMasterDataResolver
             $category = $categories->first(fn ($item) => $this->matches($needle, [
                 $item->source_id, $item->external_id, $item->name, $item->slug,
             ]));
-            if ($category) break;
+            if ($category) {
+                break;
+            }
         }
 
         return [
@@ -119,11 +136,14 @@ class AtomMasterDataResolver
 
         foreach ($values as $value) {
             $needle = Str::lower(trim((string) $value));
-            $activity = AtomProductActivity::query()->get()->first(fn ($item) => $this->matches($needle, [
+            $activity = $this->activities()->first(fn ($item) => $this->matches($needle, [
                 $item->source_id, $item->external_id, $item->name, $item->slug,
             ]));
-            if ($activity) return $activity;
+            if ($activity) {
+                return $activity;
+            }
         }
+
         return null;
     }
 
@@ -136,15 +156,18 @@ class AtomMasterDataResolver
             $activity = $this->activity(['name' => $value]);
             if (! $activity) {
                 $needle = Str::lower($value);
-                $groups = AtomProductActivityGroup::query()->with('activities')->get()->filter(fn ($item) => $this->matches($needle, [
+                $groups = $this->activityGroups(withActivities: true)->filter(fn ($item) => $this->matches($needle, [
                     $item->source_id, $item->external_id, $item->name, $item->slug,
                 ]));
                 // Some official group external IDs are reused. Resolve a group code only
                 // when it identifies one row; ambiguous codes remain available in raw PIM data.
                 $activity = $groups->count() === 1 ? $groups->first()?->activities->first() : null;
             }
-            if ($activity) $resolved[$activity->id] = $activity;
+            if ($activity) {
+                $resolved[$activity->id] = $activity;
+            }
         }
+
         return array_values($resolved);
     }
 
@@ -152,8 +175,37 @@ class AtomMasterDataResolver
     {
         foreach ($values as $value) {
             $candidate = Str::lower(trim((string) $value));
-            if ($candidate === $needle || Str::slug($candidate) === Str::slug($needle)) return true;
+            if ($candidate === $needle || Str::slug($candidate) === Str::slug($needle)) {
+                return true;
+            }
         }
+
         return false;
+    }
+
+    private function categories(): Collection
+    {
+        return $this->categories ??= AtomProductCategory::query()->get();
+    }
+
+    private function subCategories(): Collection
+    {
+        return $this->subCategories ??= AtomProductSubCategory::query()->with('category')->get();
+    }
+
+    private function activityGroups(bool $withActivities = false): Collection
+    {
+        $this->activityGroups ??= AtomProductActivityGroup::query()->get();
+
+        if ($withActivities) {
+            $this->activityGroups->loadMissing('activities');
+        }
+
+        return $this->activityGroups;
+    }
+
+    private function activities(): Collection
+    {
+        return $this->activities ??= AtomProductActivity::query()->with('group')->get();
     }
 }
