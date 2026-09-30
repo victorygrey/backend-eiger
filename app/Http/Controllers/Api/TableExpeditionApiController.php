@@ -77,6 +77,7 @@ class TableExpeditionApiController extends Controller
             $similarProducts = $item->similar_products;
 
             $item->update(['last_scanned_at' => now()]);
+            RfidTag::recordScan($rfidTag);
         } else {
             // Fallback to general rfid_tags
             $generalTag = RfidTag::with(array_map(
@@ -87,6 +88,7 @@ class TableExpeditionApiController extends Controller
                 ->first();
 
             if ($generalTag && $generalTag->product) {
+                $generalTag->update(['last_scanned_at' => now()]);
                 $product = $generalTag->product;
             }
         }

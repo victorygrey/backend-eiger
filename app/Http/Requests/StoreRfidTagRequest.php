@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreRfidTagRequest extends FormRequest
@@ -12,14 +13,14 @@ class StoreRfidTagRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'uid'        => ['required', 'string', 'max:100', 'regex:/\A[0-9A-Fa-f]+\z/', 'unique:rfid_tags,uid'],
-            'name'       => ['nullable', 'string', 'max:255'],
-            'product_id' => ['nullable', 'integer', 'exists:products,id', 'unique:rfid_tags,product_id'],
+            'uid' => ['required', 'string', 'max:100', 'regex:/\A[0-9A-Fa-f]+\z/', 'unique:rfid_tags,uid'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
         ];
     }
 

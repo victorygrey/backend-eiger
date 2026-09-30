@@ -26,6 +26,11 @@ class RfidTag extends Model
         'uid',
         'name',
         'product_id',
+        'last_scanned_at',
+    ];
+
+    protected $casts = [
+        'last_scanned_at' => 'datetime',
     ];
 
     /**
@@ -34,5 +39,17 @@ class RfidTag extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public static function canonicalUid(string $uid): string
+    {
+        return strtoupper(str_replace(['-', ':', ' '], '', trim($uid)));
+    }
+
+    public static function recordScan(string $uid): void
+    {
+        static::query()
+            ->where('uid', static::canonicalUid($uid))
+            ->update(['last_scanned_at' => now()]);
     }
 }

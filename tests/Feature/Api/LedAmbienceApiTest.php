@@ -6,6 +6,7 @@ use App\Models\LedAmbienceItem;
 use App\Models\LedAmbienceScene;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\RfidTag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -95,6 +96,10 @@ class LedAmbienceApiTest extends TestCase
             'activity_slug' => 'mountaineering',
             'is_active' => true,
         ]);
+        $masterTag = RfidTag::create([
+            'uid' => 'E28011606000020468900111',
+            'product_id' => $product->id,
+        ]);
 
         $response = $this->postJson('/api/v1/led-ambience/trigger', [
             'rfid_tag' => 'E28011606000020468900111',
@@ -126,6 +131,7 @@ class LedAmbienceApiTest extends TestCase
 
         $item->refresh();
         $this->assertNotNull($item->last_scanned_at);
+        $this->assertNotNull($masterTag->fresh()->last_scanned_at);
     }
 
     public function test_api_trigger_with_unregistered_rfid(): void

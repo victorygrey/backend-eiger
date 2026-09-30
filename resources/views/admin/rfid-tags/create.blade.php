@@ -1,56 +1,24 @@
 @extends('layouts.admin')
 
-@section('title', 'Tambah RFID Tag')
-@section('page-title', 'Tambah RFID Tag')
+@section('title', 'Daftarkan RFID Tag')
+@section('page-title', 'Daftarkan RFID Tag')
 @section('breadcrumb-items')
     <li class="breadcrumb-item"><a href="{{ route('admin.rfid-tags.index') }}" class="text-decoration-none">RFID Tags</a></li>
     <li class="breadcrumb-item active">Tambah</li>
 @endsection
 
 @section('content')
-<div class="mb-3">
-    <a href="{{ route('admin.rfid-tags.index') }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Kembali
-    </a>
-</div>
-
+<div class="mb-3"><a href="{{ route('admin.rfid-tags.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Kembali</a></div>
 <div class="card">
     <div class="card-header d-flex align-items-center">
-        <div class="p-2 rounded text-white me-2" style="background:linear-gradient(135deg,#f59e0b,#b45309)">
-            <i class="bi bi-plus-square-fill"></i>
-        </div>
-        <span>Form RFID Tag Baru</span>
+        <span class="d-inline-flex align-items-center justify-content-center rounded text-white me-2" style="width:34px;height:34px;background:linear-gradient(135deg,#f59e0b,#b45309)"><i class="bi bi-plus-square-fill"></i></span>
+        <div><div class="fw-semibold">Daftarkan RFID Baru</div><small class="text-muted">Simpan UID fisik dan hubungkan dengan SKU produk bila sudah diketahui.</small></div>
     </div>
     <div class="card-body">
         <form action="{{ route('admin.rfid-tags.store') }}" method="POST">
             @csrf
-            <div class="row g-3">
-                <div class="col-md-8">
-                    <label class="form-label fw-semibold">UID RFID <span class="text-danger">*</span></label>
-                    <input type="text" name="uid" value="{{ old('uid') }}"
-                        class="form-control font-monospace @error('uid') is-invalid @enderror"
-                        placeholder="Contoh: E280116060000204..." required autofocus>
-                    <div class="form-text text-muted">
-                        Masukkan kode UID / EPC dari tag RFID. Simbol pemisah seperti strip (<code>-</code>) atau spasi akan otomatis dibersihkan.
-                    </div>
-                    @error('uid') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-
-                <div class="col-md-8">
-                    <label class="form-label fw-semibold">Nama / Label RFID <span class="text-muted">(Opsional)</span></label>
-                    <input type="text" name="name" value="{{ old('name') }}"
-                        class="form-control @error('name') is-invalid @enderror"
-                        placeholder="Contoh: RFID Jaket Gunung Setiabudi, Tag Meja Ekspedisi 1">
-                    <div class="form-text text-muted">
-                        Beri nama atau penanda fisik untuk mempermudah identifikasi RFID ini saat dihubungkan ke LED Ambience atau Table Expedition.
-                    </div>
-                    @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-            </div>
-            <div class="mt-4 d-flex gap-2">
-                <button class="btn btn-eiger"><i class="bi bi-save me-1"></i>Simpan</button>
-                <a href="{{ route('admin.rfid-tags.index') }}" class="btn btn-outline-secondary">Batal</a>
-            </div>
+            @include('admin.rfid-tags._form-fields', ['rfidTag' => null])
+            <div class="mt-4 d-flex gap-2"><button class="btn btn-eiger"><i class="bi bi-save me-1"></i>Simpan RFID</button><a href="{{ route('admin.rfid-tags.index') }}" class="btn btn-outline-secondary">Batal</a></div>
         </form>
     </div>
 </div>

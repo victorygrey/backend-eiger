@@ -15,10 +15,12 @@ class RfidTagResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'         => $this->id,
-            'uid'        => $this->uid,
+            'id' => $this->id,
+            'uid' => $this->uid,
+            'name' => $this->name,
             'product_id' => $this->product_id,
-            'product'    => new ProductResource($this->whenLoaded('product')),
+            'product' => new ProductResource($this->whenLoaded('product')),
+            'last_scanned_at' => $this->last_scanned_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

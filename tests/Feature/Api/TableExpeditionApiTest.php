@@ -96,6 +96,10 @@ class TableExpeditionApiTest extends TestCase
             'similar_product_ids' => [$similarProduct->id],
             'is_active' => true,
         ]);
+        $masterTag = RfidTag::create([
+            'uid' => 'E28011606000020468900001',
+            'product_id' => $product->id,
+        ]);
 
         $response = $this->postJson('/api/v1/table-expedition/scan', [
             'rfid' => 'E28011606000020468900001',
@@ -136,6 +140,7 @@ class TableExpeditionApiTest extends TestCase
 
         $item->refresh();
         $this->assertNotNull($item->last_scanned_at);
+        $this->assertNotNull($masterTag->fresh()->last_scanned_at);
     }
 
     public function test_api_scan_unmapped_product_returns_fallback_if_in_rfid_tags(): void
@@ -146,7 +151,7 @@ class TableExpeditionApiTest extends TestCase
             'price' => 250000,
         ]);
 
-        RfidTag::create([
+        $masterTag = RfidTag::create([
             'uid' => 'E28011606000020468900999',
             'product_id' => $product->id,
         ]);
@@ -167,6 +172,7 @@ class TableExpeditionApiTest extends TestCase
                 ],
             ],
         ]);
+        $this->assertNotNull($masterTag->fresh()->last_scanned_at);
     }
 
     public function test_api_scan_unknown_rfid_returns_404(): void
