@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Tablet;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -28,7 +30,13 @@ class UpdateTabletRequest extends FormRequest
                 Rule::exists('products', 'id'),
                 Rule::notIn([$this->integer('featured_product_id')]),
             ],
-            'activation_code' => ['nullable', 'string', 'min:6', 'max:64'],
+            'activation_code' => ['nullable', 'string', 'min:6', 'max:64', function (string $attribute, mixed $value, Closure $fail) use ($tabletId): void {
+                if (Tablet::where('activation_code_lookup_hash', Tablet::activationCodeLookupHash((string) $value))
+                    ->where('id', '!=', $tabletId)
+                    ->exists()) {
+                    $fail('Kode aktivasi sudah digunakan oleh tablet lain.');
+                }
+            }],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

@@ -134,12 +134,7 @@
                         <tr class="tablet-row" data-name="{{ strtolower($tablet->name) }}" data-location="{{ strtolower($tablet->location ?? '') }}">
                             <td class="ps-3">
                                 <div class="fw-bold text-dark">{{ $tablet->name }}</div>
-                                <div class="small text-muted font-monospace d-flex align-items-center gap-1">
-                                    <span>/tablet/{{ $tablet->slug }}</span>
-                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted" onclick="copySlug('{{ $tablet->slug }}')" title="Salin Slug">
-                                        <i class="bi bi-clipboard"></i>
-                                    </button>
-                                </div>
+                                <div class="small text-muted font-monospace">ID internal: {{ $tablet->slug }}</div>
                                 <div class="small text-secondary mt-1">
                                     <i class="bi bi-geo-alt me-1"></i>{{ $tablet->location ?: 'Lokasi belum diatur' }}
                                 </div>
@@ -222,7 +217,7 @@
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
-                                            Apakah Anda yakin ingin menghapus konfigurasi <strong>{{ $tablet->name }}</strong> (<code>/tablet/{{ $tablet->slug }}</code>)?
+                                            Apakah Anda yakin ingin menghapus konfigurasi <strong>{{ $tablet->name }}</strong> (<code>{{ $tablet->slug }}</code>)?
                                             Tindakan ini akan memutus akses tablet tersebut ke katalog.
                                         </div>
                                         <div class="modal-footer">
@@ -265,12 +260,6 @@
         });
     });
 
-    // Copy slug
-    function copySlug(slug) {
-        navigator.clipboard.writeText(slug).then(() => {
-            alert(`Slug '${slug}' berhasil disalin ke clipboard!`);
-        });
-    }
 </script>
 @endpush
 @endsection

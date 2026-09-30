@@ -297,7 +297,7 @@
               { "key": "Accept", "value": "application/json" },
               { "key": "Content-Type", "value": "application/json" }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"slug\": \"{{tablet_slug}}\",\n  \"activation_code\": \"{{tablet_activation_code}}\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"activation_code\": \"{{tablet_activation_code}}\"\n}" },
             "url": "{{cms_url}}/api/tablets/activate",
             "description": "Jalankan sekali setelah tablet_activation_code diisi. Token perangkat otomatis disimpan oleh script Postman."
           }

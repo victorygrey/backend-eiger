@@ -16,13 +16,34 @@ class TabletDisplayController extends Controller
     public function activate(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'slug' => ['required', 'string', 'max:100'],
             'activation_code' => ['required', 'string', 'max:64'],
         ]);
 
-        $tablet = Tablet::where('slug', $validated['slug'])->where('is_active', true)->first();
+        $submittedCode = (string) $validated['activation_code'];
+        $activationCode = Tablet::normalizeActivationCode($submittedCode);
+        $lookupHash = Tablet::activationCodeLookupHash($activationCode);
+        $tablet = Tablet::where('activation_code_lookup_hash', $lookupHash)
+            ->where('is_active', true)
+            ->first();
 
-        if (! $tablet || ! Hash::check($validated['activation_code'], $tablet->activation_code_hash)) {
+        // Existing installations only have the bcrypt hash. Upgrade the matching
+        // row once, then all future activations use the indexed lookup above.
+        if (! $tablet) {
+            $tablet = Tablet::whereNull('activation_code_lookup_hash')
+                ->where('is_active', true)
+                ->get()
+                ->first(fn (Tablet $candidate): bool => Hash::check($activationCode, $candidate->activation_code_hash)
+                    || ($submittedCode !== $activationCode && Hash::check($submittedCode, $candidate->activation_code_hash)));
+
+            if ($tablet) {
+                $tablet->forceFill([
+                    'activation_code_hash' => Hash::make($activationCode),
+                    'activation_code_lookup_hash' => $lookupHash,
+                ])->save();
+            }
+        }
+
+        if (! $tablet || ! Hash::check($activationCode, $tablet->activation_code_hash)) {
             return response()->json(['message' => 'Kode aktivasi tidak valid.'], 401);
         }
 

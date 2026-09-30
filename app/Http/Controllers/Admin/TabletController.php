@@ -34,10 +34,12 @@ class TabletController extends Controller
         $this->assertProductsAreEnabledForTablet($request->integer('featured_product_id'), $request->input('recommendation_ids', []));
 
         $tablet = DB::transaction(function () use ($request) {
+            $activationCode = Tablet::normalizeActivationCode((string) $request->string('activation_code'));
             $tablet = Tablet::create([
                 ...$request->safe()->except(['recommendation_ids', 'activation_code', 'is_active']),
-                'activation_code_hash' => Hash::make((string) $request->string('activation_code')),
-                'activation_code_encrypted' => (string) $request->string('activation_code'),
+                'activation_code_hash' => Hash::make($activationCode),
+                'activation_code_lookup_hash' => Tablet::activationCodeLookupHash($activationCode),
+                'activation_code_encrypted' => $activationCode,
                 'is_active' => $request->boolean('is_active'),
             ]);
 
@@ -71,11 +73,15 @@ class TabletController extends Controller
                 'is_active' => $request->boolean('is_active'),
             ]);
 
-            if ($request->filled('activation_code')
-                && (string) $request->string('activation_code') !== $tablet->activation_code_encrypted) {
-                $tablet->activation_code_hash = Hash::make((string) $request->string('activation_code'));
-                $tablet->activation_code_encrypted = (string) $request->string('activation_code');
-                $tablet->device_token_hash = null;
+            if ($request->filled('activation_code')) {
+                $activationCode = Tablet::normalizeActivationCode((string) $request->string('activation_code'));
+
+                if ($activationCode !== $tablet->activation_code_encrypted) {
+                    $tablet->activation_code_hash = Hash::make($activationCode);
+                    $tablet->activation_code_lookup_hash = Tablet::activationCodeLookupHash($activationCode);
+                    $tablet->activation_code_encrypted = $activationCode;
+                    $tablet->device_token_hash = null;
+                }
             }
 
             $tablet->config_version++;
