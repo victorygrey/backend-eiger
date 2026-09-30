@@ -3,9 +3,9 @@
 namespace Tests\Feature\Api;
 
 use App\Models\LedAmbienceItem;
-use App\Models\LedAmbienceScene;
+use App\Models\LedAmbienceTemplate;
 use App\Models\Product;
-use App\Models\ProductVariant;
+use App\Models\ProductActivity;
 use App\Models\RfidTag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,170 +14,127 @@ class LedAmbienceApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
+    public function test_idle_and_scenes_return_fixed_global_templates(): void
     {
-        parent::setUp();
-
-        // Idle scene
-        LedAmbienceScene::create([
-            'name' => 'Idle Loop',
-            'scene_type' => 'idle',
-            'video_url' => 'https://example.com/idle.mp4',
-            'audio_url' => 'https://example.com/idle.mp3',
-            'lighting_color' => '#e8500a',
-            'sort_order' => 0,
-            'is_active' => true,
+        $idle = LedAmbienceTemplate::where('template_key', 'idle')->firstOrFail();
+        $idle->update([
+            'video_url' => '/api/pim-media/led-ambience/videos/idle/'.str_repeat('a', 64).'.mp4',
+            'audio_url' => '/api/pim-media/led-ambience/audio/idle/'.str_repeat('b', 64).'.mp3',
         ]);
 
-        // Active scene
-        LedAmbienceScene::create([
-            'name' => 'Mountaineering Extreme',
-            'scene_type' => 'active',
-            'activity_slug' => 'mountaineering',
+        $this->getJson('/api/v1/led-ambience/idle')
+            ->assertOk()
+            ->assertJsonPath('data.template_key', 'idle')
+            ->assertJsonPath('data.scene_type', 'idle')
+            ->assertJsonPath('data.video_url', url($idle->video_url));
+
+        $this->getJson('/api/v1/led-ambience/scenes')
+            ->assertOk()
+            ->assertJsonPath('count', 5)
+            ->assertJsonPath('data.1.template_key', 'mountaineering');
+    }
+
+    public function test_trigger_uses_dominant_activity_group_template(): void
+    {
+        $product = Product::factory()->create(['name' => 'EIGER Multi Activity Jacket']);
+        foreach ([
+            ['name' => 'Climbing', 'selected_rating' => 3, 'rating' => 5],
+            ['name' => 'Hiking', 'selected_rating' => 4, 'rating' => 5],
+            ['name' => 'Summit', 'selected_rating' => 5, 'rating' => 5],
+            ['name' => 'Travelling', 'selected_rating' => 5, 'rating' => 5],
+        ] as $index => $activity) {
+            ProductActivity::create($activity + [
+                'product_id' => $product->id,
+                'is_selected' => true,
+                'sort_order' => $index,
+            ]);
+        }
+
+        $uid = 'E28011606000020468900111';
+        RfidTag::create(['uid' => $uid, 'product_id' => $product->id]);
+        $item = LedAmbienceItem::create(['rfid_tag' => $uid, 'product_id' => $product->id, 'is_active' => true]);
+        $template = LedAmbienceTemplate::where('template_key', 'mountaineering')->firstOrFail();
+        $template->update([
             'video_url' => 'https://example.com/mountain.mp4',
             'audio_url' => 'https://example.com/wind.mp3',
-            'lighting_color' => '#0284c7',
-            'sort_order' => 1,
-            'is_active' => true,
         ]);
+
+        $this->postJson('/api/v1/led-ambience/trigger', ['rfid_tag' => $uid])
+            ->assertOk()
+            ->assertJsonPath('source', 'dominant_activity_template')
+            ->assertJsonPath('data.activity_group.key', 'mountaineering')
+            ->assertJsonPath('data.activity_group.votes', 3)
+            ->assertJsonPath('data.activity_group.counts.lifestyle', 1)
+            ->assertJsonPath('data.scene.template_key', 'mountaineering')
+            ->assertJsonPath('data.scene.video_url', 'https://example.com/mountain.mp4')
+            ->assertJsonPath('data.fallback_to_idle', false);
+
+        $this->assertNotNull($item->fresh()->last_scanned_at);
+        $this->assertNotNull(RfidTag::where('uid', $uid)->firstOrFail()->last_scanned_at);
     }
 
-    public function test_api_can_get_idle_scene(): void
+    public function test_tied_vote_uses_normalized_selected_rating_then_fixed_priority(): void
     {
-        $response = $this->getJson('/api/v1/led-ambience/idle');
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'data' => [
-                'name' => 'Idle Loop',
-                'scene_type' => 'idle',
-                'video_url' => 'https://example.com/idle.mp4',
-                'lighting_color' => '#e8500a',
-            ],
+        $product = Product::factory()->create();
+        ProductActivity::create([
+            'product_id' => $product->id, 'name' => 'Hiking', 'selected_rating' => 2, 'rating' => 5,
+            'is_selected' => true, 'sort_order' => 0,
         ]);
+        ProductActivity::create([
+            'product_id' => $product->id, 'name' => 'Travelling', 'selected_rating' => 5, 'rating' => 5,
+            'is_selected' => true, 'sort_order' => 1,
+        ]);
+        $uid = 'E28011606000020468900222';
+        RfidTag::create(['uid' => $uid, 'product_id' => $product->id]);
+        LedAmbienceItem::create(['rfid_tag' => $uid, 'product_id' => $product->id, 'is_active' => true]);
+
+        $this->postJson('/api/v1/led-ambience/trigger', ['rfid_tag' => $uid])
+            ->assertOk()
+            ->assertJsonPath('data.activity_group.key', 'lifestyle')
+            ->assertJsonPath('data.scene.template_key', 'lifestyle');
     }
 
-    public function test_api_can_get_scenes(): void
+    public function test_unknown_activity_falls_back_to_idle(): void
     {
-        $response = $this->getJson('/api/v1/led-ambience/scenes');
-
-        $response->assertStatus(200);
-        $response->assertJsonStructure([
-            'status',
-            'count',
-            'data' => [
-                '*' => ['id', 'name', 'scene_type', 'lighting_color', 'video_url', 'audio_url'],
-            ],
+        $product = Product::factory()->create();
+        ProductActivity::create([
+            'product_id' => $product->id, 'name' => 'Water Sports', 'is_selected' => true, 'sort_order' => 0,
         ]);
-        $response->assertJsonFragment(['name' => 'Mountaineering Extreme']);
+        $uid = 'E28011606000020468900333';
+        RfidTag::create(['uid' => $uid, 'product_id' => $product->id]);
+        LedAmbienceItem::create(['rfid_tag' => $uid, 'product_id' => $product->id, 'is_active' => true]);
+
+        $this->postJson('/api/v1/led-ambience/trigger', ['rfid_tag' => $uid])
+            ->assertOk()
+            ->assertJsonPath('data.activity_group', null)
+            ->assertJsonPath('data.fallback_to_idle', true)
+            ->assertJsonPath('data.scene.template_key', 'idle');
     }
 
-    public function test_api_trigger_with_mapped_rfid(): void
+    public function test_inactive_or_unknown_rfid_returns_404_and_item_lost_uses_idle(): void
     {
-        $product = Product::factory()->create([
-            'name' => 'EIGER Expedition Parka',
-            'image' => '/api/pim-media/parka-cover.jpg',
-            'is_discontinued' => false,
-        ]);
-        ProductVariant::create([
-            'product_id' => $product->id,
-            'sku' => 'PARKA-BLK-M',
-            'name' => 'Parka Black M',
-            'color' => 'Black',
-            'size' => 'M',
-            'price' => 899000,
-            'stock' => 4,
-        ]);
+        $product = Product::factory()->create();
+        $uid = 'E28011606000020468900444';
+        RfidTag::create(['uid' => $uid, 'product_id' => $product->id]);
+        LedAmbienceItem::create(['rfid_tag' => $uid, 'product_id' => $product->id, 'is_active' => false]);
 
-        $item = LedAmbienceItem::create([
-            'rfid_tag' => 'E28011606000020468900111',
-            'product_id' => $product->id,
-            'activity_slug' => 'mountaineering',
-            'is_active' => true,
-        ]);
-        $masterTag = RfidTag::create([
-            'uid' => 'E28011606000020468900111',
-            'product_id' => $product->id,
-        ]);
-
-        $response = $this->postJson('/api/v1/led-ambience/trigger', [
-            'rfid_tag' => 'E28011606000020468900111',
-        ]);
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'matched' => true,
-            'data' => [
-                'rfid_tag' => 'E28011606000020468900111',
-                'product' => [
-                    'id' => $product->id,
-                    'name' => 'EIGER Expedition Parka',
-                ],
-                'scene' => [
-                    'name' => 'Mountaineering Extreme',
-                    'lighting_color' => '#0284c7',
-                ],
-            ],
-        ]);
-        $response->assertJsonPath('data.activity.slug', 'mountaineering');
-        $response->assertJsonPath('data.activity.name', 'Mountaineering');
-        $response->assertJsonPath('data.scene.video_url', 'https://example.com/mountain.mp4');
-        $response->assertJsonMissingPath('data.activity_slug');
-        $response->assertJsonMissingPath('data.video_path');
-        $response->assertJsonPath('data.product.variants.0.image', url('/api/pim-media/parka-cover.jpg'));
-        $response->assertJsonStructure(['data' => ['product' => ['variants', 'media', 'technologies', 'activities', 'performances', 'specifications', 'custom_attributes', 'data_sources']]]);
-
-        $item->refresh();
-        $this->assertNotNull($item->last_scanned_at);
-        $this->assertNotNull($masterTag->fresh()->last_scanned_at);
+        $this->postJson('/api/v1/led-ambience/trigger', ['rfid_tag' => $uid])->assertNotFound();
+        $this->postJson('/api/v1/led-ambience/trigger', ['rfid_tag' => 'UNKNOWN'])->assertNotFound();
+        $this->postJson('/api/v1/led-ambience/item-lost')
+            ->assertOk()
+            ->assertJsonPath('data.scene.template_key', 'idle');
     }
 
-    public function test_api_trigger_with_unregistered_rfid(): void
+    public function test_status_reports_global_template_readiness(): void
     {
-        $response = $this->postJson('/api/v1/led-ambience/trigger', [
-            'rfid_tag' => 'UNKNOWN_TAG_9999',
-        ]);
+        LedAmbienceTemplate::where('template_key', 'riding')->update(['is_active' => false]);
+        LedAmbienceTemplate::where('template_key', 'mountaineering')->update(['video_url' => 'https://example.com/a.mp4']);
 
-        $response->assertStatus(404);
-        $response->assertJson([
-            'status' => 'not_found',
-            'matched' => false,
-        ]);
-    }
-
-    public function test_api_item_lost_returns_idle_scene(): void
-    {
-        $response = $this->postJson('/api/v1/led-ambience/item-lost');
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'event' => 'item_lost',
-            'data' => [
-                'scene' => [
-                    'name' => 'Idle Loop',
-                    'scene_type' => 'idle',
-                ],
-            ],
-        ]);
-    }
-
-    public function test_api_status(): void
-    {
-        $response = $this->getJson('/api/v1/led-ambience/status');
-
-        $response->assertStatus(200);
-        $response->assertJsonStructure([
-            'status',
-            'data' => [
-                'total_rfid_items',
-                'active_rfid_items',
-                'total_scenes',
-                'idle_configured',
-                'server_time',
-            ],
-        ]);
+        $this->getJson('/api/v1/led-ambience/status')
+            ->assertOk()
+            ->assertJsonPath('data.total_templates', 5)
+            ->assertJsonPath('data.active_templates', 4)
+            ->assertJsonPath('data.configured_video_templates', 1)
+            ->assertJsonPath('data.idle_configured', true);
     }
 }

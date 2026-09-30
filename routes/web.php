@@ -99,17 +99,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // LED Ambience (Immersive Ambience Digital)
     Route::prefix('led-ambience')->name('led-ambience.')->group(function () {
         Route::get('/', [LedAmbienceController::class, 'index'])->name('index');
-        Route::get('/rfid-items/create', [LedAmbienceController::class, 'createRfidItem'])->name('rfid-items.create');
-        Route::post('/rfid-items', [LedAmbienceController::class, 'storeRfidItem'])->name('rfid-items.store');
-        Route::get('/rfid-items/{item}/edit', [LedAmbienceController::class, 'editRfidItem'])->name('rfid-items.edit');
-        Route::put('/rfid-items/{item}', [LedAmbienceController::class, 'updateRfidItem'])->name('rfid-items.update');
-        Route::delete('/rfid-items/{item}', [LedAmbienceController::class, 'destroyRfidItem'])->name('rfid-items.destroy');
-
-        Route::get('/scenes/create', [LedAmbienceController::class, 'createScene'])->name('scenes.create');
-        Route::post('/scenes', [LedAmbienceController::class, 'storeScene'])->name('scenes.store');
-        Route::get('/scenes/{scene}/edit', [LedAmbienceController::class, 'editScene'])->name('scenes.edit');
-        Route::put('/scenes/{scene}', [LedAmbienceController::class, 'updateScene'])->name('scenes.update');
-        Route::delete('/scenes/{scene}', [LedAmbienceController::class, 'destroyScene'])->name('scenes.destroy');
+        Route::get('/templates/{template}/edit', [LedAmbienceController::class, 'editTemplate'])->name('templates.edit');
+        Route::put('/templates/{template}', [LedAmbienceController::class, 'updateTemplate'])->name('templates.update');
     });
 
     // Table Expedition (Table Expedition Hub / Product Knowledge)

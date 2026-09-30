@@ -1,342 +1,126 @@
 @extends('layouts.admin')
 
-@section('title', 'LED Ambience (Immersive Ambience Digital)')
+@section('title', 'LED Ambience')
 @section('page-title', 'LED Ambience')
 @section('breadcrumb-items')
     <li class="breadcrumb-item active">Konfigurasi</li>
     <li class="breadcrumb-item active">LED Ambience</li>
 @endsection
 
+@push('styles')
+<style>
+    .ambience-table { min-width: 1040px; }
+    .ambience-table thead th { background: #171b2d; border: 0; color: #ff6a00; font-size: .72rem; letter-spacing: .06em; padding: 1rem; text-transform: uppercase; white-space: nowrap; }
+    .ambience-table tbody td { border-color: #eceff3; padding: 1rem; vertical-align: middle; }
+    .ambience-table tbody tr:hover { background: rgba(255, 106, 0, .04); }
+    .template-icon { align-items: center; border-radius: 12px; color: #fff; display: inline-flex; flex: 0 0 auto; height: 44px; justify-content: center; width: 44px; }
+    .media-preview { background: #f8f9fb; border: 1px solid #e5e7eb; border-radius: 10px; min-width: 220px; overflow: hidden; padding: .55rem; }
+    .media-preview video { background: #111827; border-radius: 7px; height: 90px; object-fit: cover; width: 180px; }
+    .media-preview audio { height: 34px; max-width: 230px; width: 100%; }
+    .empty-media { align-items: center; color: #8b93a1; display: flex; font-size: .76rem; gap: .45rem; min-height: 42px; }
+    .ambience-flow { background: linear-gradient(135deg, rgba(255,106,0,.1), rgba(23,27,45,.04)); border: 1px solid rgba(255,106,0,.18); }
+</style>
+@endpush
+
 @section('content')
-{{-- Header --}}
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
     <div>
-        <h4 class="mb-1 fw-bold">
-            <i class="bi bi-soundwave text-warning me-2"></i>LED Ambience (Immersive Ambience Digital)
-        </h4>
-        <p class="text-muted small mb-0">
-            Kelola konten video, audio dinamis, pencahayaan, dan pemetaan RFID untuk mengubah suasana toko secara otomatis saat produk diletakkan.
-        </p>
+        <h4 class="mb-1 fw-bold"><i class="bi bi-soundwave text-warning me-2"></i>LED Ambience</h4>
+        <p class="text-muted small mb-0">Satu konfigurasi video dan suara global untuk setiap kelompok activity Digital Store.</p>
     </div>
-    <div class="d-flex flex-wrap gap-2 align-items-center">
-        @if($currentTab === 'rfid')
-            <a href="{{ route('admin.led-ambience.rfid-items.create') }}" class="btn btn-eiger fw-bold shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i>Tambah Mapping RFID
-            </a>
-        @else
-            <a href="{{ route('admin.led-ambience.scenes.create') }}" class="btn btn-eiger fw-bold shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i>Tambah Scene Ambience
-            </a>
-        @endif
-    </div>
+    <a href="{{ route('admin.rfid-tags.index') }}" class="btn btn-outline-dark flex-shrink-0">
+        <i class="bi bi-broadcast-pin me-1"></i>Atur RFID LED Ambience
+    </a>
 </div>
 
-{{-- Flash Messages --}}
-@if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-        <i class="bi bi-check-circle-fill fs-5 me-2 flex-shrink-0"></i>
-        <div>{{ session('success') }}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
-
-@if(session('error'))
-    <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-        <i class="bi bi-x-circle-fill fs-5 me-2 flex-shrink-0"></i>
-        <div>{{ session('error') }}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
-
-{{-- Stat Cards --}}
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="stat-value">{{ $rfidItems->count() }}</div>
-                    <div class="stat-label">RFID Terpetakan</div>
-                </div>
-                <div class="stat-icon bg-primary-subtle text-primary">
-                    <i class="bi bi-broadcast-pin"></i>
-                </div>
-            </div>
+    @foreach([
+        ['label' => 'Template Global', 'value' => $summary['templates'], 'icon' => 'bi-grid-fill', 'color' => '#334155'],
+        ['label' => 'Video Terpasang', 'value' => $summary['videos'], 'icon' => 'bi-camera-video-fill', 'color' => '#2563eb'],
+        ['label' => 'Audio Terpasang', 'value' => $summary['audio'], 'icon' => 'bi-volume-up-fill', 'color' => '#7c3aed'],
+        ['label' => 'RFID LED Aktif', 'value' => $summary['rfid'], 'icon' => 'bi-broadcast-pin', 'color' => '#15803d'],
+    ] as $item)
+        <div class="col-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm"><div class="card-body d-flex align-items-center gap-3 py-3">
+                <span class="d-inline-flex align-items-center justify-content-center rounded-3 text-white" style="width:42px;height:42px;background:{{ $item['color'] }}"><i class="bi {{ $item['icon'] }} fs-5"></i></span>
+                <div><div class="text-muted small">{{ $item['label'] }}</div><div class="fs-4 fw-bold lh-1">{{ $item['value'] }}</div></div>
+            </div></div>
         </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="stat-value">{{ $scenes->count() }}</div>
-                    <div class="stat-label">Total Scene</div>
-                </div>
-                <div class="stat-icon bg-warning-subtle text-warning">
-                    <i class="bi bi-film"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="stat-value text-success">{{ $idleScene ? 'Aktif' : 'Belum' }}</div>
-                    <div class="stat-label">Idle Scene Loop</div>
-                </div>
-                <div class="stat-icon bg-success-subtle text-success">
-                    <i class="bi bi-repeat"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="stat-value text-secondary">{{ $scenes->whereNotNull('activity_slug')->pluck('activity_slug')->unique()->count() }}</div>
-                    <div class="stat-label">Aktivitas Terhubung</div>
-                </div>
-                <div class="stat-icon bg-secondary-subtle text-secondary">
-                    <i class="bi bi-compass"></i>
-                </div>
-            </div>
-        </div>
-    </div>
+    @endforeach
 </div>
 
-{{-- Navigation Tabs --}}
-<ul class="nav nav-tabs border-bottom mb-4" id="ledTabs" role="tablist">
-    <li class="nav-item" role="presentation">
-        <a href="{{ route('admin.led-ambience.index', ['tab' => 'rfid']) }}"
-           class="nav-link fw-semibold {{ $currentTab === 'rfid' ? 'active text-primary' : 'text-muted' }}">
-            <i class="bi bi-broadcast-pin me-1"></i>Mapping RFID Produk ({{ $rfidItems->count() }})
-        </a>
-    </li>
-    <li class="nav-item" role="presentation">
-        <a href="{{ route('admin.led-ambience.index', ['tab' => 'scenes']) }}"
-           class="nav-link fw-semibold {{ $currentTab === 'scenes' ? 'active text-primary' : 'text-muted' }}">
-            <i class="bi bi-film me-1"></i>Konten Scene Ambience Video & Audio ({{ $scenes->count() }})
-        </a>
-    </li>
-</ul>
+<div class="ambience-flow rounded-3 p-3 mb-4 small">
+    <div class="fw-bold mb-1"><i class="bi bi-diagram-3-fill text-warning me-1"></i>Alur otomatis</div>
+    <div class="text-muted">RFID aktif → produk terhubung → activity paling dominan → salah satu dari empat kelompok utama → video dan audio template global. Produk tanpa activity yang dikenali memakai template Idle / Standby.</div>
+</div>
 
-{{-- TAB 1: RFID ITEM MAPPINGS (Can Add, Edit, Delete as requested) --}}
-@if($currentTab === 'rfid')
-<div class="card border-0 shadow-sm rounded-3">
-    <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-3">
-        <div>
-            <h6 class="mb-0 fw-bold"><i class="bi bi-cpu me-2 text-primary"></i>Daftar Tag RFID Khusus LED Ambience</h6>
-            <small class="text-muted">Konfigurasi RFID khusus LED Ambience — dapat ditambah, diedit, atau dihapus secara mandiri.</small>
-        </div>
-        <span class="badge bg-secondary">{{ $rfidItems->count() }} Tag Terdaftar</span>
+<div class="card border-0 shadow-sm overflow-hidden">
+    <div class="card-header bg-white py-3 px-3 px-lg-4">
+        <h6 class="mb-1 fw-bold">Konfigurasi Konten Global</h6>
+        <small class="text-muted">Template bersifat tetap dan berlaku untuk satu perangkat LED Ambience.</small>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th class="ps-3">Tag RFID (EPC)</th>
-                    <th>Produk EIGER</th>
-                    <th>Aktivitas Outdoor</th>
-                    <th>Scene Ambience Yang Dipicu</th>
-                    <th>Status</th>
-                    <th>Terakhir Di-scan</th>
-                    <th class="pe-3 text-end" style="width: 140px;">Aksi</th>
-                </tr>
-            </thead>
+        <table class="table ambience-table align-middle mb-0">
+            <thead><tr>
+                <th class="ps-4">Activity / Template</th>
+                <th>Video</th>
+                <th>Sound</th>
+                <th>Status</th>
+                <th class="pe-4 text-end">Action</th>
+            </tr></thead>
             <tbody>
-                @forelse($rfidItems as $item)
-                <tr>
-                    <td class="ps-3">
-                        @if($item->rfidTag && $item->rfidTag->name)
-                            <div class="fw-semibold text-primary small d-flex align-items-center gap-1 mb-1">
-                                <i class="bi bi-tag-fill"></i> {{ $item->rfidTag->name }}
-                            </div>
-                        @endif
-                        <div class="font-monospace fw-bold text-dark">{{ $item->rfid_tag }}</div>
-                        @if($item->notes)
-                            <small class="text-muted">{{ $item->notes }}</small>
-                        @endif
-                    </td>
-                    <td>
-                        @if($item->product)
-                            <div class="d-flex align-items-center gap-2">
-                                <img src="{{ $item->product->image ?: 'https://placehold.co/50x50?text=EIGER' }}"
-                                     alt="{{ $item->product->name }}" class="rounded border object-fit-cover shadow-sm flex-shrink-0"
-                                     style="width: 44px; height: 44px;">
+                @foreach($templates as $template)
+                    @php
+                        $videoUrl = \App\Support\PimMediaUrl::toPublicUrl($template->video_url);
+                        $audioUrl = \App\Support\PimMediaUrl::toPublicUrl($template->audio_url);
+                        $colors = ['idle' => '#334155', 'mountaineering' => '#2563eb', 'lifestyle' => '#16a34a', 'tactical' => '#64748b', 'riding' => '#dc2626'];
+                        $icons = ['idle' => 'bi-moon-stars-fill', 'mountaineering' => 'bi-triangle-fill', 'lifestyle' => 'bi-sun-fill', 'tactical' => 'bi-crosshair', 'riding' => 'bi-bicycle'];
+                    @endphp
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="template-icon" style="background:{{ $colors[$template->template_key] ?? '#334155' }}"><i class="bi {{ $icons[$template->template_key] ?? 'bi-grid-fill' }}"></i></span>
                                 <div>
-                                    <div class="fw-bold text-dark text-truncate" style="max-width: 220px;" title="{{ $item->product->name }}">
-                                        {{ $item->product->name }}
-                                    </div>
-                                    <div class="small text-muted font-monospace">{{ $item->product->sku }}</div>
+                                    <div class="fw-bold text-dark">{{ $template->name }}</div>
+                                    <code class="small">{{ $template->template_key }}</code>
+                                    @if($template->template_key === 'idle')<div class="text-muted small mt-1">Fallback saat standby atau activity tidak dikenali</div>@endif
                                 </div>
                             </div>
-                        @else
-                            <span class="text-muted fst-italic">Produk tidak terhubung</span>
-                        @endif
-                    </td>
-                    <td>
-                        @if($item->activity_slug)
-                            <span class="badge bg-light text-dark border">
-                                <i class="bi bi-compass me-1"></i>{{ ucwords(str_replace('-', ' ', $item->activity_slug)) }}
-                            </span>
-                        @else
-                            <span class="text-muted small">—</span>
-                        @endif
-                    </td>
-                    <td>
-                        @if($item->scene)
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="rounded-circle d-inline-block shadow-sm" style="width: 14px; height: 14px; background-color: {{ $item->scene->lighting_color }};"></span>
-                                <span class="fw-semibold text-dark small">{{ $item->scene->name }}</span>
+                        </td>
+                        <td>
+                            <div class="media-preview">
+                                @if($videoUrl)
+                                    <video controls preload="metadata"><source src="{{ $videoUrl }}">Browser tidak mendukung video.</video>
+                                    <a href="{{ $videoUrl }}" target="_blank" class="small text-decoration-none d-block mt-1 text-truncate"><i class="bi bi-box-arrow-up-right me-1"></i>Buka video</a>
+                                @else
+                                    <div class="empty-media"><i class="bi bi-camera-video fs-5"></i>Belum ada video</div>
+                                @endif
                             </div>
-                        @else
-                            <span class="badge bg-secondary-subtle text-secondary">Otomatis Mengikuti Aktivitas</span>
-                        @endif
-                    </td>
-                    <td>
-                        @if($item->is_active)
-                            <span class="badge badge-success-soft"><i class="bi bi-check-circle-fill"></i> Aktif</span>
-                        @else
-                            <span class="badge badge-gray-soft">Nonaktif</span>
-                        @endif
-                    </td>
-                    <td class="small text-muted">
-                        {{ $item->last_scanned_at ? $item->last_scanned_at->diffForHumans() : 'Belum pernah' }}
-                    </td>
-                    <td class="pe-3 text-end">
-                        <div class="btn-group btn-group-sm">
-                            <a href="{{ route('admin.led-ambience.rfid-items.edit', $item) }}" class="btn btn-outline-primary" title="Edit Mapping">
-                                <i class="bi bi-pencil-fill"></i>
-                            </a>
-                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteRfidModal{{ $item->id }}" title="Hapus Mapping">
-                                <i class="bi bi-trash-fill"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-
-                {{-- Delete RFID Modal --}}
-                <div class="modal fade" id="deleteRfidModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <form action="{{ route('admin.led-ambience.rfid-items.destroy', $item) }}" method="POST">
-                                @csrf
-                                @method('DELETE')
-                                <div class="modal-header">
-                                    <h5 class="modal-title fw-bold text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Konfirmasi Hapus Mapping</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    Apakah Anda yakin ingin menghapus mapping RFID <code>{{ $item->rfid_tag }}</code> untuk produk <strong>{{ $item->product?->name }}</strong> dari modul LED Ambience?
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                    <button type="submit" class="btn btn-danger fw-bold">Hapus Tag</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                @empty
-                <tr>
-                    <td colspan="7" class="text-center py-5 text-muted">
-                        <i class="bi bi-broadcast-pin fs-1 d-block mb-2 text-secondary"></i>
-                        Belum ada pemetaan tag RFID untuk LED Ambience.
-                    </td>
-                </tr>
-                @endforelse
+                        </td>
+                        <td>
+                            <div class="media-preview">
+                                @if($audioUrl)
+                                    <audio controls preload="metadata"><source src="{{ $audioUrl }}">Browser tidak mendukung audio.</audio>
+                                    <a href="{{ $audioUrl }}" target="_blank" class="small text-decoration-none d-block mt-1 text-truncate"><i class="bi bi-box-arrow-up-right me-1"></i>Buka audio</a>
+                                @else
+                                    <div class="empty-media"><i class="bi bi-volume-mute fs-5"></i>Belum ada audio</div>
+                                @endif
+                            </div>
+                        </td>
+                        <td>
+                            @if($template->is_active)
+                                <span class="badge rounded-pill text-bg-success"><i class="bi bi-check-circle-fill me-1"></i>Active</span>
+                            @else
+                                <span class="badge rounded-pill text-bg-secondary">Not Active</span>
+                            @endif
+                        </td>
+                        <td class="pe-4 text-end">
+                            <a href="{{ route('admin.led-ambience.templates.edit', $template) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-fill me-1"></i>Edit</a>
+                        </td>
+                    </tr>
+                @endforeach
             </tbody>
         </table>
     </div>
 </div>
-@endif
-
-{{-- TAB 2: AMBIENCE SCENES (Video, Audio, Lighting Presets) --}}
-@if($currentTab === 'scenes')
-<div class="row g-4 mb-4">
-    @forelse($scenes as $scene)
-    <div class="col-md-6 col-xl-4">
-        <div class="card border-0 shadow-sm rounded-3 h-100 {{ $scene->scene_type === 'idle' ? 'border border-success' : '' }}">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="rounded-circle d-inline-block shadow-sm" style="width: 16px; height: 16px; background-color: {{ $scene->lighting_color }};" title="Lighting: {{ $scene->lighting_color }}"></span>
-                    <h6 class="mb-0 fw-bold text-dark text-truncate" title="{{ $scene->name }}">{{ $scene->name }}</h6>
-                </div>
-                @if($scene->scene_type === 'idle')
-                    <span class="badge badge-success-soft"><i class="bi bi-repeat"></i> IDLE LOOP</span>
-                @else
-                    <span class="badge bg-light text-dark border">{{ strtoupper($scene->scene_type) }}</span>
-                @endif
-            </div>
-            <div class="card-body">
-                <div class="mb-2 small">
-                    <span class="text-muted">Aktivitas:</span>
-                    <strong class="text-dark">{{ $scene->activity_slug ? ucwords(str_replace('-', ' ', $scene->activity_slug)) : 'Semua Aktivitas' }}</strong>
-                </div>
-                <p class="small text-muted mb-3" style="min-height: 40px;">
-                    {{ $scene->description ?: 'Tidak ada deskripsi tambahan untuk scene ini.' }}
-                </p>
-
-                <div class="p-2 rounded bg-light border mb-3 small">
-                    <div class="text-truncate mb-1" title="{{ $scene->video_url }}">
-                        <i class="bi bi-camera-video text-primary me-1"></i>Video:
-                        <span class="text-muted font-monospace">{{ $scene->video_url ?: 'Belum diatur' }}</span>
-                    </div>
-                    <div class="text-truncate" title="{{ $scene->audio_url }}">
-                        <i class="bi bi-volume-up text-warning me-1"></i>Audio:
-                        <span class="text-muted font-monospace">{{ $scene->audio_url ?: 'Belum diatur' }}</span>
-                    </div>
-                </div>
-
-                <div class="d-flex align-items-center justify-content-between pt-2 border-top">
-                    <span class="badge bg-secondary-subtle text-secondary">
-                        <i class="bi bi-broadcast me-1"></i>{{ $scene->items_count }} RFID Terhubung
-                    </span>
-                    <div class="btn-group btn-group-sm">
-                        <a href="{{ route('admin.led-ambience.scenes.edit', $scene) }}" class="btn btn-outline-primary" title="Edit Scene">
-                            <i class="bi bi-pencil-fill"></i> Edit
-                        </a>
-                        @if($scene->scene_type !== 'idle')
-                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteSceneModal{{ $scene->id }}" title="Hapus Scene">
-                                <i class="bi bi-trash-fill"></i>
-                            </button>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Delete Scene Modal --}}
-    <div class="modal fade" id="deleteSceneModal{{ $scene->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="{{ route('admin.led-ambience.scenes.destroy', $scene) }}" method="POST">
-                    @csrf
-                    @method('DELETE')
-                    <div class="modal-header">
-                        <h5 class="modal-title fw-bold text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Hapus Scene Ambience</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        Apakah Anda yakin ingin menghapus scene <strong>{{ $scene->name }}</strong>?
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-danger fw-bold">Hapus Scene</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    @empty
-    <div class="col-12 text-center py-5 text-muted">
-        <i class="bi bi-film fs-1 d-block mb-2 text-secondary"></i>
-        Belum ada scene ambience yang terdaftar.
-    </div>
-    @endforelse
-</div>
-@endif
-
 @endsection
-

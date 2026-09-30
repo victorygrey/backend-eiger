@@ -3,200 +3,95 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\FitAndGoActivity;
 use App\Models\LedAmbienceItem;
-use App\Models\LedAmbienceScene;
-use App\Models\Product;
-use App\Models\RfidTag;
+use App\Models\LedAmbienceTemplate;
+use App\Services\LedAmbienceMediaStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class LedAmbienceController extends Controller
 {
-    /**
-     * Display LED Ambience configuration dashboard (RFID Mappings & Scenes).
-     */
-    public function index(Request $request)
+    public function index(): View
     {
-        $currentTab = $request->query('tab', 'rfid');
-
-        $rfidItems = LedAmbienceItem::with(['product.zone', 'scene', 'rfidTag'])
-            ->latest('id')
-            ->get();
-
-        $scenes = LedAmbienceScene::withCount('items')
-            ->orderBy('sort_order')
-            ->get();
-
-        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)
-            ->orderBy('name')
-            ->get();
-
-        $activities = FitAndGoActivity::where('is_active', true)
-            ->orderBy('sort_order')
-            ->get();
-
-        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
-        $idleScene = $scenes->firstWhere('scene_type', 'idle');
+        $templates = LedAmbienceTemplate::ordered()->get();
 
         return view('admin.led-ambience.index', [
-            'currentTab'        => $currentTab,
-            'rfidItems'         => $rfidItems,
-            'scenes'            => $scenes,
-            'idleScene'         => $idleScene,
-            'products'          => $products,
-            'activities'        => $activities,
-            'availableRfidTags' => $availableRfidTags,
+            'templates' => $templates,
+            'summary' => [
+                'templates' => $templates->count(),
+                'videos' => $templates->whereNotNull('video_url')->count(),
+                'audio' => $templates->whereNotNull('audio_url')->count(),
+                'rfid' => LedAmbienceItem::where('is_active', true)->count(),
+            ],
         ]);
     }
 
-    // ==========================================
-    // RFID ITEM MAPPINGS (Full CRUD for LED Ambience)
-    // ==========================================
-
-    public function createRfidItem(): View
+    public function editTemplate(LedAmbienceTemplate $template): View
     {
-        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
-        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
-        $scenes = LedAmbienceScene::orderBy('sort_order')->get();
-        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
+        abort_unless(array_key_exists($template->template_key, (array) config('led_ambience.templates')), 404);
 
-        return view('admin.led-ambience.rfid-items.create', compact('products', 'activities', 'scenes', 'availableRfidTags'));
+        return view('admin.led-ambience.templates.edit', compact('template'));
     }
 
-    public function storeRfidItem(Request $request): RedirectResponse
-    {
+    public function updateTemplate(
+        Request $request,
+        LedAmbienceTemplate $template,
+        LedAmbienceMediaStorage $mediaStorage,
+    ): RedirectResponse {
+        abort_unless(array_key_exists($template->template_key, (array) config('led_ambience.templates')), 404);
+
         $validated = $request->validate([
-            'rfid_tag'      => 'required|string|max:64|unique:led_ambience_items,rfid_tag',
-            'product_id'    => 'required|exists:products,id',
-            'activity_slug' => 'nullable|string|max:50',
-            'scene_id'      => 'nullable|exists:led_ambience_scenes,id',
-            'notes'         => 'nullable|string|max:255',
-            'is_active'     => 'nullable|boolean',
+            'description' => ['nullable', 'string', 'max:1000'],
+            'lighting_color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'is_active' => ['required', 'boolean'],
+            'remove_video' => ['nullable', 'boolean'],
+            'remove_audio' => ['nullable', 'boolean'],
+            'video_file' => [
+                'nullable', 'file',
+                'mimetypes:video/mp4,video/webm',
+                'max:'.((int) config('led_ambience.max_video_mb', 500) * 1024),
+            ],
+            'audio_file' => [
+                'nullable', 'file',
+                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac',
+                'max:'.((int) config('led_ambience.max_audio_mb', 100) * 1024),
+            ],
+        ], [
+            'video_file.mimetypes' => 'Video harus berformat MP4 atau WebM.',
+            'audio_file.mimetypes' => 'Audio harus berformat MP3, WAV, OGG, M4A, atau AAC.',
         ]);
 
-        $validated['rfid_tag'] = trim(strtoupper($validated['rfid_tag']));
-        $validated['is_active'] = $request->boolean('is_active', true);
+        $updates = [
+            'description' => $validated['description'] ?? null,
+            'lighting_color' => strtolower($validated['lighting_color']),
+            'is_active' => (bool) $validated['is_active'],
+        ];
 
-        LedAmbienceItem::create($validated);
+        if ($request->boolean('remove_video')) {
+            $updates['video_url'] = null;
+        }
+        if ($request->boolean('remove_audio')) {
+            $updates['audio_url'] = null;
+        }
+        if ($request->hasFile('video_file')) {
+            $updates['video_url'] = $mediaStorage->store(
+                $request->file('video_file'),
+                'video',
+                $template->template_key,
+            );
+        }
+        if ($request->hasFile('audio_file')) {
+            $updates['audio_url'] = $mediaStorage->store(
+                $request->file('audio_file'),
+                'audio',
+                $template->template_key,
+            );
+        }
 
-        return redirect()->route('admin.led-ambience.index', ['tab' => 'rfid'])
-            ->with('success', "Mapping RFID {$validated['rfid_tag']} berhasil ditambahkan ke LED Ambience.");
-    }
+        $template->update($updates);
 
-    public function editRfidItem(LedAmbienceItem $item): View
-    {
-        $item->load(['product.zone', 'scene', 'rfidTag']);
-        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
-        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
-        $scenes = LedAmbienceScene::orderBy('sort_order')->get();
-        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
-
-        return view('admin.led-ambience.rfid-items.edit', compact('item', 'products', 'activities', 'scenes', 'availableRfidTags'));
-    }
-
-    public function updateRfidItem(Request $request, LedAmbienceItem $item): RedirectResponse
-    {
-        $validated = $request->validate([
-            'rfid_tag'      => 'required|string|max:64|unique:led_ambience_items,rfid_tag,' . $item->id,
-            'product_id'    => 'required|exists:products,id',
-            'activity_slug' => 'nullable|string|max:50',
-            'scene_id'      => 'nullable|exists:led_ambience_scenes,id',
-            'notes'         => 'nullable|string|max:255',
-            'is_active'     => 'nullable|boolean',
-        ]);
-
-        $validated['rfid_tag'] = trim(strtoupper($validated['rfid_tag']));
-        $validated['is_active'] = $request->boolean('is_active');
-
-        $item->update($validated);
-
-        return redirect()->route('admin.led-ambience.index', ['tab' => 'rfid'])
-            ->with('success', "Konfigurasi RFID {$item->rfid_tag} berhasil diperbarui.");
-    }
-
-    public function destroyRfidItem(LedAmbienceItem $item): RedirectResponse
-    {
-        $tag = $item->rfid_tag;
-        $item->delete();
-
-        return redirect()->route('admin.led-ambience.index', ['tab' => 'rfid'])
-            ->with('success', "Mapping RFID {$tag} berhasil dihapus dari LED Ambience.");
-    }
-
-    // ==========================================
-    // AMBIENCE SCENES (Video, Audio, Lighting)
-    // ==========================================
-
-    public function createScene(): View
-    {
-        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
-
-        return view('admin.led-ambience.scenes.create', compact('activities'));
-    }
-
-    public function storeScene(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'name'           => 'required|string|max:150',
-            'scene_type'     => 'required|in:idle,active,default',
-            'activity_slug'  => 'nullable|string|max:50',
-            'video_url'      => 'nullable|url|max:500',
-            'audio_url'      => 'nullable|url|max:500',
-            'lighting_color' => 'nullable|string|max:20',
-            'description'    => 'nullable|string|max:500',
-            'sort_order'     => 'nullable|integer|min:0',
-            'is_active'      => 'nullable|boolean',
-        ]);
-
-        $validated['is_active'] = $request->boolean('is_active', true);
-        $validated['sort_order'] = $validated['sort_order'] ?? 0;
-        $validated['lighting_color'] = $validated['lighting_color'] ?: '#e8500a';
-
-        LedAmbienceScene::create($validated);
-
-        return redirect()->route('admin.led-ambience.index', ['tab' => 'scenes'])
-            ->with('success', "Scene Ambience '{$validated['name']}' berhasil ditambahkan.");
-    }
-
-    public function editScene(LedAmbienceScene $scene): View
-    {
-        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
-
-        return view('admin.led-ambience.scenes.edit', compact('scene', 'activities'));
-    }
-
-    public function updateScene(Request $request, LedAmbienceScene $scene): RedirectResponse
-    {
-        $validated = $request->validate([
-            'name'           => 'required|string|max:150',
-            'scene_type'     => 'required|in:idle,active,default',
-            'activity_slug'  => 'nullable|string|max:50',
-            'video_url'      => 'nullable|url|max:500',
-            'audio_url'      => 'nullable|url|max:500',
-            'lighting_color' => 'nullable|string|max:20',
-            'description'    => 'nullable|string|max:500',
-            'sort_order'     => 'nullable|integer|min:0',
-            'is_active'      => 'nullable|boolean',
-        ]);
-
-        $validated['is_active'] = $request->boolean('is_active');
-        $validated['sort_order'] = $validated['sort_order'] ?? 0;
-        $validated['lighting_color'] = $validated['lighting_color'] ?: '#e8500a';
-
-        $scene->update($validated);
-
-        return redirect()->route('admin.led-ambience.index', ['tab' => 'scenes'])
-            ->with('success', "Scene Ambience '{$scene->name}' berhasil diperbarui.");
-    }
-
-    public function destroyScene(LedAmbienceScene $scene): RedirectResponse
-    {
-        $name = $scene->name;
-        $scene->delete();
-
-        return redirect()->route('admin.led-ambience.index', ['tab' => 'scenes'])
-            ->with('success', "Scene Ambience '{$name}' berhasil dihapus.");
+        return redirect()->route('admin.led-ambience.index')
+            ->with('success', "Template {$template->name} berhasil diperbarui.");
     }
 }
