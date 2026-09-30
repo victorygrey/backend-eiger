@@ -28,7 +28,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('pim-media/{path}', [PimMediaController::class, 'show'])->where('path', '.*');
 Route::post('integrations/pim/product', [PimProductController::class, 'store']);
 Route::post('integrations/pim/image', [PimProductController::class, 'storeImage']);
-Route::apiResource('products', ProductController::class);
+// Product master data is created and refreshed only through the PIM integration.
+// The generic catalog API is read-only; CMS cleanup remains behind the admin route.
+Route::apiResource('products', ProductController::class)->only(['index', 'show']);
 Route::prefix('master-data')->group(function () {
     Route::get('categories', [AtomMasterDataController::class, 'categories']);
     Route::get('activities', [AtomMasterDataController::class, 'activities']);
@@ -58,6 +60,7 @@ Route::prefix('sync')->group(function () {
 
 // AI Fit & Go Kiosk & GPU Workstation APIs (v1)
 Route::prefix('v1/fit-and-go')->group(function () {
+    Route::post('activate', [FitAndGoApiController::class, 'activate']);
     Route::get('kiosks/{deviceCode}', [FitAndGoApiController::class, 'kiosk']);
     Route::get('config', [FitAndGoApiController::class, 'config']);
     Route::get('activities', [FitAndGoApiController::class, 'activities']);

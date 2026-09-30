@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Product;
+use Database\Seeders\AtomMasterDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -10,59 +11,58 @@ class ProductVariantWebTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_edit_can_remove_all_variants_and_clear_parent_stock(): void
+    public function test_product_detail_displays_variants_without_edit_controls(): void
     {
         $product = Product::factory()->create(['stock' => 5]);
         $product->variants()->create([
             'sku' => '910012408001', 'name' => 'Black M', 'stock' => 5, 'price' => 100,
         ]);
 
-        $this->put(route('admin.products.update', $product), [
-            'name' => $product->name, 'variants_submitted' => 1,
-        ])->assertRedirect(route('admin.products.index'));
-
-        $this->assertDatabaseMissing('product_variants', ['sku' => '910012408001']);
-        $this->assertSame(0, $product->fresh()->stock);
+        $this->get(route('admin.products.show', $product))
+            ->assertOk()
+            ->assertSee('Detail Produk')
+            ->assertSee('Detail ini hanya dapat dibaca')
+            ->assertSee('910012408001')
+            ->assertSee('Black M')
+            ->assertDontSee('Simpan Perubahan')
+            ->assertDontSee('Tarik Data PIM &amp; CARE', false);
     }
 
-    public function test_edit_keeps_existing_variant_image_when_image_field_is_blank(): void
+    public function test_manual_product_edit_routes_are_not_available(): void
     {
-        $product = Product::factory()->create(['image' => '/api/pim-media/parent.jpg']);
-        $product->variants()->create([
-            'sku' => '910012408001', 'name' => 'Black M', 'stock' => 2,
-            'price' => 100, 'image' => '/api/pim-media/variant.jpg',
-        ]);
+        $product = Product::factory()->create(['name' => 'PIM Product']);
 
-        $this->put(route('admin.products.update', $product), [
-            'name' => $product->name,
-            'variants_submitted' => 1,
-            'variants' => [['sku' => '910012408001', 'stock' => 0, 'image' => '']],
-        ])->assertRedirect(route('admin.products.index'));
-
-        $this->assertDatabaseHas('product_variants', [
-            'sku' => '910012408001', 'stock' => 0,
-            'image' => '/api/pim-media/variant.jpg',
-        ]);
-        $this->assertSame(0, $product->fresh()->stock);
+        $this->get('/admin/products/'.$product->id.'/edit')->assertNotFound();
+        $this->put('/admin/products/'.$product->id, ['name' => 'Changed'])->assertStatus(405);
+        $this->putJson('/api/products/'.$product->id, ['name' => 'Changed'])->assertStatus(405);
+        $this->assertSame('PIM Product', $product->fresh()->name);
     }
 
-    public function test_edit_rejects_variant_sku_owned_by_another_product_without_partial_save(): void
+    public function test_product_can_still_be_deleted_from_cms(): void
     {
-        $owner = Product::factory()->create();
-        $owner->variants()->create([
-            'sku' => '910012408001', 'name' => 'Black M', 'stock' => 2, 'price' => 100,
-        ]);
-        $target = Product::factory()->create(['name' => 'Original']);
+        $product = Product::factory()->create(['name' => 'Removable Product']);
 
-        $this->putJson(route('admin.products.update', $target), [
-            'name' => 'Changed',
-            'variants_submitted' => 1,
-            'variants' => [['sku' => '910012408001', 'name' => 'Wrong owner']],
-        ])->assertUnprocessable()->assertJsonValidationErrors('variants.0.sku');
+        $this->delete(route('admin.products.destroy', $product))
+            ->assertRedirect(route('admin.products.index'));
 
-        $this->assertSame('Original', $target->fresh()->name);
-        $this->assertDatabaseHas('product_variants', [
-            'sku' => '910012408001', 'product_id' => $owner->id,
+        $this->assertDatabaseMissing('products', ['id' => $product->id]);
+    }
+
+    public function test_detail_translates_pim_codes_with_database_master_data(): void
+    {
+        $this->seed(AtomMasterDataSeeder::class);
+        $product = Product::factory()->create();
+        $product->customAttributesRelation()->create([
+            'attribute_code' => 'activity',
+            'value' => 'A03018',
+            'value_type' => 'string',
+            'sort_order' => 0,
         ]);
+
+        $this->get(route('admin.products.show', $product))
+            ->assertOk()
+            ->assertSee('Hiking')
+            ->assertSee('Activity · Camping &amp; Hiking', false)
+            ->assertSee('A03018');
     }
 }

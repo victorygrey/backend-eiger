@@ -14,14 +14,25 @@ class TabletDisplayTest extends TestCase
 {
     use RefreshDatabase;
 
+    private int $tabletSkuSequence = 910800000;
+
+    private function tabletProduct(array $attributes = []): Product
+    {
+        return Product::factory()->create(array_merge([
+            'sku' => (string) ++$this->tabletSkuSequence,
+            'interactive_tablet_active' => true,
+            'pim_catalog_active' => true,
+            'is_discontinued' => false,
+        ], $attributes));
+    }
+
     public function test_tablet_can_activate_and_fetch_its_configured_catalog(): void
     {
-        $featured = Product::factory()->create([
+        $featured = $this->tabletProduct([
             'name' => 'Voyager Jacket 3.0',
             'image' => '/api/pim-media/voyager-cover.jpg',
-            'is_discontinued' => false,
         ]);
-        $recommendation = Product::factory()->create(['name' => 'Greenland Pro', 'is_discontinued' => false]);
+        $recommendation = $this->tabletProduct(['name' => 'Greenland Pro']);
         ProductVariant::create([
             'product_id' => $featured->id,
             'sku' => 'VOYAGER-BLK-M',
@@ -64,7 +75,7 @@ class TabletDisplayTest extends TestCase
 
     public function test_display_rejects_an_unpaired_device(): void
     {
-        $product = Product::factory()->create();
+        $product = $this->tabletProduct();
         Tablet::create([
             'slug' => 'lobby-01',
             'name' => 'Lobby Tablet 01',
@@ -77,7 +88,7 @@ class TabletDisplayTest extends TestCase
 
     public function test_heartbeat_updates_device_health(): void
     {
-        $product = Product::factory()->create();
+        $product = $this->tabletProduct();
         $token = 'device-token';
         $tablet = Tablet::create([
             'slug' => 'lobby-01',
@@ -99,9 +110,9 @@ class TabletDisplayTest extends TestCase
 
     public function test_admin_can_rollback_to_an_older_configuration_as_a_new_version(): void
     {
-        $oldFeatured = Product::factory()->create(['is_discontinued' => false]);
-        $newFeatured = Product::factory()->create(['is_discontinued' => false]);
-        $recommendation = Product::factory()->create(['is_discontinued' => false]);
+        $oldFeatured = $this->tabletProduct();
+        $newFeatured = $this->tabletProduct();
+        $recommendation = $this->tabletProduct();
         $tablet = Tablet::create([
             'slug' => 'lobby-01',
             'name' => 'Lobby Tablet 01',
@@ -130,8 +141,8 @@ class TabletDisplayTest extends TestCase
 
     public function test_admin_can_save_valid_product_ids_from_the_tablet_form(): void
     {
-        $featured = Product::factory()->create(['is_discontinued' => false]);
-        $recommendation = Product::factory()->create(['is_discontinued' => false]);
+        $featured = $this->tabletProduct();
+        $recommendation = $this->tabletProduct();
 
         $this->post(route('admin.tablets.store'), [
             'name' => 'Lobby Tablet 01',
@@ -155,5 +166,34 @@ class TabletDisplayTest extends TestCase
             'version_number' => 1,
             'featured_product_id' => $featured->id,
         ]);
+    }
+
+    public function test_display_stops_exposing_products_after_tablet_status_is_unchecked(): void
+    {
+        $featured = $this->tabletProduct(['name' => 'Featured Active']);
+        $recommendation = $this->tabletProduct(['name' => 'Recommendation Active']);
+        $token = 'tablet-token';
+        $tablet = Tablet::create([
+            'slug' => 'channel-controlled',
+            'name' => 'Channel Controlled Tablet',
+            'featured_product_id' => $featured->id,
+            'activation_code_hash' => Hash::make('CHANNEL-01'),
+            'device_token_hash' => Hash::make($token),
+        ]);
+        $tablet->recommendations()->attach($recommendation->id, ['sort_order' => 0]);
+
+        $recommendation->update(['interactive_tablet_active' => false]);
+
+        $this->withToken($token)
+            ->getJson('/api/tablets/channel-controlled/display')
+            ->assertOk()
+            ->assertJsonCount(0, 'recommendations');
+
+        $featured->update(['interactive_tablet_active' => false]);
+
+        $this->withToken($token)
+            ->getJson('/api/tablets/channel-controlled/display')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Produk utama tablet sudah tidak aktif pada List Product.');
     }
 }

@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Product;
 use App\Services\PimProductDataStore;
+use App\Services\AtomMasterDataResolver;
 use Database\Seeders\AtomMasterDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -90,5 +91,19 @@ class AtomMasterDataTest extends TestCase
         $dayHike = $activities->firstWhere('master_code', 'A03001');
         $this->assertSame('Day Hike', $dayHike['name']);
         $this->assertSame('Camping & Hiking', $dayHike['master_activity']['group']['name']);
+    }
+
+    public function test_master_codes_can_be_translated_for_read_only_display(): void
+    {
+        $this->seed(AtomMasterDataSeeder::class);
+
+        $resolver = app(AtomMasterDataResolver::class);
+        $this->assertSame('Footwear', $resolver->displayValues('F', 'categoryCode')[0]['name']);
+        $this->assertSame('Sepatu', $resolver->displayValues('F01', 'subCategoryCode')[0]['name']);
+
+        $activity = $resolver->displayValues('A03018', 'activity');
+        $this->assertSame('Hiking', $activity[0]['name']);
+        $this->assertSame('Camping & Hiking', $activity[0]['parent']);
+        $this->assertSame([], $resolver->displayValues('waterproof, outdoor', 'tag_product'));
     }
 }

@@ -108,16 +108,16 @@ class PimPayloadContractTest extends TestCase
             ->assertJsonPath('data.performances.0.rating', 5)
             ->assertJsonMissingPath('data.performance');
 
-        $this->get(route('admin.products.edit', $parent))->assertOk()
-            ->assertSee('1 Foto Tersedia')
-            ->assertSee(url($this->storedMediaUrl()), false)
-            ->assertSee('Performa Produk (Performance)')
+        $this->get(route('admin.products.show', $parent))->assertOk()
+            ->assertSee('Detail Produk')
+            ->assertSee('Detail ini hanya dapat dibaca')
+            ->assertSee($this->storedMediaUrl(), false)
+            ->assertSee('Performance')
             ->assertSee('4 / 5')
             ->assertSee('3 / 5')
             ->assertSee('Grip')
-            ->assertSee('data-pim-extra-media="image"', false)
             ->assertSee('src="'.$this->storedMediaUrl().'"', false)
-            ->assertSee('title="Buka ukuran penuh"', false);
+            ->assertSee('Media PIM');
     }
 
     public function test_publish_normalizes_queryable_pim_data_out_of_products_table(): void
@@ -179,20 +179,17 @@ class PimPayloadContractTest extends TestCase
             ->assertJsonPath('data.variants.0.image', url('/api/pim-media/'.$hash.'.png'));
     }
 
-    public function test_form_accepts_signed_url_and_legacy_attribute_spelling(): void
+    public function test_pim_inbound_accepts_signed_url_and_legacy_attribute_spelling(): void
     {
         Http::fake(['storage.eigeradventure.com/*' => Http::response($this->png, 200)]);
         $payload = $this->payload();
         $payload['product']['customAttributes'] = $payload['product']['customAtributes'];
         unset($payload['product']['customAtributes']);
-        $this->post('/admin/products', ['sku' => 'P1-M', 'name' => 'Bag M', 'price' => 10,
-            'image' => $payload['product']['mainImage'],
-            'pim_payload_json' => json_encode($payload['product']),
-            'pim_image_payload_json' => json_encode($payload['image'])])->assertRedirect('/admin/products');
-        $saved = Product::first();
+        $this->withToken('test')->postJson('/api/integrations/pim/product', $payload)->assertOk();
+        $saved = Product::where('sku', 'P1')->firstOrFail();
         $this->assertSame('Real description', $saved->pim_payload['customAtributes'][0]['value']);
-        $this->assertCount(3, $saved->pim_media);
-        $this->assertSame('SIZE_CHART', $saved->pim_media[1]['role']);
+        $this->assertCount(4, $saved->pim_media);
+        $this->assertTrue(collect($saved->pim_media)->contains('role', 'SIZE_CHART'));
         $path = $this->mediaDir.'/products/photos/bag--p1/'.hash('sha256', $this->png).'.png';
         $this->assertFileExists($path);
         if (DIRECTORY_SEPARATOR === '/') {

@@ -22,6 +22,7 @@ class Tablet extends Model
         'location',
         'featured_product_id',
         'activation_code_hash',
+        'activation_code_encrypted',
         'device_token_hash',
         'config_version',
         'last_seen_at',
@@ -31,6 +32,7 @@ class Tablet extends Model
 
     protected $hidden = [
         'activation_code_hash',
+        'activation_code_encrypted',
         'device_token_hash',
     ];
 
@@ -38,6 +40,7 @@ class Tablet extends Model
         'config_version' => 'integer',
         'last_seen_at' => 'datetime',
         'is_active' => 'boolean',
+        'activation_code_encrypted' => 'encrypted',
     ];
 
     public function featuredProduct(): BelongsTo

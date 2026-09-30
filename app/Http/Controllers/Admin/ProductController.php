@@ -3,17 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreProductRequest;
-use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
-use App\Models\Zone;
+use App\Models\AtomProductActivityGroup;
+use App\Models\AtomProductCategory;
 use App\Services\PimCareProductMapper;
-use App\Services\PimFormData;
-use App\Services\PimProductDataStore;
+use App\Services\AtomMasterDataResolver;
 use App\Services\PimProductLookup;
 use App\Services\ProductEnrichmentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
@@ -23,7 +21,13 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $products = Product::with(['zone', 'variants'])
+        $products = Product::with([
+            'zone',
+            'variants',
+            'atomCategory',
+            'atomSubCategory',
+            'activitiesRelation.atomActivity.group',
+        ])
             ->withCount('variants')
             ->whereRaw('LENGTH(sku) = 9')
             ->where(function ($query) {
@@ -41,13 +45,85 @@ class ProductController extends Controller
                 });
             })
             ->when($request->filled('zone_id'), fn ($q) => $q->where('zone_id', $request->zone_id))
+            ->when($request->filled('category'), function ($query) use ($request) {
+                $category = $request->string('category')->toString();
+                $query->where(function ($categories) use ($category) {
+                    $categories->where('category', $category)
+                        ->orWhereHas('atomCategory', fn ($master) => $master->where('name', $category))
+                        ->orWhereHas('atomSubCategory', fn ($master) => $master->where('name', $category));
+                });
+            })
+            ->when($request->filled('activity'), function ($query) use ($request) {
+                $activity = $request->string('activity')->toString();
+                $query->whereHas('activitiesRelation', function ($activities) use ($activity) {
+                    $activities->where('name', $activity)
+                        ->orWhereHas('atomActivity.group', fn ($group) => $group->where('name', $activity));
+                });
+            })
+            ->when($request->filled('ai_status'), fn ($query) => $query->where('ai_fit_and_go_active', $request->boolean('ai_status')))
+            ->when($request->filled('tablet_status'), fn ($query) => $query->where('interactive_tablet_active', $request->boolean('tablet_status')))
             ->latest()
             ->paginate(15)
             ->withQueryString();
 
-        $zones = Zone::all();
+        $categories = AtomProductCategory::query()
+            ->with(['subCategories' => fn ($query) => $query->orderBy('sequence_number')->orderBy('name')])
+            ->orderBy('sequence_number')->orderBy('name')->get();
+        $activityGroups = AtomProductActivityGroup::query()
+            ->with(['activities' => fn ($query) => $query->orderBy('name')])
+            ->orderBy('sequence_number')->orderBy('name')->get();
+        $channelSettingsUnlocked = $this->channelSettingsUnlocked($request);
 
-        return view('admin.products.index', compact('products', 'zones'));
+        return view('admin.products.index', compact('products', 'categories', 'activityGroups', 'channelSettingsUnlocked'));
+    }
+
+    /**
+     * Lock or unlock channel switches for the current authenticated session.
+     */
+    public function updateChannelLock(Request $request)
+    {
+        $data = $request->validate(['unlocked' => ['required', 'boolean']]);
+        $request->session()->put('products.channel_settings_unlocked', $data['unlocked']);
+
+        return back()->with('success', $data['unlocked']
+            ? 'Pengaturan AI Product dan Tablet berhasil dibuka.'
+            : 'Pengaturan AI Product dan Tablet berhasil dikunci.');
+    }
+
+    /**
+     * Update one Digital Store channel without changing the PIM/CARE product data.
+     */
+    public function updateChannel(Request $request, Product $product)
+    {
+        abort_unless(
+            $this->channelSettingsUnlocked($request),
+            423,
+            'Pengaturan kanal masih terkunci.'
+        );
+
+        $data = $request->validate([
+            'channel' => ['required', Rule::in(['ai_fit_and_go_active', 'interactive_tablet_active'])],
+            'active' => ['required', 'boolean'],
+        ]);
+
+        $product->update([$data['channel'] => $data['active']]);
+
+        $channelName = $data['channel'] === 'ai_fit_and_go_active' ? 'AI Fit & Go' : 'Interactive Tablet';
+
+        return back()->with('success', sprintf(
+            '%s berhasil %s untuk %s.',
+            $product->name,
+            $data['active'] ? 'diaktifkan' : 'dinonaktifkan',
+            $channelName,
+        ));
+    }
+
+    private function channelSettingsUnlocked(Request $request): bool
+    {
+        return filter_var(
+            $request->session()->get('products.channel_settings_unlocked', false),
+            FILTER_VALIDATE_BOOLEAN
+        );
     }
 
     /**
@@ -89,7 +165,7 @@ class ProductController extends Controller
             'weight' => $product->weight,
             'media' => $product->pim_media ?? [],
             'variants' => $product->variants->map->only(['sku', 'name', 'color', 'size', 'price', 'stock'])->all(),
-            'edit_url' => route('admin.products.edit', $product),
+            'detail_url' => route('admin.products.show', $product),
         ]);
     }
 
@@ -140,121 +216,36 @@ class ProductController extends Controller
         return response()->json($result);
     }
 
-    public function create()
-    {
-        $zones = Zone::all();
-        $availableImages = [];
-
-        return view('admin.products.create', compact('zones', 'availableImages'));
-    }
-
     /**
-     * Store a newly created product.
+     * Display the product data received from PIM/CARE without exposing manual edits.
      */
-    public function store(StoreProductRequest $request)
+    public function show(Product $product, AtomMasterDataResolver $masterDataResolver)
     {
-        $data = app(PimFormData::class)->apply($request->validated(), $request);
-        $data['is_featured'] = $request->has('is_featured');
-        $data['is_discontinued'] = $request->has('is_discontinued');
+        $product->load([
+            'zone',
+            'variants.attributesRelation',
+            'pimRecord',
+            'atomCategory',
+            'atomSubCategory',
+            'customAttributesRelation',
+            'technologiesRelation',
+            'activitiesRelation.atomActivity.group',
+            'performancesRelation',
+            'specificationsRelation',
+            'mediaRelation.variant',
+        ]);
 
-        $variants = $data['variants'] ?? [];
-        $pimSync = $data['_pim_sync'] ?? null;
-        unset($data['variants'], $data['_pim_sync']);
-
-        DB::transaction(function () use ($data, $variants, $pimSync) {
-            $product = Product::create($data);
-            foreach ($variants as $var) {
-                $product->variants()->create([
-                    'sku' => $var['sku'],
-                    'name' => ($var['name'] ?? null) ?: ($product->name.' - '.($var['color'] ?? '').' - '.($var['size'] ?? '')),
-                    'color' => $var['color'] ?? null,
-                    'size' => $var['size'] ?? null,
-                    'price' => $var['price'] ?? $product->price,
-                    'stock' => $var['stock'] ?? 0,
-                    'image' => ($var['image'] ?? null) ?: $product->image,
-                ]);
-            }
-            if ($variants) {
-                $product->update(['stock' => $product->variants()->sum('stock')]);
-            }
-            if ($pimSync) {
-                app(PimProductDataStore::class)->replace(
-                    $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
-                );
-            }
-        });
-
-        return redirect()->route('admin.products.index')
-            ->with('success', 'Produk berhasil ditambahkan.');
-    }
-
-    /**
-     * Show the form for editing the specified product.
-     */
-    public function edit(Product $product)
-    {
-        $product->load('variants');
-        $zones = Zone::all();
         $availableImages = $this->collectAvailableImages($product);
+        $customAttributes = collect($product->custom_attributes_list)->map(function (array $attribute) use ($masterDataResolver) {
+            $attribute['master_values'] = $masterDataResolver->displayValues(
+                isset($attribute['value']) && is_scalar($attribute['value']) ? (string) $attribute['value'] : null,
+                (string) ($attribute['attributeCode'] ?? ''),
+            );
 
-        return view('admin.products.edit', compact('product', 'zones', 'availableImages'));
-    }
+            return $attribute;
+        })->all();
 
-    /**
-     * Update the specified product.
-     */
-    public function update(UpdateProductRequest $request, Product $product)
-    {
-        $data = app(PimFormData::class)->apply($request->validated(), $request);
-        $data['is_featured'] = $request->has('is_featured');
-        $data['is_discontinued'] = $request->has('is_discontinued');
-
-        $variants = $data['variants'] ?? ($request->boolean('variants_submitted') ? [] : null);
-        $pimSync = $data['_pim_sync'] ?? null;
-        unset($data['variants'], $data['_pim_sync']);
-        DB::transaction(function () use ($product, $data, $variants, $pimSync) {
-            $product->update($data);
-            if ($variants === null) {
-                if ($pimSync) {
-                    app(PimProductDataStore::class)->replace(
-                        $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
-                    );
-                }
-
-                return;
-            }
-
-            $existingSku = [];
-            foreach ($variants as $var) {
-                $existingSku[] = $var['sku'];
-                $existingImage = $product->variants()->where('sku', $var['sku'])->value('image');
-                $product->variants()->updateOrCreate(
-                    ['sku' => $var['sku']],
-                    [
-                        'name' => ($var['name'] ?? null) ?: ($product->name.' - '.($var['color'] ?? '').' - '.($var['size'] ?? '')),
-                        'color' => $var['color'] ?? null,
-                        'size' => $var['size'] ?? null,
-                        'price' => $var['price'] ?? $product->price,
-                        'stock' => $var['stock'] ?? 0,
-                        'image' => ($var['image'] ?? null) ?: ($existingImage ?: $product->image),
-                    ]
-                );
-            }
-            if ($existingSku) {
-                $product->variants()->whereNotIn('sku', $existingSku)->delete();
-            } else {
-                $product->variants()->delete();
-            }
-            $product->update(['stock' => $product->variants()->sum('stock')]);
-            if ($pimSync) {
-                app(PimProductDataStore::class)->replace(
-                    $product, $pimSync['product'], $pimSync['image'], $pimSync['media'], source: 'admin-form'
-                );
-            }
-        });
-
-        return redirect()->route('admin.products.index')
-            ->with('success', 'Produk berhasil diperbarui.');
+        return view('admin.products.show', compact('product', 'availableImages', 'customAttributes'));
     }
 
     /**
@@ -329,13 +320,15 @@ class ProductController extends Controller
     }
 
     /**
-     * Remove the specified product.
+     * Remove a product that is no longer needed in the Digital Store catalog.
      */
     public function destroy(Product $product)
     {
+        $productName = $product->name;
         $product->delete();
 
         return redirect()->route('admin.products.index')
-            ->with('success', 'Produk berhasil dihapus.');
+            ->with('success', $productName.' berhasil dihapus dari katalog CMS.');
     }
+
 }

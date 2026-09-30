@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class FitAndGoApiTest extends TestCase
@@ -65,8 +66,78 @@ class FitAndGoApiTest extends TestCase
                 'device_code' => 'fit-kiosk-01',
                 'device_name' => 'Kiosk 01',
                 'gpu_endpoint' => 'http://192.168.1.200:8000/api/v1/fit-prediction',
+                'product_selection_mode' => 'selected',
             ],
         ]);
+    }
+
+    public function test_secure_kiosk_must_be_activated_before_its_configuration_can_be_read(): void
+    {
+        $device = FitAndGoDevice::create([
+            'name' => 'Kiosk Lantai 2',
+            'device_code' => 'fit-floor-2',
+            'location' => 'Lantai 2',
+            'status' => 'offline',
+            'is_active' => true,
+            'activation_code_hash' => Hash::make('FLOOR-02'),
+        ]);
+
+        $this->getJson('/api/v1/fit-and-go/kiosks/fit-floor-2')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Aktivasi perangkat diperlukan.');
+
+        $this->postJson('/api/v1/fit-and-go/activate', [
+            'device_code' => 'fit-floor-2',
+            'activation_code' => 'SALAH-02',
+        ])->assertUnauthorized();
+
+        $activation = $this->postJson('/api/v1/fit-and-go/activate', [
+            'device_code' => 'fit-floor-2',
+            'activation_code' => 'FLOOR-02',
+        ])->assertOk()
+            ->assertJsonPath('kiosk.device_code', 'fit-floor-2');
+
+        $token = $activation->json('token');
+        $this->assertIsString($token);
+        $this->assertSame(64, strlen($token));
+
+        $this->withToken($token)
+            ->getJson('/api/v1/fit-and-go/kiosks/fit-floor-2')
+            ->assertOk()
+            ->assertJsonPath('data.kiosk.location', 'Lantai 2');
+
+        $device->refresh();
+        $this->assertTrue(Hash::check($token, $device->device_token_hash));
+        $this->assertSame('online', $device->status);
+        $this->assertNotNull($device->last_heartbeat_at);
+    }
+
+    public function test_latest_selection_mode_automatically_returns_recent_ai_products_for_device(): void
+    {
+        $device = FitAndGoDevice::where('device_code', 'fit-kiosk-01')->firstOrFail();
+        $device->update(['product_selection_mode' => 'latest']);
+        $older = Product::factory()->create([
+            'sku' => '910000120', 'name' => 'Older Jacket', 'category' => 'Jacket',
+            'ai_fit_and_go_active' => true, 'pim_catalog_active' => true, 'is_discontinued' => false,
+            'updated_at' => now()->subDay(),
+        ]);
+        $newer = Product::factory()->create([
+            'sku' => '910000121', 'name' => 'Newer Jacket', 'category' => 'Jacket',
+            'ai_fit_and_go_active' => true, 'pim_catalog_active' => true, 'is_discontinued' => false,
+            'updated_at' => now(),
+        ]);
+        Product::factory()->create([
+            'sku' => '910000122', 'name' => 'Tablet Only Jacket', 'category' => 'Jacket',
+            'ai_fit_and_go_active' => false, 'pim_catalog_active' => true, 'is_discontinued' => false,
+        ]);
+
+        $response = $this->getJson('/api/v1/fit-and-go/products?device_code=fit-kiosk-01&category=apparel');
+
+        $response->assertOk()
+            ->assertJsonPath('count', 2)
+            ->assertJsonPath('data.0.sku', $newer->sku)
+            ->assertJsonPath('data.1.sku', $older->sku)
+            ->assertJsonMissing(['sku' => '910000122']);
     }
 
     public function test_kiosk_slug_returns_its_categories_and_activity_recommendations(): void

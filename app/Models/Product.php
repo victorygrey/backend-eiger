@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -40,6 +41,8 @@ class Product extends Model
         'description',
         'is_featured',
         'is_discontinued',
+        'ai_fit_and_go_active',
+        'interactive_tablet_active',
         'pim_catalog_active',
         'pim_synced_at',
         'care_synced_at',
@@ -59,6 +62,8 @@ class Product extends Model
         'stock'           => 'integer',
         'is_featured'     => 'boolean',
         'is_discontinued' => 'boolean',
+        'ai_fit_and_go_active' => 'boolean',
+        'interactive_tablet_active' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -82,6 +87,29 @@ class Product extends Model
             $product->pendingPimPayload = $product->pendingPimImagePayload = $product->pendingPimMedia = null;
             $product->pendingPimVersion = null;
         });
+    }
+
+    /**
+     * Products that may be assigned to an Interactive Tablet configuration.
+     */
+    public function scopeInteractiveTabletCatalog(Builder $query): Builder
+    {
+        return $query
+            ->whereRaw('LENGTH(sku) = 9')
+            ->where('interactive_tablet_active', true)
+            ->where('is_discontinued', false)
+            ->where(function (Builder $products): void {
+                $products->whereDoesntHave('pimRecord')
+                    ->orWhere('pim_catalog_active', true);
+            });
+    }
+
+    public function isAvailableForInteractiveTablet(): bool
+    {
+        return strlen((string) $this->sku) === 9
+            && $this->interactive_tablet_active
+            && ! $this->is_discontinued
+            && (! $this->pimRecord || $this->pim_catalog_active);
     }
 
     /**

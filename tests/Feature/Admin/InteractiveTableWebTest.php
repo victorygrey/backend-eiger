@@ -13,14 +13,25 @@ class InteractiveTableWebTest extends TestCase
 {
     use RefreshDatabase;
 
+    private int $tabletSkuSequence = 910700000;
+
+    private function tabletProduct(array $attributes = []): Product
+    {
+        return Product::factory()->create(array_merge([
+            'sku' => (string) ++$this->tabletSkuSequence,
+            'interactive_tablet_active' => true,
+            'pim_catalog_active' => true,
+            'is_discontinued' => false,
+        ], $attributes));
+    }
+
     public function test_interactive_table_index_loads_successfully(): void
     {
-        $featured = Product::factory()->create([
+        $featured = $this->tabletProduct([
             'name' => 'EIGER Streamline Daypack',
-            'is_discontinued' => false,
         ]);
-        $rec1 = Product::factory()->create(['name' => 'EIGER Hiking Cap', 'is_discontinued' => false]);
-        $rec2 = Product::factory()->create(['name' => 'EIGER Windbreaker', 'is_discontinued' => false]);
+        $rec1 = $this->tabletProduct(['name' => 'EIGER Hiking Cap']);
+        $rec2 = $this->tabletProduct(['name' => 'EIGER Windbreaker']);
 
         $tablet = Tablet::create([
             'name'                => 'Meja Ekspedisi 01',
@@ -47,7 +58,14 @@ class InteractiveTableWebTest extends TestCase
 
     public function test_interactive_table_create_page_loads(): void
     {
-        Product::factory()->count(3)->create(['is_discontinued' => false]);
+        $selected = $this->tabletProduct(['name' => 'EIGER Tablet Selected']);
+        Product::factory()->create([
+            'sku' => '910799999',
+            'name' => 'EIGER Tablet Not Selected',
+            'interactive_tablet_active' => false,
+            'pim_catalog_active' => true,
+            'is_discontinued' => false,
+        ]);
 
         $response = $this->get(route('admin.tablets.create'));
 
@@ -56,13 +74,16 @@ class InteractiveTableWebTest extends TestCase
         $response->assertSee('Produk Utama');
         $response->assertSee('Produk Rekomendasi');
         $response->assertSee('Aktivasi');
+        $response->assertSee('Katalog mengikuti pilihan di List Product');
+        $response->assertSee($selected->name);
+        $response->assertDontSee('EIGER Tablet Not Selected');
     }
 
     public function test_interactive_table_store_saves_ordered_recommendations(): void
     {
-        $featured = Product::factory()->create(['is_discontinued' => false]);
-        $rec1 = Product::factory()->create(['is_discontinued' => false]);
-        $rec2 = Product::factory()->create(['is_discontinued' => false]);
+        $featured = $this->tabletProduct();
+        $rec1 = $this->tabletProduct();
+        $rec2 = $this->tabletProduct();
 
         $response = $this->post(route('admin.tablets.store'), [
             'name'                => 'Table Expedition Hub',
@@ -78,6 +99,8 @@ class InteractiveTableWebTest extends TestCase
         $tablet = Tablet::where('slug', 'table-hub')->first();
         $this->assertNotNull($tablet);
         $this->assertEquals($featured->id, $tablet->featured_product_id);
+        $this->assertSame('HUB-2026', $tablet->activation_code_encrypted);
+        $this->assertNotSame('HUB-2026', $tablet->getRawOriginal('activation_code_encrypted'));
 
         // Verify recommendation order preserved
         $recs = $tablet->recommendations()->orderBy('sort_order')->get();
@@ -86,16 +109,39 @@ class InteractiveTableWebTest extends TestCase
         $this->assertEquals($rec1->id, $recs[1]->id);
     }
 
+    public function test_interactive_table_rejects_products_not_enabled_from_list_product(): void
+    {
+        $featured = Product::factory()->create([
+            'sku' => '910799998',
+            'interactive_tablet_active' => false,
+            'pim_catalog_active' => true,
+            'is_discontinued' => false,
+        ]);
+        $recommendation = $this->tabletProduct();
+
+        $this->post(route('admin.tablets.store'), [
+            'name' => 'Tablet Tidak Valid',
+            'slug' => 'tablet-tidak-valid',
+            'featured_product_id' => $featured->id,
+            'recommendation_ids' => [$recommendation->id],
+            'activation_code' => 'INVALID-01',
+            'is_active' => 1,
+        ])->assertSessionHasErrors('featured_product_id');
+
+        $this->assertDatabaseMissing('tablets', ['slug' => 'tablet-tidak-valid']);
+    }
+
     public function test_interactive_table_edit_page_loads_with_modal_preview(): void
     {
-        $featured = Product::factory()->create(['name' => 'EIGER Avalanche Jacket', 'is_discontinued' => false]);
-        $rec = Product::factory()->create(['name' => 'EIGER Cargo Pants', 'is_discontinued' => false]);
+        $featured = $this->tabletProduct(['name' => 'EIGER Avalanche Jacket']);
+        $rec = $this->tabletProduct(['name' => 'EIGER Cargo Pants']);
 
         $tablet = Tablet::create([
             'name'                => 'Display Tengah',
             'slug'                => 'display-mid',
             'featured_product_id' => $featured->id,
             'activation_code_hash'=> Hash::make('MID-01'),
+            'activation_code_encrypted' => 'MID-01',
             'config_version'      => 1,
             'is_active'           => true,
         ]);
@@ -107,15 +153,44 @@ class InteractiveTableWebTest extends TestCase
         $response->assertSee('Display Tengah');
         $response->assertSee('EIGER Avalanche Jacket');
         $response->assertSee('EIGER Cargo Pants');
+        $response->assertSee('value="MID-01"', false);
         $response->assertSee('Simulasi Tampilan Layar');
         $response->assertSee('Riwayat Versi Konfigurasi');
     }
 
+    public function test_saving_same_visible_tablet_activation_code_does_not_revoke_pairing(): void
+    {
+        $featured = $this->tabletProduct();
+        $recommendation = $this->tabletProduct();
+        $tokenHash = Hash::make('tablet-pairing-token');
+        $tablet = Tablet::create([
+            'name' => 'Paired Tablet',
+            'slug' => 'paired-tablet',
+            'featured_product_id' => $featured->id,
+            'activation_code_hash' => Hash::make('VISIBLE-01'),
+            'activation_code_encrypted' => 'VISIBLE-01',
+            'device_token_hash' => $tokenHash,
+            'is_active' => true,
+        ]);
+        $tablet->recommendations()->attach($recommendation->id, ['sort_order' => 0]);
+
+        $this->put(route('admin.tablets.update', $tablet), [
+            'name' => 'Paired Tablet Updated',
+            'slug' => 'paired-tablet',
+            'featured_product_id' => $featured->id,
+            'recommendation_ids' => [$recommendation->id],
+            'activation_code' => 'VISIBLE-01',
+            'is_active' => 1,
+        ])->assertRedirect();
+
+        $this->assertSame($tokenHash, $tablet->fresh()->device_token_hash);
+    }
+
     public function test_interactive_table_update_increments_version(): void
     {
-        $featured = Product::factory()->create(['is_discontinued' => false]);
-        $newFeatured = Product::factory()->create(['is_discontinued' => false]);
-        $rec = Product::factory()->create(['is_discontinued' => false]);
+        $featured = $this->tabletProduct();
+        $newFeatured = $this->tabletProduct();
+        $rec = $this->tabletProduct();
 
         $tablet = Tablet::create([
             'name'                => 'Display Apparel',

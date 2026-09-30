@@ -8,11 +8,13 @@ use App\Models\FitAndGoCategory;
 use App\Models\FitAndGoDevice;
 use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
+use App\Services\FitAndGoProductClassifier;
 use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class FitAndGoApiController extends Controller
@@ -21,7 +23,40 @@ class FitAndGoApiController extends Controller
      * Get the complete configuration for one kiosk by its URL slug/device identifier.
      * GET /api/v1/fit-and-go/kiosks/{deviceCode}
      */
-    public function kiosk(string $deviceCode): JsonResponse
+    public function activate(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'device_code' => ['required', 'string', 'max:50'],
+            'activation_code' => ['required', 'string', 'max:64'],
+        ]);
+
+        $device = FitAndGoDevice::whereRaw('LOWER(device_code) = ?', [Str::lower($validated['device_code'])])
+            ->where('is_active', true)
+            ->first();
+
+        if (! $device || ! is_string($device->activation_code_hash)
+            || ! Hash::check($validated['activation_code'], $device->activation_code_hash)) {
+            return response()->json(['message' => 'Kode aktivasi tidak valid.'], 401);
+        }
+
+        $token = Str::random(64);
+        $device->forceFill([
+            'device_token_hash' => Hash::make($token),
+            'last_heartbeat_at' => now(),
+            'status' => 'online',
+        ])->save();
+
+        return response()->json([
+            'token' => $token,
+            'kiosk' => [
+                'device_code' => $device->device_code,
+                'name' => $device->name,
+                'location' => $device->location,
+            ],
+        ]);
+    }
+
+    public function kiosk(Request $request, string $deviceCode): JsonResponse
     {
         $device = FitAndGoDevice::whereRaw('LOWER(device_code) = ?', [Str::lower($deviceCode)])->first();
 
@@ -31,6 +66,10 @@ class FitAndGoApiController extends Controller
                 'message' => "Kiosk dengan slug '{$deviceCode}' tidak ditemukan atau tidak aktif.",
                 'data' => null,
             ], 404);
+        }
+
+        if (! $this->authorized($request, $device)) {
+            return response()->json(['message' => 'Aktivasi perangkat diperlukan.'], 401);
         }
 
         $activities = FitAndGoActivity::where('is_active', true)
@@ -90,6 +129,7 @@ class FitAndGoApiController extends Controller
                     'name' => $device->name,
                     'location' => $device->location,
                     'status' => $device->status,
+                    'product_selection_mode' => $device->product_selection_mode,
                     'gpu_endpoint' => $device->gpu_endpoint,
                     'camera_source' => $device->camera_source,
                     'last_heartbeat' => $device->last_heartbeat_at?->toIso8601String(),
@@ -123,6 +163,11 @@ class FitAndGoApiController extends Controller
             ], 404);
         }
 
+
+        if (! $this->authorized($request, $device)) {
+            return response()->json(['message' => 'Aktivasi perangkat diperlukan.'], 401);
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -133,6 +178,7 @@ class FitAndGoApiController extends Controller
                 'gpu_endpoint' => $device->gpu_endpoint,
                 'camera_source' => $device->camera_source,
                 'device_status' => $device->status,
+                'product_selection_mode' => $device->product_selection_mode,
                 'last_heartbeat' => $device->last_heartbeat_at?->toIso8601String(),
             ],
         ]);
@@ -381,6 +427,26 @@ class FitAndGoApiController extends Controller
 
     private function visibleProductIds(?string $categoryCode, ?FitAndGoDevice $device): array
     {
+        if ($device?->product_selection_mode === 'latest') {
+            $products = Product::query()
+                ->with(['atomCategory', 'atomSubCategory'])
+                ->where('ai_fit_and_go_active', true)
+                ->where('pim_catalog_active', true)
+                ->where('is_discontinued', false)
+                ->latest('updated_at')
+                ->limit(30)
+                ->get();
+
+            if ($categoryCode) {
+                $classifier = app(FitAndGoProductClassifier::class);
+                $products = $products
+                    ->filter(fn (Product $product) => $classifier->groupCode($product) === $categoryCode)
+                    ->values();
+            }
+
+            return $products->pluck('id')->all();
+        }
+
         $rows = FitAndGoItemVisibility::query()
             ->when($categoryCode, fn ($q) => $q->where('category_code', $categoryCode))
             ->where(function ($q) use ($device) {
@@ -408,6 +474,9 @@ class FitAndGoApiController extends Controller
         ]);
 
         $device = FitAndGoDevice::where('device_code', $validated['device_code'])->firstOrFail();
+        if (! $this->authorized($request, $device)) {
+            return response()->json(['message' => 'Token perangkat tidak valid.'], 401);
+        }
         $device->update([
             'last_heartbeat_at' => now(),
             'status' => $validated['status'] ?? 'online',
@@ -422,5 +491,19 @@ class FitAndGoApiController extends Controller
                 'last_heartbeat_at' => $device->last_heartbeat_at->toIso8601String(),
             ],
         ]);
+    }
+
+    private function authorized(Request $request, FitAndGoDevice $device): bool
+    {
+        if (! is_string($device->activation_code_hash) || $device->activation_code_hash === '') {
+            return true;
+        }
+
+        $token = $request->bearerToken() ?: $request->query('token');
+
+        return is_string($token)
+            && $token !== ''
+            && is_string($device->device_token_hash)
+            && Hash::check($token, $device->device_token_hash);
     }
 }

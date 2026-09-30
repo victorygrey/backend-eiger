@@ -1,6 +1,9 @@
 @php
     $selectedFeaturedId = (int) old('featured_product_id', $tablet->featured_product_id ?? 0);
     $featuredProduct = $products->firstWhere('id', $selectedFeaturedId);
+    if (!$featuredProduct) {
+        $selectedFeaturedId = 0;
+    }
 
     $oldRecIds = old('recommendation_ids', isset($tablet) ? $tablet->recommendations->pluck('id')->all() : []);
     $selectedRecIds = collect($oldRecIds)->map(fn ($id) => (int) $id)->values();
@@ -13,6 +16,13 @@
 <div class="row g-4">
     {{-- LEFT COLUMN: Identity & Product Configurations --}}
     <div class="col-12 col-xl-8">
+        <div class="alert alert-info border-0 shadow-sm d-flex align-items-start gap-2 mb-4">
+            <i class="bi bi-info-circle-fill mt-1"></i>
+            <div>
+                <strong>Katalog mengikuti pilihan di List Product.</strong>
+                Hanya produk dengan status <strong>Tablet Active</strong> yang tersedia sebagai produk utama dan rekomendasi.
+            </div>
+        </div>
         {{-- SECTION 1: Device Identity --}}
         <div class="card border-0 shadow-sm rounded-3 mb-4">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
@@ -224,11 +234,12 @@
             </div>
             <div class="card-body">
                 <label class="form-label fw-semibold">
-                    {{ isset($tablet) ? 'Kode Aktivasi Baru (Opsional)' : 'Kode Aktivasi' }}
+                    Kode Aktivasi
                     @if(!isset($tablet)) <span class="text-danger">*</span> @endif
                 </label>
                 <div class="input-group mb-2">
                     <input type="text" id="activation_code_input" name="activation_code" class="form-control font-monospace @error('activation_code') is-invalid @enderror"
+                           value="{{ old('activation_code', $tablet->activation_code_encrypted ?? '') }}"
                            autocomplete="new-password" placeholder="Contoh: LOBBY-01" {{ isset($tablet) ? '' : 'required' }}>
                     <button type="button" class="btn btn-outline-secondary" onclick="generateActivationCode()" title="Generate Random Code">
                         <i class="bi bi-dice-5"></i>
@@ -236,7 +247,7 @@
                 </div>
                 @error('activation_code')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
                 <small class="text-muted d-block mb-3">
-                    Kode ini diinputkan pada aplikasi display tablet pertama kali saat melakukan pairing.
+                    Kode disimpan terenkripsi dan tetap ditampilkan untuk kebutuhan pairing perangkat.
                 </small>
 
                 <hr class="my-3">

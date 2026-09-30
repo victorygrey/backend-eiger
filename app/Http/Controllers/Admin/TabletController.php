@@ -10,6 +10,7 @@ use App\Models\Tablet;
 use App\Models\TabletConfigVersion;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class TabletController extends Controller
 {
@@ -30,10 +31,13 @@ class TabletController extends Controller
 
     public function store(StoreTabletRequest $request)
     {
+        $this->assertProductsAreEnabledForTablet($request->integer('featured_product_id'), $request->input('recommendation_ids', []));
+
         $tablet = DB::transaction(function () use ($request) {
             $tablet = Tablet::create([
                 ...$request->safe()->except(['recommendation_ids', 'activation_code', 'is_active']),
                 'activation_code_hash' => Hash::make((string) $request->string('activation_code')),
+                'activation_code_encrypted' => (string) $request->string('activation_code'),
                 'is_active' => $request->boolean('is_active'),
             ]);
 
@@ -59,14 +63,18 @@ class TabletController extends Controller
 
     public function update(UpdateTabletRequest $request, Tablet $tablet)
     {
+        $this->assertProductsAreEnabledForTablet($request->integer('featured_product_id'), $request->input('recommendation_ids', []));
+
         DB::transaction(function () use ($request, $tablet) {
             $tablet->fill([
                 ...$request->safe()->except(['recommendation_ids', 'activation_code', 'is_active']),
                 'is_active' => $request->boolean('is_active'),
             ]);
 
-            if ($request->filled('activation_code')) {
+            if ($request->filled('activation_code')
+                && (string) $request->string('activation_code') !== $tablet->activation_code_encrypted) {
                 $tablet->activation_code_hash = Hash::make((string) $request->string('activation_code'));
+                $tablet->activation_code_encrypted = (string) $request->string('activation_code');
                 $tablet->device_token_hash = null;
             }
 
@@ -94,10 +102,10 @@ class TabletController extends Controller
         }
 
         $featured = Product::whereKey($version->featured_product_id)
-            ->where('is_discontinued', false)
+            ->interactiveTabletCatalog()
             ->first();
         $recommendationIds = Product::whereIn('id', $version->recommendation_product_ids ?? [])
-            ->where('is_discontinued', false)
+            ->interactiveTabletCatalog()
             ->pluck('id')
             ->all();
 
@@ -126,9 +134,28 @@ class TabletController extends Controller
     private function availableProducts()
     {
         return Product::with('zone')
-            ->where('is_discontinued', false)
+            ->interactiveTabletCatalog()
             ->orderBy('name')
             ->get();
+    }
+
+    private function assertProductsAreEnabledForTablet(int $featuredProductId, array $recommendationIds): void
+    {
+        $requestedIds = collect([$featuredProductId, ...$recommendationIds])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        $eligibleIds = Product::interactiveTabletCatalog()
+            ->whereIn('id', $requestedIds)
+            ->pluck('id');
+
+        if ($eligibleIds->count() !== $requestedIds->count()) {
+            throw ValidationException::withMessages([
+                'featured_product_id' => 'Produk utama dan rekomendasi harus dipilih dari produk berstatus Tablet Active pada List Product.',
+            ]);
+        }
     }
 
     private function syncRecommendations(Tablet $tablet, array $productIds): void

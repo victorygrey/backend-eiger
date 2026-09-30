@@ -70,11 +70,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::get('/products/catalog-lookup', [ProductController::class, 'catalogLookup'])->name('products.catalog-lookup');
     Route::get('/products/{product}/mapping-preview', [ProductController::class, 'mappingPreview'])->name('products.mapping-preview');
     Route::get('/products',                [ProductController::class, 'index'])->name('products.index');
-    Route::get('/products/create',         [ProductController::class, 'create'])->name('products.create');
-    Route::post('/products',               [ProductController::class, 'store'])->name('products.store');
-    Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
-    Route::put('/products/{product}',      [ProductController::class, 'update'])->name('products.update');
+    Route::patch('/products/channel-lock', [ProductController::class, 'updateChannelLock'])->name('products.channel-lock.update');
+    Route::patch('/products/{product}/channel', [ProductController::class, 'updateChannel'])->name('products.channel.update');
     Route::delete('/products/{product}',   [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::get('/products/{product}',      [ProductController::class, 'show'])->name('products.show');
 
     // Interactive Tablets
     Route::get('/tablets',                  [TabletController::class, 'index'])->name('tablets.index');
@@ -88,23 +87,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // AI Fit & Go
     Route::prefix('fit-and-go')->name('fit-and-go.')->group(function () {
         Route::get('/', [FitAndGoController::class, 'index'])->name('index');
+        Route::put('/config-products/{device}', [FitAndGoController::class, 'updateProductConfig'])->name('product-config.update');
         Route::get('/devices/create', [FitAndGoController::class, 'createDevice'])->name('devices.create');
         Route::post('/devices', [FitAndGoController::class, 'storeDevice'])->name('devices.store');
         Route::get('/devices/{device}/edit', [FitAndGoController::class, 'editDevice'])->name('devices.edit');
         Route::put('/devices/{device}', [FitAndGoController::class, 'updateDevice'])->name('devices.update');
-        Route::put('/devices/{device}/catalog/{category}', [FitAndGoController::class, 'syncDeviceCategoryProducts'])->name('devices.catalog.sync');
-        Route::put('/devices/{device}/activities/{activity}', [FitAndGoController::class, 'syncDeviceActivityProducts'])->name('devices.activities.sync');
         Route::post('/devices/{device}/ping', [FitAndGoController::class, 'pingDevice'])->name('devices.ping');
         Route::delete('/devices/{device}', [FitAndGoController::class, 'destroyDevice'])->name('devices.destroy');
-
-        Route::get('/activities/create', [FitAndGoController::class, 'createActivity'])->name('activities.create');
-        Route::post('/activities', [FitAndGoController::class, 'storeActivity'])->name('activities.store');
-        Route::get('/activities/{activity}/edit', [FitAndGoController::class, 'editActivity'])->name('activities.edit');
-        Route::put('/activities/{activity}', [FitAndGoController::class, 'updateActivity'])->name('activities.update');
-        Route::delete('/activities/{activity}', [FitAndGoController::class, 'destroyActivity'])->name('activities.destroy');
-
-        Route::put('/categories/{category}', [FitAndGoController::class, 'updateCategory'])->name('categories.update');
-        Route::post('/items/visibility', [FitAndGoController::class, 'toggleItemVisibility'])->name('items.visibility');
     });
 
     // LED Ambience (Immersive Ambience Digital)

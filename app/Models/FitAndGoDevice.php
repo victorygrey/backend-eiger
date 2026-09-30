@@ -19,12 +19,23 @@ class FitAndGoDevice extends Model
         'camera_source',
         'status',
         'is_active',
+        'product_selection_mode',
+        'activation_code_hash',
+        'activation_code_encrypted',
+        'device_token_hash',
         'last_heartbeat_at',
+    ];
+
+    protected $hidden = [
+        'activation_code_hash',
+        'activation_code_encrypted',
+        'device_token_hash',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'last_heartbeat_at' => 'datetime',
+        'activation_code_encrypted' => 'encrypted',
     ];
 
     public function itemVisibilities(): HasMany

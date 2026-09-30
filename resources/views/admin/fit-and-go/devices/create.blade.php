@@ -3,7 +3,7 @@
 @section('title', 'Tambah Perangkat Kiosk AI Fit & Go')
 @section('page-title', 'Tambah Perangkat Kiosk')
 @section('breadcrumb-items')
-    <li class="breadcrumb-item"><a href="{{ route('admin.fit-and-go.index', ['tab' => 'devices']) }}">AI Fit & Go</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('admin.fit-and-go.index', ['tab' => 'kiosks']) }}">AI Fit & Go</a></li>
     <li class="breadcrumb-item active">Tambah Perangkat</li>
 @endsection
 
@@ -14,11 +14,11 @@
             <i class="bi bi-display text-warning me-2"></i>Tambah Perangkat Kiosk AI Fit & Go
         </h4>
         <p class="text-muted small mb-0">
-            Daftarkan unit kiosk fitting room baru untuk konfigurasi katalog AI Fit & Go.
+            Daftarkan identitas dan kode aktivasi kiosk AI Fit & Go per lantai.
         </p>
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ route('admin.fit-and-go.index', ['tab' => 'devices']) }}" class="btn btn-outline-secondary">
+        <a href="{{ route('admin.fit-and-go.index', ['tab' => 'kiosks']) }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Kembali
         </a>
     </div>

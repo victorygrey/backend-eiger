@@ -53,6 +53,10 @@ class TabletDisplayController extends Controller
             array_map(fn (string $relation): string => 'recommendations.'.$relation, DeviceProductPayload::relations())
         ));
 
+        if (! $tablet->featuredProduct?->isAvailableForInteractiveTablet()) {
+            return response()->json(['message' => 'Produk utama tablet sudah tidak aktif pada List Product.'], 404);
+        }
+
         return response()->json([
             'tablet' => [
                 'id' => (string) $tablet->id,
@@ -63,7 +67,7 @@ class TabletDisplayController extends Controller
             'version' => $tablet->config_version,
             'featured' => $this->productPayload($tablet->featuredProduct),
             'recommendations' => $tablet->recommendations
-                ->reject(fn (Product $product) => $product->is_discontinued)
+                ->filter(fn (Product $product) => $product->isAvailableForInteractiveTablet())
                 ->map(fn (Product $product) => $this->productPayload($product))
                 ->values(),
             'publishedAt' => $tablet->updated_at?->toISOString(),

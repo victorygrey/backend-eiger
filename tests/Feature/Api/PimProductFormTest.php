@@ -14,13 +14,10 @@ class PimProductFormTest extends TestCase
         $this->getJson('/admin/products/pim-lookup?code=P1')->assertOk()->assertJsonPath('product.generic','P1');
         $this->assertDatabaseCount('products',0);Http::assertSentCount(2);
     }
-    public function test_form_persists_complete_payload_and_rejects_foreign_sku(): void {
-        config(['pim.copy_http_media'=>false]);
-        $data=['sku'=>'P1','name'=>'Bag','price'=>99,'pim_payload_json'=>json_encode($this->payload()),'pim_image_payload_json'=>json_encode(['generic'=>[],'variant'=>[]])];
-        $this->post('/admin/products',$data)->assertRedirect('/admin/products');
-        $p=Product::first();$this->assertSame('P1',$p->pim_payload['generic']);$this->assertSame('Pria',$p->pim_payload['customAtributes'][0]['value']);
-        $data['sku']='WRONG';$this->postJson('/admin/products',$data)->assertUnprocessable()->assertJsonValidationErrors('sku');
-        $this->assertDatabaseCount('products',1);
+    public function test_manual_product_creation_is_not_available(): void {
+        $this->post('/admin/products', ['sku'=>'P1','name'=>'Bag'])->assertStatus(405);
+        $this->postJson('/api/products', ['sku'=>'P1','name'=>'Bag'])->assertStatus(405);
+        $this->assertDatabaseCount('products', 0);
     }
     public function test_catalog_lookup_returns_material_zone_and_scraped_article_variant(): void {
         \App\Models\Zone::create(['name' => 'Zone Tas & Aksesoris', 'code' => 'ACC']);

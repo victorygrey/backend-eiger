@@ -32,7 +32,7 @@
                             <div class="fw-bold mapping-preview-name"></div>
                             <div class="small font-monospace text-muted mapping-preview-sku"></div>
                             <div class="small mapping-preview-summary"></div>
-                            <a class="small mapping-preview-edit" href="#">Edit data master di Products <i class="bi bi-box-arrow-up-right"></i></a>
+                            <a class="small mapping-preview-detail" href="#">Lihat detail master di Products <i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                     </div>
                     <div class="small mapping-preview-sections overflow-auto" style="max-height: 550px;"></div>
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             picker.querySelector('.mapping-preview-name').textContent = product.name;
             picker.querySelector('.mapping-preview-sku').textContent = product.sku;
             picker.querySelector('.mapping-preview-summary').textContent = [product.category, product.zone, 'Rp ' + Number(product.price).toLocaleString('id-ID'), 'Stok ' + product.stock].filter(Boolean).join(' · ');
-            picker.querySelector('.mapping-preview-edit').href = product.edit_url;
+            picker.querySelector('.mapping-preview-detail').href = product.detail_url;
             sections.replaceChildren();
             section('Deskripsi', product.description ? [product.description] : []);
             section('Material & Berat', [product.material, product.weight ? product.weight + ' gram' : ''].filter(Boolean));
