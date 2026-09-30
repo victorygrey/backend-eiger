@@ -133,6 +133,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     // RFID Tags
     Route::get('/rfid-tags',                 [RfidTagController::class, 'index'])->name('rfid-tags.index');
+    Route::patch('/rfid-tags/channel-lock',  [RfidTagController::class, 'updateChannelLock'])->name('rfid-tags.channel-lock.update');
+    Route::patch('/rfid-tags/{rfidTag}/channel', [RfidTagController::class, 'updateChannel'])->name('rfid-tags.channel.update');
     Route::get('/rfid-tags/create',          [RfidTagController::class, 'create'])->name('rfid-tags.create');
     Route::post('/rfid-tags',                [RfidTagController::class, 'store'])->name('rfid-tags.store');
     Route::get('/rfid-tags/{rfidTag}/edit',  [RfidTagController::class, 'edit'])->name('rfid-tags.edit');

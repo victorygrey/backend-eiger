@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\LedAmbienceItem;
 use App\Models\Product;
 use App\Models\RfidTag;
+use App\Models\TableExpeditionItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -45,9 +47,11 @@ class RfidTagWebTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Master RFID Tags');
         $response->assertSee('UID / Label RFID');
+        $response->assertSee('Produk / SKU Terhubung');
+        $response->assertSee('LED Ambience');
+        $response->assertSee('Table Expedition');
         $response->assertSee('Scan Terakhir');
         $response->assertSee('E280116060000204AABBCCDD');
-        $response->assertSee($tag->created_at->format('d M Y'));
     }
 
     public function test_search_filters_rfid_tags_by_uid(): void
@@ -153,5 +157,62 @@ class RfidTagWebTest extends TestCase
         }
 
         $this->assertSame(2, RfidTag::where('product_id', $product->id)->count());
+    }
+
+    public function test_rfid_channel_switches_are_locked_and_control_real_device_mappings(): void
+    {
+        $product = Product::factory()->create(['sku' => '910006666', 'is_discontinued' => false]);
+        $tag = RfidTag::create(['uid' => 'E28011606000020466660001', 'product_id' => $product->id]);
+
+        $this->actingAs($this->admin)->patch(route('admin.rfid-tags.channel.update', $tag), [
+            'channel' => 'led_ambience',
+            'active' => true,
+        ])->assertStatus(423);
+
+        $this->patch(route('admin.rfid-tags.channel-lock.update'), ['unlocked' => true])
+            ->assertRedirect();
+
+        $this->patch(route('admin.rfid-tags.channel.update', $tag), [
+            'channel' => 'led_ambience',
+            'active' => true,
+        ])->assertRedirect();
+        $this->assertDatabaseHas('led_ambience_items', [
+            'rfid_tag' => $tag->uid,
+            'product_id' => $product->id,
+            'is_active' => true,
+        ]);
+
+        $ledMapping = LedAmbienceItem::where('rfid_tag', $tag->uid)->firstOrFail();
+        $ledMapping->update(['notes' => 'Konfigurasi tetap disimpan']);
+        $this->patch(route('admin.rfid-tags.channel.update', $tag), [
+            'channel' => 'led_ambience',
+            'active' => false,
+        ])->assertRedirect();
+        $this->assertDatabaseHas('led_ambience_items', [
+            'id' => $ledMapping->id,
+            'notes' => 'Konfigurasi tetap disimpan',
+            'is_active' => false,
+        ]);
+
+        $this->patch(route('admin.rfid-tags.channel.update', $tag), [
+            'channel' => 'table_expedition',
+            'active' => true,
+        ])->assertRedirect();
+        $this->assertTrue(TableExpeditionItem::where('rfid_tag', $tag->uid)->firstOrFail()->is_active);
+    }
+
+    public function test_unassigned_rfid_cannot_be_enabled_for_a_device(): void
+    {
+        $tag = RfidTag::create(['uid' => 'E28011606000020466660002']);
+
+        $this->actingAs($this->admin)
+            ->patch(route('admin.rfid-tags.channel-lock.update'), ['unlocked' => true]);
+
+        $this->patch(route('admin.rfid-tags.channel.update', $tag), [
+            'channel' => 'table_expedition',
+            'active' => true,
+        ])->assertSessionHasErrors('channel');
+
+        $this->assertDatabaseMissing('table_expedition_items', ['rfid_tag' => $tag->uid]);
     }
 }

@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\LedAmbienceItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\RfidTag;
+use App\Models\TableExpeditionItem;
 use App\Models\Tablet;
 use App\Services\PimProductDataStore;
 use Database\Seeders\AtomMasterDataSeeder;
@@ -58,6 +60,16 @@ class DeviceMasterDataTranslationTest extends TestCase
         RfidTag::create([
             'uid' => 'E28011606000020499010001',
             'product_id' => $product->id,
+        ]);
+        LedAmbienceItem::create([
+            'rfid_tag' => 'E28011606000020499010001',
+            'product_id' => $product->id,
+            'is_active' => true,
+        ]);
+        TableExpeditionItem::create([
+            'rfid_tag' => 'E28011606000020499010001',
+            'product_id' => $product->id,
+            'is_active' => true,
         ]);
 
         $tabletToken = 'tablet-device-token';

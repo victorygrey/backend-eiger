@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class RfidTag extends Model
 {
@@ -39,6 +40,16 @@ class RfidTag extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function ledAmbienceItem(): HasOne
+    {
+        return $this->hasOne(LedAmbienceItem::class, 'rfid_tag', 'uid');
+    }
+
+    public function tableExpeditionItem(): HasOne
+    {
+        return $this->hasOne(TableExpeditionItem::class, 'rfid_tag', 'uid');
     }
 
     public static function canonicalUid(string $uid): string

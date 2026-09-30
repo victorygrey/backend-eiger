@@ -20,6 +20,14 @@ class RfidTagResource extends JsonResource
             'name' => $this->name,
             'product_id' => $this->product_id,
             'product' => new ProductResource($this->whenLoaded('product')),
+            'led_ambience_active' => $this->whenLoaded(
+                'ledAmbienceItem',
+                fn (): bool => (bool) $this->ledAmbienceItem?->is_active,
+            ),
+            'table_expedition_active' => $this->whenLoaded(
+                'tableExpeditionItem',
+                fn (): bool => (bool) $this->tableExpeditionItem?->is_active,
+            ),
             'last_scanned_at' => $this->last_scanned_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

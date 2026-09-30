@@ -62,8 +62,8 @@ class RfidTagController extends Controller
             ($tag->wasRecentlyCreated ? $created : $existing)->push($tag);
         }
 
-        $created->each->load('product');
-        $existing->each->load('product');
+        $created->each->load(['product', 'ledAmbienceItem', 'tableExpeditionItem']);
+        $existing->each->load(['product', 'ledAmbienceItem', 'tableExpeditionItem']);
 
         return response()->json([
             'success' => true,
@@ -86,7 +86,7 @@ class RfidTagController extends Controller
             "UPPER(REPLACE(REPLACE(REPLACE(uid, '-', ''), ':', ''), ' ', ''))",
         );
 
-        return RfidTag::with('product')
+        return RfidTag::with(['product', 'ledAmbienceItem', 'tableExpeditionItem'])
             ->whereIn($canonicalUid, $uids)
             ->get()
             ->keyBy(fn (RfidTag $tag): string => self::canonicalUid($tag->uid));
@@ -102,7 +102,7 @@ class RfidTagController extends Controller
      */
     public function index(): AnonymousResourceCollection
     {
-        $tags = RfidTag::with('product')->latest()->paginate(15);
+        $tags = RfidTag::with(['product', 'ledAmbienceItem', 'tableExpeditionItem'])->latest()->paginate(15);
 
         return RfidTagResource::collection($tags);
     }
@@ -117,7 +117,7 @@ class RfidTagController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'RFID tag created successfully.',
-            'data'    => new RfidTagResource($tag->load('product')),
+            'data' => new RfidTagResource($tag->load(['product', 'ledAmbienceItem', 'tableExpeditionItem'])),
         ], 201);
     }
 
@@ -129,7 +129,7 @@ class RfidTagController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'RFID tag retrieved successfully.',
-            'data'    => new RfidTagResource($rfidTag->load('product')),
+            'data' => new RfidTagResource($rfidTag->load(['product', 'ledAmbienceItem', 'tableExpeditionItem'])),
         ]);
     }
 
@@ -143,7 +143,7 @@ class RfidTagController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'RFID tag updated successfully.',
-            'data'    => new RfidTagResource($rfidTag->fresh()->load('product')),
+            'data' => new RfidTagResource($rfidTag->fresh()->load(['product', 'ledAmbienceItem', 'tableExpeditionItem'])),
         ]);
     }
 
@@ -157,7 +157,7 @@ class RfidTagController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'RFID tag deleted successfully.',
-            'data'    => null,
+            'data' => null,
         ]);
     }
 }

@@ -143,7 +143,7 @@ class TableExpeditionApiTest extends TestCase
         $this->assertNotNull($masterTag->fresh()->last_scanned_at);
     }
 
-    public function test_api_scan_unmapped_product_returns_fallback_if_in_rfid_tags(): void
+    public function test_api_scan_requires_rfid_to_be_enabled_for_table_expedition(): void
     {
         $product = Product::factory()->create([
             'name' => 'EIGER Caldera Sandal',
@@ -160,19 +160,12 @@ class TableExpeditionApiTest extends TestCase
             'rfid' => 'E28011606000020468900999',
         ]);
 
-        $response->assertStatus(200);
+        $response->assertStatus(404);
         $response->assertJson([
-            'status' => 'success',
-            'data' => [
-                'rfid_tag' => 'E28011606000020468900999',
-                'is_mapped_table' => false,
-                'product' => [
-                    'id' => $product->id,
-                    'name' => 'EIGER Caldera Sandal',
-                ],
-            ],
+            'status' => 'error',
+            'matched' => false,
         ]);
-        $this->assertNotNull($masterTag->fresh()->last_scanned_at);
+        $this->assertNull($masterTag->fresh()->last_scanned_at);
     }
 
     public function test_api_scan_unknown_rfid_returns_404(): void

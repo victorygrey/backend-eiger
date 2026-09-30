@@ -92,38 +92,8 @@ class LedAmbienceApiController extends Controller
             ->where('is_active', true)
             ->first();
 
-        // 2. Fallback to general rfid_tags table if not explicitly mapped
+        // RFID must be explicitly enabled for LED Ambience from the master RFID list.
         if (! $item) {
-            $generalTag = RfidTag::with(array_map(
-                fn (string $relation): string => 'product.'.$relation,
-                DeviceProductPayload::relations()
-            ))->where('uid', $rfidTag)->first();
-            if ($generalTag && $generalTag->product) {
-                $generalTag->update(['last_scanned_at' => now()]);
-                $product = $generalTag->product;
-                $activitySlug = collect($product->activities)
-                    ->sortByDesc(fn (array $activity): bool => (bool) ($activity['selected'] ?? false))
-                    ->map(fn (array $activity): string => str($activity['name'] ?? '')->slug()->toString())
-                    ->first(fn (string $slug): bool => $slug !== '');
-                $matchedScene = LedAmbienceScene::active()
-                    ->when($activitySlug, fn ($query) => $query->where('activity_slug', $activitySlug))
-                    ->first()
-                    ?? LedAmbienceScene::active()->where('scene_type', 'active')->first();
-                $activitySlug ??= $matchedScene?->activity_slug;
-
-                return response()->json([
-                    'status' => 'success',
-                    'matched' => true,
-                    'source' => 'general_rfid',
-                    'data' => [
-                        'rfid_tag' => $rfidTag,
-                        'product' => DeviceProductPayload::make($product),
-                        'activity' => $this->activityPayload($activitySlug),
-                        'scene' => $this->scenePayload($matchedScene),
-                    ],
-                ]);
-            }
-
             return response()->json([
                 'status' => 'not_found',
                 'matched' => false,

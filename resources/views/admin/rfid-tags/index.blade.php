@@ -7,6 +7,31 @@
     <li class="breadcrumb-item active">RFID Tags</li>
 @endsection
 
+@push('styles')
+<style>
+    .rfid-channel-card { border: 0; border-radius: 14px; box-shadow: 0 10px 30px rgba(26, 31, 44, .07); overflow: hidden; }
+    .rfid-channel-table { min-width: 1100px; }
+    .rfid-channel-table thead th { background: #171b2d; border: 0; color: #ff6a00; font-size: .72rem; letter-spacing: .06em; padding: 1rem; text-transform: uppercase; white-space: nowrap; }
+    .rfid-channel-table tbody td { border-color: #eceff3; padding: .85rem 1rem; }
+    .rfid-channel-table tbody tr:hover { background: rgba(255, 106, 0, .045); }
+    .rfid-channel-control { align-items: center; display: inline-flex; gap: .55rem; margin: 0; min-width: 126px; }
+    .rfid-channel-control .form-check-input { cursor: pointer; height: 1.45rem; margin: 0; width: 2.65rem; }
+    .rfid-channel-control .form-check-input:checked { background-color: #ff6a00; border-color: #ff6a00; }
+    .rfid-channel-control .form-check-input:disabled { cursor: not-allowed; filter: grayscale(.35); opacity: .45; }
+    .rfid-channel-label { color: #8b93a1; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+    .rfid-channel-control .form-check-input:checked + .rfid-channel-label { color: #198754; }
+    .rfid-lock-toolbar { align-items: center; background: #f8f9fb; border-bottom: 1px solid #e8ebf0; display: flex; gap: .85rem; justify-content: space-between; padding: .85rem 1rem; }
+    .rfid-lock-indicator { align-items: center; display: flex; gap: .7rem; min-width: 0; }
+    .rfid-lock-icon { align-items: center; background: rgba(220, 53, 69, .1); border-radius: 10px; color: #b02a37; display: inline-flex; flex: 0 0 auto; height: 38px; justify-content: center; width: 38px; }
+    .rfid-lock-title { color: #343a46; font-size: .8rem; font-weight: 800; }
+    .rfid-lock-help { color: #7b8494; font-size: .72rem; }
+    .rfid-lock-toolbar.is-unlocked { background: rgba(255, 193, 7, .08); border-bottom-color: rgba(255, 193, 7, .3); }
+    .rfid-lock-toolbar.is-unlocked .rfid-lock-icon { background: rgba(255, 193, 7, .17); color: #8a6400; }
+    .rfid-lock-toolbar.is-unlocked .rfid-lock-title { color: #805b00; }
+    @media (max-width: 575.98px) { .rfid-lock-toolbar { align-items: stretch; flex-direction: column; } .rfid-lock-toolbar .btn { width: 100%; } }
+</style>
+@endpush
+
 @section('content')
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
     <div>
@@ -60,16 +85,36 @@
     </div>
 </div>
 
-<div class="card">
+<div class="card rfid-channel-card">
     <div class="card-body p-0">
+        <div class="rfid-lock-toolbar {{ $channelSettingsUnlocked ? 'is-unlocked' : '' }}">
+            <div class="rfid-lock-indicator">
+                <span class="rfid-lock-icon"><i class="bi {{ $channelSettingsUnlocked ? 'bi-unlock-fill' : 'bi-lock-fill' }}"></i></span>
+                <div>
+                    <div class="rfid-lock-title">Pengaturan wahana RFID {{ $channelSettingsUnlocked ? 'terbuka' : 'terkunci' }}</div>
+                    <div class="rfid-lock-help">
+                        {{ $channelSettingsUnlocked
+                            ? 'Switch dapat diubah. Kunci kembali setelah selesai mengatur RFID.'
+                            : 'Switch LED Ambience dan Table Expedition dikunci untuk mencegah perubahan tidak sengaja.' }}
+                    </div>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('admin.rfid-tags.channel-lock.update') }}">
+                @csrf @method('PATCH')
+                <input type="hidden" name="unlocked" value="{{ $channelSettingsUnlocked ? 0 : 1 }}">
+                <button type="submit" class="btn btn-sm {{ $channelSettingsUnlocked ? 'btn-warning' : 'btn-outline-dark' }} flex-shrink-0">
+                    <i class="bi {{ $channelSettingsUnlocked ? 'bi-lock-fill' : 'bi-unlock-fill' }} me-1"></i>{{ $channelSettingsUnlocked ? 'Kunci Pengaturan' : 'Unlock Pengaturan' }}
+                </button>
+            </form>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table rfid-channel-table align-middle mb-0">
                 <thead><tr>
                     <th class="ps-3" style="min-width:240px">UID / Label RFID</th>
-                    <th style="min-width:220px">Produk Terhubung</th>
-                    <th style="min-width:130px">SKU Utama</th>
+                    <th style="min-width:255px">Produk / SKU Terhubung</th>
                     <th style="min-width:145px">Status</th>
-                    <th style="min-width:155px">Terdaftar</th>
+                    <th style="min-width:155px">LED Ambience</th>
+                    <th style="min-width:170px">Table Expedition</th>
                     <th style="min-width:175px">Scan Terakhir</th>
                     <th class="pe-3 text-end" style="width:110px">Aksi</th>
                 </tr></thead>
@@ -87,13 +132,11 @@
                             </td>
                             <td>
                                 @if($tag->product)
-                                    <div class="fw-semibold text-dark">{{ $tag->product->name }}</div><div class="text-muted small">Data produk dari PIM</div>
+                                    <div class="fw-semibold text-dark">{{ $tag->product->name }}</div>
+                                    <code class="d-inline-block mt-1 px-2 py-1 rounded bg-light text-dark">{{ $tag->product->sku }}</code>
                                 @else
                                     <span class="text-muted fst-italic small">Belum terhubung ke produk</span>
                                 @endif
-                            </td>
-                            <td>
-                                @if($tag->product)<code class="px-2 py-1 rounded bg-light text-dark">{{ $tag->product->sku }}</code>@else<span class="text-muted">—</span>@endif
                             </td>
                             <td>
                                 @if($tag->product_id)
@@ -102,7 +145,30 @@
                                     <span class="badge rounded-pill text-bg-warning"><i class="bi bi-exclamation-circle me-1"></i>Belum Dipetakan</span>
                                 @endif
                             </td>
-                            <td><div class="fw-semibold">{{ $tag->created_at->format('d M Y') }}</div><small class="text-muted">{{ $tag->created_at->format('H:i') }} WIB</small></td>
+                            <td>
+                                @php($ledActive = (bool) $tag->ledAmbienceItem?->is_active)
+                                <form method="POST" action="{{ route('admin.rfid-tags.channel.update', $tag) }}" class="rfid-channel-control">
+                                    @csrf @method('PATCH')
+                                    <input type="hidden" name="channel" value="led_ambience">
+                                    <input type="hidden" name="active" value="0">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="active" value="1"
+                                        id="led-rfid-{{ $tag->id }}" @checked($ledActive) @disabled(!$channelSettingsUnlocked || !$tag->product_id) onchange="this.form.submit()">
+                                    <label class="rfid-channel-label" for="led-rfid-{{ $tag->id }}">{{ $ledActive ? 'Active' : 'Not Active' }}</label>
+                                </form>
+                                @if(!$tag->product_id)<small class="text-muted d-block mt-1">Hubungkan produk dahulu</small>@endif
+                            </td>
+                            <td>
+                                @php($tableActive = (bool) $tag->tableExpeditionItem?->is_active)
+                                <form method="POST" action="{{ route('admin.rfid-tags.channel.update', $tag) }}" class="rfid-channel-control">
+                                    @csrf @method('PATCH')
+                                    <input type="hidden" name="channel" value="table_expedition">
+                                    <input type="hidden" name="active" value="0">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="active" value="1"
+                                        id="table-rfid-{{ $tag->id }}" @checked($tableActive) @disabled(!$channelSettingsUnlocked || !$tag->product_id) onchange="this.form.submit()">
+                                    <label class="rfid-channel-label" for="table-rfid-{{ $tag->id }}">{{ $tableActive ? 'Active' : 'Not Active' }}</label>
+                                </form>
+                                @if(!$tag->product_id)<small class="text-muted d-block mt-1">Hubungkan produk dahulu</small>@endif
+                            </td>
                             <td>
                                 @if($tag->last_scanned_at)
                                     <div class="fw-semibold">{{ $tag->last_scanned_at->format('d M Y') }}</div><small class="text-muted">{{ $tag->last_scanned_at->format('H:i:s') }} WIB</small>

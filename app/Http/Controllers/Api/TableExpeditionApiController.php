@@ -78,19 +78,6 @@ class TableExpeditionApiController extends Controller
 
             $item->update(['last_scanned_at' => now()]);
             RfidTag::recordScan($rfidTag);
-        } else {
-            // Fallback to general rfid_tags
-            $generalTag = RfidTag::with(array_map(
-                fn (string $relation): string => 'product.'.$relation,
-                DeviceProductPayload::relations()
-            ))
-                ->where('uid', $rfidTag)
-                ->first();
-
-            if ($generalTag && $generalTag->product) {
-                $generalTag->update(['last_scanned_at' => now()]);
-                $product = $generalTag->product;
-            }
         }
 
         if (! $product) {
