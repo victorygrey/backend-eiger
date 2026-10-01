@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\LedAmbienceController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\TableExpeditionController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\PrintHistoryController;
 use App\Http\Controllers\Admin\RfidTagController;
 use App\Http\Controllers\Admin\SyncLogController;
 use App\Http\Controllers\Admin\UserController;
@@ -95,6 +96,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/devices/{device}/ping', [FitAndGoController::class, 'pingDevice'])->name('devices.ping');
         Route::delete('/devices/{device}', [FitAndGoController::class, 'destroyDevice'])->name('devices.destroy');
     });
+
+    // Photo Capture & Print History (operational log, separate from Fit & Go configuration)
+    Route::get('/print-history', [PrintHistoryController::class, 'index'])->name('print-history.index');
+    Route::get('/print-history/{photoCapture}', [PrintHistoryController::class, 'show'])->name('print-history.show');
 
     // LED Ambience (Immersive Ambience Digital)
     Route::prefix('led-ambience')->name('led-ambience.')->group(function () {

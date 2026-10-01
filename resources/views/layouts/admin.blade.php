@@ -622,6 +622,13 @@
                 <span>Table Expedition</span>
             </a>
 
+            <div class="nav-section-title">Operasional</div>
+            <a href="{{ route('admin.print-history.index') }}"
+               class="nav-link {{ request()->routeIs('admin.print-history.*') ? 'active' : '' }}">
+                <i class="bi bi-printer-fill"></i>
+                <span>Histori Foto &amp; Print</span>
+            </a>
+
             <div class="nav-section-title">Sistem</div>
             @if(auth()->user()?->isSuperAdmin())
                 <a href="{{ route('admin.users.index') }}"
