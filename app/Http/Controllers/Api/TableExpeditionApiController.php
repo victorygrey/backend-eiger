@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\RfidTag;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
+use App\Services\DeviceImageWebpService;
 use App\Services\TableExpeditionComparisonService;
 use App\Services\TableExpeditionReadiness;
 use App\Support\DeviceProductPayload;
@@ -16,7 +17,7 @@ use Illuminate\Http\Request;
 
 class TableExpeditionApiController extends Controller
 {
-    public function standby(): JsonResponse
+    public function standby(DeviceImageWebpService $deviceImages): JsonResponse
     {
         $mediaUrl = TableExpeditionConfig::get('standby_media_url');
 
@@ -29,7 +30,9 @@ class TableExpeditionApiController extends Controller
                 'instructions' => $this->instructions(),
                 'media' => $mediaUrl ? [
                     'type' => TableExpeditionConfig::get('standby_media_type'),
-                    'url' => PimMediaUrl::toPublicUrl($mediaUrl),
+                    'url' => strtolower((string) TableExpeditionConfig::get('standby_media_type')) === 'image'
+                        ? $deviceImages->url($mediaUrl)
+                        : PimMediaUrl::toPublicUrl($mediaUrl),
                 ] : null,
             ],
         ]);

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Product;
+use App\Services\DeviceImageWebpService;
 use App\Services\MasterDataAttributeTranslator;
 use Illuminate\Support\Str;
 
@@ -36,6 +37,7 @@ class DeviceProductPayload
     public static function make(Product $product): array
     {
         $product->loadMissing(self::relations());
+        $deviceImages = app(DeviceImageWebpService::class);
 
         $media = collect($product->pim_media ?? [])
             ->map(function (mixed $item): ?array {
@@ -56,7 +58,7 @@ class DeviceProductPayload
                     'id' => $item['id'] ?? null,
                     'type' => self::mediaType($item['mime'] ?? $item['type'] ?? null, $url),
                     'role' => $item['role'] ?? $item['attributeCode'] ?? 'image',
-                    'url' => PimMediaUrl::toPublicUrl($url),
+                    'url' => self::deviceMediaUrl($url, $item['mime'] ?? $item['type'] ?? null, $deviceImages),
                     'description' => $item['description'] ?? null,
                     'sku' => $item['sku'] ?? null,
                 ], fn (mixed $value): bool => $value !== null && $value !== '');
@@ -65,7 +67,7 @@ class DeviceProductPayload
             ->unique('url')
             ->values();
 
-        $primaryImage = PimMediaUrl::toPublicUrl($product->image);
+        $primaryImage = $deviceImages->url($product->image);
         if ($primaryImage) {
             // The cover has one canonical location in `image`; `media` only
             // contains supplemental assets so clients never receive the URL twice.
@@ -85,7 +87,7 @@ class DeviceProductPayload
             // CARE may create a sellable size/color variant before PIM sends
             // variant-specific media. Devices still need a usable image, so
             // inherit the locally stored product cover until that media arrives.
-            'image' => PimMediaUrl::toPublicUrl($variant->image) ?? $primaryImage,
+            'image' => $deviceImages->url($variant->image) ?? $primaryImage,
             'ecmsku' => $variant->ecmsku,
             'moq' => $variant->moq,
             'custom_attributes' => $attributeTranslator->translate($variant->custom_attributes),
@@ -152,5 +154,12 @@ class DeviceProductPayload
         return str_contains($hint, 'video') || preg_match('/\.(mp4|webm|mov)(?:\?|$)/i', $url)
             ? 'video'
             : 'image';
+    }
+
+    private static function deviceMediaUrl(string $url, mixed $hint, DeviceImageWebpService $deviceImages): ?string
+    {
+        return self::mediaType($hint, $url) === 'image'
+            ? $deviceImages->url($url)
+            : PimMediaUrl::toPublicUrl($url);
     }
 }
