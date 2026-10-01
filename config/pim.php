@@ -12,6 +12,11 @@ return [
     // product photographs. Originals remain untouched for the CMS/PIM archive.
     'device_image_webp_quality' => (int) env('PIM_DEVICE_IMAGE_WEBP_QUALITY', 80),
     'device_image_max_edge' => (int) env('PIM_DEVICE_IMAGE_MAX_EDGE', 1600),
+    // Interactive Tablet uses a smaller, lower-quality rendition. "50 DPI"
+    // is represented as a delivery profile: WebP quality 50, max 1024px edge.
+    // DPI metadata is not used by tablet browsers to determine download size.
+    'tablet_image_webp_quality' => (int) env('PIM_TABLET_IMAGE_WEBP_QUALITY', 50),
+    'tablet_image_max_edge' => (int) env('PIM_TABLET_IMAGE_MAX_EDGE', 1024),
     'copy_http_media' => env('PIM_COPY_HTTP_MEDIA', false),
     'media_hosts' => array_values(array_filter(array_map('trim', explode(',', strtolower(env('PIM_MEDIA_HOSTS', 'storage.eigeradventure.com,pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-3.amazonaws.com')))))),
     'scan_enabled' => env('PIM_SCAN_ENABLED', true),

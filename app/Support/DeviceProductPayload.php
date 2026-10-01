@@ -34,7 +34,7 @@ class DeviceProductPayload
      *
      * @return array<string, mixed>
      */
-    public static function make(Product $product): array
+    public static function make(Product $product, string $imageProfile = DeviceImageWebpService::PROFILE_DEVICE): array
     {
         $product->loadMissing(self::relations());
         $deviceImages = app(DeviceImageWebpService::class);
@@ -45,7 +45,7 @@ class DeviceProductPayload
                     return [
                         'type' => self::mediaType(null, $item),
                         'role' => 'image',
-                        'url' => self::deviceMediaUrl($item, null, $deviceImages),
+                        'url' => self::deviceMediaUrl($item, null, $deviceImages, $imageProfile),
                     ];
                 }
 
@@ -62,7 +62,7 @@ class DeviceProductPayload
                     'id' => $item['id'] ?? null,
                     'type' => self::mediaType($item['mime'] ?? $item['type'] ?? null, $url),
                     'role' => $item['role'] ?? $item['attributeCode'] ?? 'image',
-                    'url' => self::deviceMediaUrl($url, $item['mime'] ?? $item['type'] ?? null, $deviceImages),
+                    'url' => self::deviceMediaUrl($url, $item['mime'] ?? $item['type'] ?? null, $deviceImages, $imageProfile),
                     'description' => $item['description'] ?? null,
                     'sku' => $item['sku'] ?? null,
                 ], fn (mixed $value): bool => $value !== null && $value !== '');
@@ -71,7 +71,7 @@ class DeviceProductPayload
             ->unique('url')
             ->values();
 
-        $primaryImage = $deviceImages->url($product->image);
+        $primaryImage = $deviceImages->url($product->image, $imageProfile);
         if ($primaryImage) {
             // The cover has one canonical location in `image`; `media` only
             // contains supplemental assets so clients never receive the URL twice.
@@ -91,7 +91,7 @@ class DeviceProductPayload
             // CARE may create a sellable size/color variant before PIM sends
             // variant-specific media. Devices still need a usable image, so
             // inherit the locally stored product cover until that media arrives.
-            'image' => $deviceImages->url($variant->image) ?? $primaryImage,
+            'image' => $deviceImages->url($variant->image, $imageProfile) ?? $primaryImage,
             'ecmsku' => $variant->ecmsku,
             'moq' => $variant->moq,
             'custom_attributes' => $attributeTranslator->translate($variant->custom_attributes),
@@ -160,10 +160,10 @@ class DeviceProductPayload
             : 'image';
     }
 
-    private static function deviceMediaUrl(string $url, mixed $hint, DeviceImageWebpService $deviceImages): ?string
+    private static function deviceMediaUrl(string $url, mixed $hint, DeviceImageWebpService $deviceImages, string $imageProfile): ?string
     {
         return self::mediaType($hint, $url) === 'image'
-            ? $deviceImages->url($url)
+            ? $deviceImages->url($url, $imageProfile)
             : PimMediaUrl::toPublicUrl($url);
     }
 }

@@ -15,10 +15,14 @@ use Symfony\Component\Process\Process;
  */
 class DeviceImageWebpService
 {
-    public function url(?string $mediaUrl): ?string
+    public const PROFILE_DEVICE = 'device';
+
+    public const PROFILE_TABLET = 'tablet';
+
+    public function url(?string $mediaUrl, string $profile = self::PROFILE_DEVICE): ?string
     {
         try {
-            return $this->transform($mediaUrl);
+            return $this->transform($mediaUrl, $profile);
         } catch (\Throwable $exception) {
             // A device must still receive the original local URL if its WebP
             // derivative cannot be prepared. Never let media optimisation make
@@ -32,7 +36,7 @@ class DeviceImageWebpService
         }
     }
 
-    private function transform(?string $mediaUrl): ?string
+    private function transform(?string $mediaUrl, string $profile): ?string
     {
         $publicUrl = PimMediaUrl::toPublicUrl($mediaUrl);
         if (! $publicUrl) {
@@ -65,11 +69,12 @@ class DeviceImageWebpService
             return $publicUrl;
         }
 
-        $targetRelative = $this->targetRelativePath($relative, $sourceHash);
+        $options = $this->profileOptions($profile);
+        $targetRelative = $this->targetRelativePath($relative, $sourceHash, $options);
         $target = rtrim((string) config('pim.media_path'), DIRECTORY_SEPARATOR)
             .DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $targetRelative);
 
-        if (! is_file($target) && ! $this->encode($source, $imageInfo, $target)) {
+        if (! is_file($target) && ! $this->encode($source, $imageInfo, $target, $options)) {
             return $publicUrl;
         }
 
@@ -109,21 +114,24 @@ class DeviceImageWebpService
         return is_file($legacy) ? $legacy : null;
     }
 
-    private function targetRelativePath(string $sourceRelative, string $sourceHash): string
+    /** @param array{directory: string, quality: int, max_edge: int} $options */
+    private function targetRelativePath(string $sourceRelative, string $sourceHash, array $options): string
     {
         $directory = dirname($sourceRelative);
         $fingerprint = hash('sha256', implode('|', [
             $sourceRelative,
             $sourceHash,
-            max(1, min(100, (int) config('pim.device_image_webp_quality', 80))),
-            max(1, (int) config('pim.device_image_max_edge', 1600)),
+            $options['directory'],
+            $options['quality'],
+            $options['max_edge'],
         ]));
 
-        return ($directory === '.' ? '' : $directory.'/').'device-webp/'.$fingerprint.'.webp';
+        return ($directory === '.' ? '' : $directory.'/').$options['directory'].'/'.$fingerprint.'.webp';
     }
 
     /** @param array<int|string, mixed> $imageInfo */
-    private function encode(string $sourcePath, array $imageInfo, string $targetPath): bool
+    /** @param array{directory: string, quality: int, max_edge: int} $options */
+    private function encode(string $sourcePath, array $imageInfo, string $targetPath, array $options): bool
     {
         try {
             $sourceWidth = (int) ($imageInfo[0] ?? 0);
@@ -132,7 +140,7 @@ class DeviceImageWebpService
                 return false;
             }
 
-            $edge = max(1, (int) config('pim.device_image_max_edge', 1600));
+            $edge = $options['max_edge'];
             $scale = min(1, $edge / max($sourceWidth, $sourceHeight));
             $width = max(1, (int) round($sourceWidth * $scale));
             $height = max(1, (int) round($sourceHeight * $scale));
@@ -145,7 +153,7 @@ class DeviceImageWebpService
             $process = new Process([
                 'cwebp',
                 '-quiet',
-                '-q', (string) max(1, min(100, (int) config('pim.device_image_webp_quality', 80))),
+                '-q', (string) $options['quality'],
                 '-resize', (string) $width, (string) $height,
                 $sourcePath,
                 '-o', $temporary,
@@ -170,5 +178,23 @@ class DeviceImageWebpService
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /** @return array{directory: string, quality: int, max_edge: int} */
+    private function profileOptions(string $profile): array
+    {
+        if ($profile === self::PROFILE_TABLET) {
+            return [
+                'directory' => 'tablet-webp',
+                'quality' => max(1, min(100, (int) config('pim.tablet_image_webp_quality', 50))),
+                'max_edge' => max(1, (int) config('pim.tablet_image_max_edge', 1024)),
+            ];
+        }
+
+        return [
+            'directory' => 'device-webp',
+            'quality' => max(1, min(100, (int) config('pim.device_image_webp_quality', 80))),
+            'max_edge' => max(1, (int) config('pim.device_image_max_edge', 1600)),
+        ];
     }
 }

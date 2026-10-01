@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Tablet;
+use App\Services\DeviceImageWebpService;
 use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -130,6 +131,6 @@ class TabletDisplayController extends Controller
 
     private function productPayload(Product $product): array
     {
-        return DeviceProductPayload::make($product);
+        return DeviceProductPayload::make($product, DeviceImageWebpService::PROFILE_TABLET);
     }
 }
