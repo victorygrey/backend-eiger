@@ -40,7 +40,7 @@ class DeviceProductPayload
         $deviceImages = app(DeviceImageWebpService::class);
 
         $media = collect($product->pim_media ?? [])
-            ->map(function (mixed $item) use ($deviceImages): ?array {
+            ->map(function (mixed $item) use ($deviceImages, $imageProfile): ?array {
                 if (is_string($item)) {
                     return [
                         'type' => self::mediaType(null, $item),
