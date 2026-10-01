@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\PimMediaUrl;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 
 /**
@@ -15,6 +16,23 @@ use Symfony\Component\Process\Process;
 class DeviceImageWebpService
 {
     public function url(?string $mediaUrl): ?string
+    {
+        try {
+            return $this->transform($mediaUrl);
+        } catch (\Throwable $exception) {
+            // A device must still receive the original local URL if its WebP
+            // derivative cannot be prepared. Never let media optimisation make
+            // a complete device payload fail.
+            Log::warning('Device WebP conversion skipped', [
+                'media_url' => $mediaUrl,
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return PimMediaUrl::toPublicUrl($mediaUrl);
+        }
+    }
+
+    private function transform(?string $mediaUrl): ?string
     {
         $publicUrl = PimMediaUrl::toPublicUrl($mediaUrl);
         if (! $publicUrl) {
