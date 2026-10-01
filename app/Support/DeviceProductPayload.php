@@ -40,9 +40,13 @@ class DeviceProductPayload
         $deviceImages = app(DeviceImageWebpService::class);
 
         $media = collect($product->pim_media ?? [])
-            ->map(function (mixed $item): ?array {
+            ->map(function (mixed $item) use ($deviceImages): ?array {
                 if (is_string($item)) {
-                    return ['type' => self::mediaType(null, $item), 'role' => 'image', 'url' => PimMediaUrl::toPublicUrl($item)];
+                    return [
+                        'type' => self::mediaType(null, $item),
+                        'role' => 'image',
+                        'url' => self::deviceMediaUrl($item, null, $deviceImages),
+                    ];
                 }
 
                 if (! is_array($item)) {
