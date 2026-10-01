@@ -7,8 +7,8 @@ use App\Models\Product;
 use App\Models\RfidTag;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
+use App\Services\TableExpeditionComparisonService;
 use App\Services\TableExpeditionReadiness;
-use App\Services\TableExpeditionRecommendationService;
 use App\Support\DeviceProductPayload;
 use App\Support\PimMediaUrl;
 use Illuminate\Http\JsonResponse;
@@ -37,7 +37,7 @@ class TableExpeditionApiController extends Controller
 
     public function scan(
         Request $request,
-        TableExpeditionRecommendationService $recommendations,
+        TableExpeditionComparisonService $comparisons,
         TableExpeditionReadiness $readiness,
     ): JsonResponse {
         $validated = $request->validate([
@@ -57,7 +57,7 @@ class TableExpeditionApiController extends Controller
         }
 
         $product = $item->product;
-        $recommendedProducts = $recommendations->for($product);
+        $comparisonProducts = $comparisons->for($item);
         $item->update(['last_scanned_at' => now()]);
         RfidTag::recordScan($rfidTag);
 
@@ -70,8 +70,8 @@ class TableExpeditionApiController extends Controller
                 'rfid_tag' => $rfidTag,
                 'readiness' => $readiness->inspect($product),
                 'product' => DeviceProductPayload::make($product),
-                'recommendations' => $recommendedProducts
-                    ->map(fn (Product $recommended): array => DeviceProductPayload::make($recommended))
+                'comparison_products' => $comparisonProducts
+                    ->map(fn (Product $comparison): array => DeviceProductPayload::make($comparison))
                     ->values(),
             ],
         ]);
@@ -101,26 +101,38 @@ class TableExpeditionApiController extends Controller
             'rfid_secondary' => ['nullable', 'string', 'max:64'],
         ]);
 
-        $primary = $this->resolveActiveProduct(
+        $primaryItem = $this->resolveActiveItem(
             $validated['product_id_1'] ?? null,
             $validated['rfid_primary'] ?? null,
         );
-        $secondary = $this->resolveActiveProduct(
+        $secondaryItem = $this->resolveActiveItem(
             $validated['product_id_2'] ?? null,
             $validated['rfid_secondary'] ?? null,
         );
 
-        if (! $primary || ! $secondary) {
+        if (! $primaryItem?->product || ! $secondaryItem?->product) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Kedua produk harus aktif pada Master RFID untuk Table Expedition.',
             ], 422);
         }
 
+        $primary = $primaryItem->product;
+        $secondary = $secondaryItem->product;
+
         if ($primary->is($secondary)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Pilih dua produk yang berbeda untuk komparasi.',
+            ], 422);
+        }
+
+        $configuredComparisonIds = collect($primaryItem->similar_product_ids ?? [])
+            ->map(fn (mixed $id): int => (int) $id);
+        if (! $configuredComparisonIds->contains((int) $secondary->id)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Produk kedua tidak terdaftar sebagai pilihan komparasi untuk produk utama.',
             ], 422);
         }
 
@@ -185,7 +197,13 @@ class TableExpeditionApiController extends Controller
     private function activeItemByRfid(string $rfidTag): ?TableExpeditionItem
     {
         return TableExpeditionItem::query()
-            ->where('rfid_tag', $rfidTag)
+            ->where(function ($query) use ($rfidTag): void {
+                $query->where('rfid_tag', $rfidTag)
+                    ->orWhereRaw(
+                        "UPPER(REPLACE(REPLACE(REPLACE(rfid_tag, '-', ''), ':', ''), ' ', '')) = ?",
+                        [$rfidTag],
+                    );
+            })
             ->where('is_active', true)
             ->with(array_map(
                 fn (string $relation): string => 'product.'.$relation,
@@ -194,7 +212,7 @@ class TableExpeditionApiController extends Controller
             ->first();
     }
 
-    private function resolveActiveProduct(mixed $productId, mixed $rfid): ?Product
+    private function resolveActiveItem(mixed $productId, mixed $rfid): ?TableExpeditionItem
     {
         if (! $productId && ! is_string($rfid)) {
             return null;
@@ -203,14 +221,23 @@ class TableExpeditionApiController extends Controller
         $item = TableExpeditionItem::query()
             ->where('is_active', true)
             ->when($productId, fn ($query) => $query->where('product_id', $productId))
-            ->when(! $productId && is_string($rfid), fn ($query) => $query->where('rfid_tag', RfidTag::canonicalUid($rfid)))
+            ->when(! $productId && is_string($rfid), function ($query) use ($rfid): void {
+                $canonical = RfidTag::canonicalUid($rfid);
+                $query->where(function ($query) use ($canonical): void {
+                    $query->where('rfid_tag', $canonical)
+                        ->orWhereRaw(
+                            "UPPER(REPLACE(REPLACE(REPLACE(rfid_tag, '-', ''), ':', ''), ' ', '')) = ?",
+                            [$canonical],
+                        );
+                });
+            })
             ->with(array_map(
                 fn (string $relation): string => 'product.'.$relation,
                 DeviceProductPayload::relations(),
             ))
             ->first();
 
-        return $item?->product;
+        return $item;
     }
 
     /** @return list<string> */

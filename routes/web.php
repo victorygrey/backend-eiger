@@ -107,6 +107,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::prefix('table-expedition')->name('table-expedition.')->group(function () {
         Route::get('/', [TableExpeditionController::class, 'index'])->name('index');
         Route::post('/config', [TableExpeditionController::class, 'updateConfig'])->name('config');
+        Route::put('/items/{item}/comparisons', [TableExpeditionController::class, 'updateComparisons'])->name('comparisons.update');
     });
 
     // Zones

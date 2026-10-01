@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
 use App\Services\TableExpeditionMediaStorage;
 use App\Services\TableExpeditionReadiness;
+use App\Support\PimMediaUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TableExpeditionController extends Controller
@@ -49,6 +52,7 @@ class TableExpeditionController extends Controller
 
         return view('admin.table-expedition.index', [
             'items' => $items,
+            'comparisonProducts' => $this->comparisonProducts(),
             'standby' => $standby,
             'summary' => [
                 'active' => $items->count(),
@@ -124,11 +128,71 @@ class TableExpeditionController extends Controller
             ->with('success', 'Konfigurasi standby Table Expedition berhasil diperbarui.');
     }
 
+    public function updateComparisons(Request $request, TableExpeditionItem $item): RedirectResponse
+    {
+        abort_unless($item->is_active, 404);
+
+        $validated = $request->validate([
+            'similar_product_ids' => ['nullable', 'array', 'max:5'],
+            'similar_product_ids.*' => ['integer', 'distinct', 'exists:products,id'],
+        ]);
+        $selectedIds = collect($validated['similar_product_ids'] ?? [])
+            ->map(fn (mixed $id): int => (int) $id)
+            ->values();
+
+        if ($selectedIds->contains((int) $item->product_id)) {
+            throw ValidationException::withMessages([
+                'similar_product_ids' => 'Produk utama tidak dapat dipilih sebagai produk komparasi.',
+            ]);
+        }
+
+        $activeIds = TableExpeditionItem::query()
+            ->where('is_active', true)
+            ->whereIn('product_id', $selectedIds)
+            ->pluck('product_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique();
+
+        if ($selectedIds->diff($activeIds)->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'similar_product_ids' => 'Semua produk komparasi harus aktif pada Table Expedition.',
+            ]);
+        }
+
+        $item->update(['similar_product_ids' => $selectedIds->all()]);
+
+        return redirect()->route('admin.table-expedition.index')
+            ->with('success', 'Pilihan produk komparasi berhasil disimpan.');
+    }
+
     /** @return list<string> */
     private function instructions(): array
     {
         $instructions = TableExpeditionConfig::get('usage_instructions', []);
 
         return is_array($instructions) ? array_values($instructions) : [];
+    }
+
+    /** @return list<array{id:int,name:string,sku:string,image:?string}> */
+    private function comparisonProducts(): array
+    {
+        $productIds = TableExpeditionItem::query()
+            ->where('is_active', true)
+            ->pluck('product_id')
+            ->unique();
+
+        return Product::query()
+            ->whereIn('id', $productIds)
+            ->where('is_discontinued', false)
+            ->orderBy('name')
+            ->get(['id', 'name', 'sku', 'image'])
+            ->map(fn (Product $product): array => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'image' => PimMediaUrl::toPublicUrl($product->image),
+            ])
+            ->values()
+            ->all();
     }
 }

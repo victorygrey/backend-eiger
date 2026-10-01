@@ -41,7 +41,7 @@ class TableExpeditionApiTest extends TestCase
             ->assertJsonPath('data.media.url', url(TableExpeditionConfig::get('standby_media_url')));
     }
 
-    public function test_scan_returns_full_product_and_relevant_active_recommendations(): void
+    public function test_scan_returns_full_product_and_admin_selected_comparisons_in_saved_order(): void
     {
         $product = $this->activeProduct('RFID-PRIMARY', [
             'name' => 'EIGER Rhinos 45L Backpack',
@@ -73,7 +73,7 @@ class TableExpeditionApiTest extends TestCase
             'sort_order' => 0,
         ]);
 
-        $similar = $this->activeProduct('RFID-SIMILAR', [
+        $comparison = $this->activeProduct('RFID-SIMILAR', [
             'name' => 'EIGER Equator Backpack',
             'sku' => '910002222',
             'category' => 'Backpack',
@@ -81,7 +81,7 @@ class TableExpeditionApiTest extends TestCase
             'is_discontinued' => false,
         ]);
         ProductActivity::create([
-            'product_id' => $similar->id,
+            'product_id' => $comparison->id,
             'name' => 'Hiking',
             'is_selected' => true,
             'sort_order' => 0,
@@ -101,6 +101,10 @@ class TableExpeditionApiTest extends TestCase
             'sort_order' => 0,
         ]);
 
+        TableExpeditionItem::where('product_id', $product->id)->update([
+            'similar_product_ids' => [$comparison->id],
+        ]);
+
         $response = $this->postJson('/api/v1/table-expedition/scan', ['rfid' => 'rfid-primary']);
 
         $response->assertOk()
@@ -110,12 +114,13 @@ class TableExpeditionApiTest extends TestCase
             ->assertJsonPath('data.readiness.ready', true)
             ->assertJsonPath('data.product.id', $product->id)
             ->assertJsonPath('data.product.variants.0.sku', '910001111001')
-            ->assertJsonPath('data.recommendations.0.id', $similar->id)
+            ->assertJsonPath('data.comparison_products.0.id', $comparison->id)
             ->assertJsonMissingPath('data.ai_summary')
             ->assertJsonMissingPath('data.ideal_for')
             ->assertJsonMissingPath('data.similar_products');
 
-        $this->assertCount(1, $response->json('data.recommendations'));
+        $this->assertCount(1, $response->json('data.comparison_products'));
+        $this->assertNotContains($unrelated->id, collect($response->json('data.comparison_products'))->pluck('id'));
         $this->assertNotNull(TableExpeditionItem::where('rfid_tag', 'RFIDPRIMARY')->firstOrFail()->last_scanned_at);
         $this->assertNotNull(RfidTag::where('uid', 'RFIDPRIMARY')->firstOrFail()->last_scanned_at);
     }
@@ -138,6 +143,24 @@ class TableExpeditionApiTest extends TestCase
             ->assertJsonPath('matched', false);
     }
 
+    public function test_scan_accepts_formatted_legacy_rfid_values(): void
+    {
+        $product = Product::factory()->create(['name' => 'Legacy RFID Product']);
+        RfidTag::create(['uid' => 'AA:BB:CC:DD', 'product_id' => $product->id]);
+        TableExpeditionItem::create([
+            'rfid_tag' => 'AA:BB:CC:DD',
+            'product_id' => $product->id,
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/v1/table-expedition/scan', ['rfid' => 'aa-bb-cc-dd'])
+            ->assertOk()
+            ->assertJsonPath('data.rfid_tag', 'AABBCCDD')
+            ->assertJsonPath('data.product.id', $product->id);
+
+        $this->assertNotNull(RfidTag::where('uid', 'AA:BB:CC:DD')->firstOrFail()->last_scanned_at);
+    }
+
     public function test_compare_only_accepts_two_different_active_table_products(): void
     {
         $primary = $this->activeProduct('RFID-ALPHA', [
@@ -153,6 +176,10 @@ class TableExpeditionApiTest extends TestCase
             'is_discontinued' => false,
         ]);
         $inactive = Product::factory()->create(['name' => 'Inactive Product']);
+        $unselected = $this->activeProduct('RFID-GAMMA', ['name' => 'Backpack Gamma']);
+        TableExpeditionItem::where('product_id', $primary->id)->update([
+            'similar_product_ids' => [$secondary->id],
+        ]);
 
         $this->postJson('/api/v1/table-expedition/compare', [
             'product_id_1' => $primary->id,
@@ -167,6 +194,12 @@ class TableExpeditionApiTest extends TestCase
             'product_id_1' => $primary->id,
             'product_id_2' => $inactive->id,
         ])->assertUnprocessable();
+
+        $this->postJson('/api/v1/table-expedition/compare', [
+            'product_id_1' => $primary->id,
+            'product_id_2' => $unselected->id,
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Produk kedua tidak terdaftar sebagai pilihan komparasi untuk produk utama.');
 
         $this->postJson('/api/v1/table-expedition/compare', [
             'product_id_1' => $primary->id,

@@ -82,6 +82,8 @@ class TableExpeditionWebTest extends TestCase
             ->assertSee('EIGER Equator Tarp Tent')
             ->assertSee('910001234')
             ->assertSee('Siap')
+            ->assertSee('Atur Produk Komparasi')
+            ->assertSee('Komparasi')
             ->assertDontSee('Produk Nonaktif')
             ->assertDontSee('Tambah Mapping RFID')
             ->assertDontSee('Edit Mapping');
@@ -121,6 +123,48 @@ class TableExpeditionWebTest extends TestCase
         $this->get("/admin/table-expedition/items/{$item->id}/edit")->assertNotFound();
         $this->put("/admin/table-expedition/items/{$item->id}")->assertNotFound();
         $this->delete("/admin/table-expedition/items/{$item->id}")->assertNotFound();
+    }
+
+    public function test_admin_can_choose_ordered_comparison_products_from_active_table_catalog(): void
+    {
+        $primary = Product::factory()->create(['name' => 'Primary Expedition']);
+        $comparisonOne = Product::factory()->create(['name' => 'Comparison One']);
+        $comparisonTwo = Product::factory()->create(['name' => 'Comparison Two']);
+        $inactive = Product::factory()->create(['name' => 'Inactive Comparison']);
+
+        $primaryItem = TableExpeditionItem::create([
+            'rfid_tag' => 'RFID-PRIMARY',
+            'product_id' => $primary->id,
+            'is_active' => true,
+        ]);
+        foreach ([$comparisonOne, $comparisonTwo] as $index => $product) {
+            TableExpeditionItem::create([
+                'rfid_tag' => 'RFID-COMPARE-'.$index,
+                'product_id' => $product->id,
+                'is_active' => true,
+            ]);
+        }
+        TableExpeditionItem::create([
+            'rfid_tag' => 'RFID-INACTIVE',
+            'product_id' => $inactive->id,
+            'is_active' => false,
+        ]);
+
+        $this->put(route('admin.table-expedition.comparisons.update', $primaryItem), [
+            'similar_product_ids' => [$comparisonTwo->id, $comparisonOne->id],
+        ])->assertRedirect(route('admin.table-expedition.index'));
+
+        $this->assertSame(
+            [$comparisonTwo->id, $comparisonOne->id],
+            $primaryItem->fresh()->similar_product_ids,
+        );
+
+        $this->put(route('admin.table-expedition.comparisons.update', $primaryItem), [
+            'similar_product_ids' => [$inactive->id],
+        ])->assertSessionHasErrors('similar_product_ids');
+        $this->put(route('admin.table-expedition.comparisons.update', $primaryItem), [
+            'similar_product_ids' => [$primary->id],
+        ])->assertSessionHasErrors('similar_product_ids');
     }
 
     public function test_standby_config_accepts_local_media_and_is_served_by_cms(): void

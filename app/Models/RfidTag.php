@@ -59,8 +59,16 @@ class RfidTag extends Model
 
     public static function recordScan(string $uid): void
     {
+        $canonical = static::canonicalUid($uid);
+
         static::query()
-            ->where('uid', static::canonicalUid($uid))
+            ->where(function ($query) use ($canonical): void {
+                $query->where('uid', $canonical)
+                    ->orWhereRaw(
+                        "UPPER(REPLACE(REPLACE(REPLACE(uid, '-', ''), ':', ''), ' ', '')) = ?",
+                        [$canonical],
+                    );
+            })
             ->update(['last_scanned_at' => now()]);
     }
 }

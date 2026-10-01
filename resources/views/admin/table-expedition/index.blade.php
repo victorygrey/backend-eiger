@@ -20,12 +20,15 @@
     .source-flow { background:linear-gradient(135deg, rgba(255,106,0,.1), rgba(23,27,45,.035)); border:1px solid rgba(255,106,0,.2); }
     .standby-preview { background:#111827; border-radius:12px; min-height:180px; overflow:hidden; }
     .standby-preview img,.standby-preview video { height:220px; object-fit:cover; width:100%; }
+    .comparison-list { max-height:360px; min-height:260px; overflow:auto; }
+    .comparison-product-thumb { background:#f4f5f7; border:1px solid #e3e6ea; border-radius:8px; height:42px; object-fit:cover; width:42px; }
 </style>
 @endpush
 
 @section('content')
 @php
     $standbyMediaUrl = \App\Support\PimMediaUrl::toPublicUrl($standby['media_url']);
+    $availableComparisonIds = collect($comparisonProducts)->pluck('id')->map(fn ($id) => (int) $id);
 @endphp
 
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
@@ -99,6 +102,13 @@
                         $imageUrl = \App\Support\PimMediaUrl::toPublicUrl($product?->image);
                         $activities = collect($product?->activities ?? [])->pluck('name')->filter()->take(3);
                         $category = $product?->atomSubCategory?->name ?? $product?->atomCategory?->name ?? $product?->category;
+                        $selectedComparisonIds = collect($item->similar_product_ids ?? [])
+                            ->map(fn ($id) => (int) $id)
+                            ->filter(fn ($id) => $id !== (int) $product?->id && $availableComparisonIds->contains($id))
+                            ->unique()
+                            ->take(5)
+                            ->values()
+                            ->all();
                     @endphp
                     <tr>
                         <td class="ps-4">
@@ -156,7 +166,21 @@
                         </td>
                         <td class="pe-4 text-end">
                             @if($product)
-                                <a href="{{ route('admin.products.show', $product) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye-fill me-1"></i>Lihat Detail</a>
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-success comparison-config-button"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#comparisonConfigModal"
+                                            data-action="{{ route('admin.table-expedition.comparisons.update', $item) }}"
+                                            data-item-id="{{ $item->id }}"
+                                            data-product-id="{{ $product->id }}"
+                                            data-product-name="{{ $product->name }}"
+                                            data-selected='@json($selectedComparisonIds)'>
+                                        <i class="bi bi-shuffle me-1"></i>Komparasi
+                                        <span class="badge text-bg-success ms-1">{{ count($selectedComparisonIds) }}/5</span>
+                                    </button>
+                                    <a href="{{ route('admin.products.show', $product) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye-fill me-1"></i>Detail</a>
+                                </div>
                             @endif
                         </td>
                     </tr>
@@ -207,10 +231,202 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="comparisonConfigModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <form id="comparisonConfigForm" method="POST">
+                @csrf
+                @method('PUT')
+                <input type="hidden" name="form_context" value="comparisons">
+                <input type="hidden" name="comparison_item_id" id="comparisonItemId">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-bold"><i class="bi bi-shuffle text-success me-2"></i>Atur Produk Komparasi</h5>
+                        <div class="small text-muted" id="comparisonPrimaryName"></div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-light border small mb-3">
+                        Pilih maksimal lima produk yang boleh dibandingkan dengan produk utama. Hanya produk dengan RFID Table Expedition aktif yang tersedia.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="comparisonSearch" class="fw-semibold">Produk tersedia</label>
+                                <span class="small text-muted" id="comparisonAvailableCount"></span>
+                            </div>
+                            <input type="search" id="comparisonSearch" class="form-control form-control-sm mb-2" placeholder="Cari nama atau SKU produk...">
+                            <div id="comparisonAvailableList" class="comparison-list border rounded-3 p-2 bg-light"></div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-semibold">Urutan komparasi terpilih</span>
+                                <span class="badge text-bg-secondary" id="comparisonSelectedCount">0 / 5</span>
+                            </div>
+                            <div id="comparisonSelectedInputs"></div>
+                            <div id="comparisonSelectedList" class="comparison-list border rounded-3 p-2 bg-light"></div>
+                            <div id="comparisonLimitMessage" class="small text-danger mt-2 d-none">Maksimal lima produk komparasi dapat dipilih.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-eiger fw-bold"><i class="bi bi-check-lg me-1"></i>Simpan Pilihan Komparasi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
-@if($errors->any())
 @push('scripts')
-<script>document.addEventListener('DOMContentLoaded', () => bootstrap.Modal.getOrCreateInstance(document.getElementById('standbyConfigModal')).show());</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const products = @json($comparisonProducts);
+    const productById = new Map(products.map(product => [Number(product.id), product]));
+    const modal = document.getElementById('comparisonConfigModal');
+    const form = document.getElementById('comparisonConfigForm');
+    const search = document.getElementById('comparisonSearch');
+    const availableList = document.getElementById('comparisonAvailableList');
+    const selectedList = document.getElementById('comparisonSelectedList');
+    const selectedInputs = document.getElementById('comparisonSelectedInputs');
+    const selectedCount = document.getElementById('comparisonSelectedCount');
+    const availableCount = document.getElementById('comparisonAvailableCount');
+    const limitMessage = document.getElementById('comparisonLimitMessage');
+    let primaryId = 0;
+    let selectedIds = [];
+
+    function productRow(product, actionLabel, actionClass, action) {
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-center gap-2 bg-white border rounded-3 p-2 mb-2';
+
+        const image = document.createElement(product.image ? 'img' : 'span');
+        image.className = 'comparison-product-thumb flex-shrink-0';
+        if (product.image) {
+            image.src = product.image;
+            image.alt = product.name;
+        } else {
+            image.classList.add('d-inline-flex', 'align-items-center', 'justify-content-center', 'text-muted');
+            image.innerHTML = '<i class="bi bi-image"></i>';
+        }
+
+        const info = document.createElement('div');
+        info.className = 'overflow-hidden flex-grow-1';
+        const name = document.createElement('div');
+        name.className = 'fw-semibold small text-truncate';
+        name.textContent = product.name;
+        const sku = document.createElement('div');
+        sku.className = 'small text-muted font-monospace';
+        sku.textContent = product.sku || '-';
+        info.append(name, sku);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `btn btn-sm ${actionClass}`;
+        button.textContent = actionLabel;
+        button.addEventListener('click', action);
+        row.append(image, info, button);
+
+        return row;
+    }
+
+    function render() {
+        const query = search.value.trim().toLowerCase();
+        const available = products.filter(product => Number(product.id) !== primaryId
+            && !selectedIds.includes(Number(product.id))
+            && (!query || `${product.name} ${product.sku || ''}`.toLowerCase().includes(query)));
+
+        availableList.innerHTML = '';
+        available.forEach(product => {
+            availableList.append(productRow(product, '+ Tambah', 'btn-outline-primary', () => {
+                if (selectedIds.length >= 5) {
+                    limitMessage.classList.remove('d-none');
+                    return;
+                }
+                selectedIds.push(Number(product.id));
+                limitMessage.classList.add('d-none');
+                render();
+            }));
+        });
+        if (!available.length) {
+            availableList.innerHTML = '<div class="text-center text-muted small py-5">Tidak ada produk yang sesuai.</div>';
+        }
+        availableCount.textContent = `${available.length} produk`;
+
+        selectedList.innerHTML = '';
+        selectedInputs.innerHTML = '';
+        selectedIds.forEach((id, index) => {
+            const product = productById.get(id);
+            if (!product) return;
+
+            const row = productRow(product, 'Hapus', 'btn-outline-danger', () => {
+                selectedIds = selectedIds.filter(selectedId => selectedId !== id);
+                render();
+            });
+            const rank = document.createElement('span');
+            rank.className = 'badge text-bg-dark flex-shrink-0';
+            rank.textContent = `#${index + 1}`;
+            row.prepend(rank);
+
+            const controls = document.createElement('div');
+            controls.className = 'btn-group btn-group-sm';
+            [['↑', -1], ['↓', 1]].forEach(([label, direction]) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'btn btn-outline-secondary';
+                button.textContent = label;
+                button.disabled = direction === -1 ? index === 0 : index === selectedIds.length - 1;
+                button.addEventListener('click', () => {
+                    const target = index + direction;
+                    [selectedIds[index], selectedIds[target]] = [selectedIds[target], selectedIds[index]];
+                    render();
+                });
+                controls.append(button);
+            });
+            row.insertBefore(controls, row.lastElementChild);
+            selectedList.append(row);
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'similar_product_ids[]';
+            input.value = String(id);
+            selectedInputs.append(input);
+        });
+        if (!selectedIds.length) {
+            selectedList.innerHTML = '<div class="text-center text-muted small py-5"><i class="bi bi-hand-index-thumb fs-3 d-block mb-2"></i>Belum ada produk komparasi dipilih.</div>';
+        }
+        selectedCount.textContent = `${selectedIds.length} / 5`;
+    }
+
+    modal.addEventListener('show.bs.modal', event => {
+        const button = event.relatedTarget;
+        if (!button) return;
+        form.action = button.dataset.action;
+        document.getElementById('comparisonItemId').value = button.dataset.itemId;
+        primaryId = Number(button.dataset.productId);
+        selectedIds = JSON.parse(button.dataset.selected || '[]')
+            .map(Number)
+            .filter(id => productById.has(id) && id !== primaryId)
+            .slice(0, 5);
+        document.getElementById('comparisonPrimaryName').textContent = `Produk utama: ${button.dataset.productName}`;
+        search.value = '';
+        limitMessage.classList.add('d-none');
+        render();
+    });
+    search.addEventListener('input', render);
+
+    @if($errors->any())
+        if (@json(old('form_context')) === 'comparisons') {
+            const failedTrigger = document.querySelector(`.comparison-config-button[data-item-id="${@json(old('comparison_item_id'))}"]`);
+            if (failedTrigger) {
+                bootstrap.Modal.getOrCreateInstance(modal).show(failedTrigger);
+            }
+        } else {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('standbyConfigModal')).show();
+        }
+    @endif
+});
+</script>
 @endpush
-@endif
