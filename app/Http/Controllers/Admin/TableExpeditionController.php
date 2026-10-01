@@ -19,7 +19,7 @@ class TableExpeditionController extends Controller
     public function index(TableExpeditionReadiness $readiness): View
     {
         $items = TableExpeditionItem::query()
-            ->where('is_active', true)
+            ->activeFromMasterRfid()
             ->with([
                 'rfidTag',
                 'product.zone',
@@ -130,7 +130,10 @@ class TableExpeditionController extends Controller
 
     public function updateComparisons(Request $request, TableExpeditionItem $item): RedirectResponse
     {
-        abort_unless($item->is_active, 404);
+        abort_unless(
+            TableExpeditionItem::query()->activeFromMasterRfid()->whereKey($item)->exists(),
+            404,
+        );
 
         $validated = $request->validate([
             'similar_product_ids' => ['nullable', 'array', 'max:5'],
@@ -147,7 +150,7 @@ class TableExpeditionController extends Controller
         }
 
         $activeIds = TableExpeditionItem::query()
-            ->where('is_active', true)
+            ->activeFromMasterRfid()
             ->whereIn('product_id', $selectedIds)
             ->pluck('product_id')
             ->map(fn (mixed $id): int => (int) $id)
@@ -177,7 +180,7 @@ class TableExpeditionController extends Controller
     private function comparisonProducts(): array
     {
         $productIds = TableExpeditionItem::query()
-            ->where('is_active', true)
+            ->activeFromMasterRfid()
             ->pluck('product_id')
             ->unique();
 

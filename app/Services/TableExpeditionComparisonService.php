@@ -24,7 +24,7 @@ class TableExpeditionComparisonService
         }
 
         $activeProductIds = TableExpeditionItem::query()
-            ->where('is_active', true)
+            ->activeFromMasterRfid()
             ->whereIn('product_id', $ids)
             ->pluck('product_id')
             ->unique();

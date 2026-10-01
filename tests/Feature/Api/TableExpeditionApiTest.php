@@ -161,6 +161,28 @@ class TableExpeditionApiTest extends TestCase
         $this->assertNotNull(RfidTag::where('uid', 'AA:BB:CC:DD')->firstOrFail()->last_scanned_at);
     }
 
+    public function test_scan_rejects_stale_mapping_that_no_longer_matches_master_rfid(): void
+    {
+        $masterProduct = Product::factory()->create();
+        $staleProduct = Product::factory()->create();
+        RfidTag::create([
+            'uid' => 'RFIDSTALE',
+            'product_id' => $masterProduct->id,
+        ]);
+        TableExpeditionItem::create([
+            'rfid_tag' => 'RFIDSTALE',
+            'product_id' => $staleProduct->id,
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/v1/table-expedition/scan', ['rfid' => 'RFIDSTALE'])
+            ->assertNotFound()
+            ->assertJsonPath('matched', false);
+        $this->getJson('/api/v1/table-expedition/status')
+            ->assertOk()
+            ->assertJsonPath('data.active_items', 0);
+    }
+
     public function test_compare_only_accepts_two_different_active_table_products(): void
     {
         $primary = $this->activeProduct('RFID-ALPHA', [

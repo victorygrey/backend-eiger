@@ -215,4 +215,54 @@ class RfidTagWebTest extends TestCase
 
         $this->assertDatabaseMissing('table_expedition_items', ['rfid_tag' => $tag->uid]);
     }
+
+    public function test_stale_device_mapping_is_not_displayed_as_active(): void
+    {
+        $staleProduct = Product::factory()->create();
+        $tag = RfidTag::create(['uid' => 'RFID-STALE-CHANNEL']);
+        TableExpeditionItem::create([
+            'rfid_tag' => $tag->uid,
+            'product_id' => $staleProduct->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.rfid-tags.index'))
+            ->assertOk()
+            ->assertDontSee('id="table-rfid-'.$tag->id.'" checked', false);
+    }
+
+    public function test_cleanup_migration_deactivates_only_orphaned_channel_mappings(): void
+    {
+        $validProduct = Product::factory()->create();
+        $staleProduct = Product::factory()->create();
+        RfidTag::create([
+            'uid' => 'RFID-VALID',
+            'product_id' => $validProduct->id,
+        ]);
+        RfidTag::create(['uid' => 'RFID-ORPHAN']);
+
+        $validTableItem = TableExpeditionItem::create([
+            'rfid_tag' => 'RFID-VALID',
+            'product_id' => $validProduct->id,
+            'is_active' => true,
+        ]);
+        $orphanedTableItem = TableExpeditionItem::create([
+            'rfid_tag' => 'RFID-ORPHAN',
+            'product_id' => $staleProduct->id,
+            'is_active' => true,
+        ]);
+        $orphanedLedItem = LedAmbienceItem::create([
+            'rfid_tag' => 'RFID-VALID',
+            'product_id' => $staleProduct->id,
+            'is_active' => true,
+        ]);
+
+        $migration = require database_path('migrations/2026_10_01_070000_deactivate_orphaned_rfid_channel_mappings.php');
+        $migration->up();
+
+        $this->assertTrue($validTableItem->fresh()->is_active);
+        $this->assertFalse($orphanedTableItem->fresh()->is_active);
+        $this->assertFalse($orphanedLedItem->fresh()->is_active);
+    }
 }

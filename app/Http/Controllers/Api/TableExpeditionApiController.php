@@ -170,7 +170,7 @@ class TableExpeditionApiController extends Controller
     public function status(TableExpeditionReadiness $readiness): JsonResponse
     {
         $items = TableExpeditionItem::query()
-            ->where('is_active', true)
+            ->activeFromMasterRfid()
             ->with([
                 'product.variants',
                 'product.technologiesRelation',
@@ -204,7 +204,7 @@ class TableExpeditionApiController extends Controller
                         [$rfidTag],
                     );
             })
-            ->where('is_active', true)
+            ->activeFromMasterRfid()
             ->with(array_map(
                 fn (string $relation): string => 'product.'.$relation,
                 DeviceProductPayload::relations(),
@@ -219,7 +219,7 @@ class TableExpeditionApiController extends Controller
         }
 
         $item = TableExpeditionItem::query()
-            ->where('is_active', true)
+            ->activeFromMasterRfid()
             ->when($productId, fn ($query) => $query->where('product_id', $productId))
             ->when(! $productId && is_string($rfid), function ($query) use ($rfid): void {
                 $canonical = RfidTag::canonicalUid($rfid);

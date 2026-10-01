@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,16 +27,32 @@ class TableExpeditionItem extends Model
     ];
 
     protected $casts = [
-        'features'            => 'array',
-        'technical_details'   => 'array',
+        'features' => 'array',
+        'technical_details' => 'array',
         'similar_product_ids' => 'array',
-        'is_active'           => 'boolean',
-        'last_scanned_at'     => 'datetime',
+        'is_active' => 'boolean',
+        'last_scanned_at' => 'datetime',
     ];
 
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function scopeActiveFromMasterRfid(Builder $query): Builder
+    {
+        return $query
+            ->where($this->qualifyColumn('is_active'), true)
+            ->whereExists(function ($rfidQuery): void {
+                $rfidQuery->selectRaw('1')
+                    ->from('rfid_tags')
+                    ->whereNotNull('rfid_tags.product_id')
+                    ->whereColumn('rfid_tags.product_id', $this->qualifyColumn('product_id'))
+                    ->whereRaw(
+                        "UPPER(REPLACE(REPLACE(REPLACE(rfid_tags.uid, '-', ''), ':', ''), ' ', '')) = "
+                        ."UPPER(REPLACE(REPLACE(REPLACE({$this->getTable()}.rfid_tag, '-', ''), ':', ''), ' ', ''))",
+                    );
+            });
     }
 
     /**

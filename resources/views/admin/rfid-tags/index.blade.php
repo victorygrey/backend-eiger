@@ -146,7 +146,7 @@
                                 @endif
                             </td>
                             <td>
-                                @php($ledActive = (bool) $tag->ledAmbienceItem?->is_active)
+                                @php($ledActive = (bool) ($tag->product_id && $tag->ledAmbienceItem?->is_active && (int) $tag->ledAmbienceItem->product_id === (int) $tag->product_id))
                                 <form method="POST" action="{{ route('admin.rfid-tags.channel.update', $tag) }}" class="rfid-channel-control">
                                     @csrf @method('PATCH')
                                     <input type="hidden" name="channel" value="led_ambience">
@@ -158,7 +158,7 @@
                                 @if(!$tag->product_id)<small class="text-muted d-block mt-1">Hubungkan produk dahulu</small>@endif
                             </td>
                             <td>
-                                @php($tableActive = (bool) $tag->tableExpeditionItem?->is_active)
+                                @php($tableActive = (bool) ($tag->product_id && $tag->tableExpeditionItem?->is_active && (int) $tag->tableExpeditionItem->product_id === (int) $tag->product_id))
                                 <form method="POST" action="{{ route('admin.rfid-tags.channel.update', $tag) }}" class="rfid-channel-control">
                                     @csrf @method('PATCH')
                                     <input type="hidden" name="channel" value="table_expedition">

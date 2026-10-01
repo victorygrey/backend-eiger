@@ -109,6 +109,26 @@ class TableExpeditionWebTest extends TestCase
             ->assertSee('belum lengkap');
     }
 
+    public function test_page_excludes_stale_mapping_that_disagrees_with_master_rfid(): void
+    {
+        $masterProduct = Product::factory()->create(['name' => 'Master RFID Product']);
+        $staleProduct = Product::factory()->create(['name' => 'Stale Table Product']);
+        RfidTag::create([
+            'uid' => 'RFID-STALE-MAPPING',
+            'product_id' => $masterProduct->id,
+        ]);
+        TableExpeditionItem::create([
+            'rfid_tag' => 'RFID-STALE-MAPPING',
+            'product_id' => $staleProduct->id,
+            'is_active' => true,
+        ]);
+
+        $this->get(route('admin.table-expedition.index'))
+            ->assertOk()
+            ->assertDontSee('Stale Table Product')
+            ->assertSee('Belum ada RFID aktif untuk Table Expedition');
+    }
+
     public function test_mapping_management_routes_are_removed(): void
     {
         $product = Product::factory()->create();
@@ -137,7 +157,15 @@ class TableExpeditionWebTest extends TestCase
             'product_id' => $primary->id,
             'is_active' => true,
         ]);
+        RfidTag::create([
+            'uid' => 'RFID-PRIMARY',
+            'product_id' => $primary->id,
+        ]);
         foreach ([$comparisonOne, $comparisonTwo] as $index => $product) {
+            RfidTag::create([
+                'uid' => 'RFID-COMPARE-'.$index,
+                'product_id' => $product->id,
+            ]);
             TableExpeditionItem::create([
                 'rfid_tag' => 'RFID-COMPARE-'.$index,
                 'product_id' => $product->id,
