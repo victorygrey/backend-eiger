@@ -161,6 +161,7 @@ class RfidTagController extends Controller
     private function products()
     {
         return Product::query()
+            ->with('zone')
             ->whereRaw('LENGTH(sku) = 9')
             ->where('is_discontinued', false)
             ->where(function ($query) {
@@ -168,6 +169,6 @@ class RfidTagController extends Controller
                     ->orWhere('pim_catalog_active', true);
             })
             ->orderBy('name')
-            ->get(['id', 'sku', 'name']);
+            ->get();
     }
 }

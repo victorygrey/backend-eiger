@@ -80,7 +80,11 @@ class RfidTagWebTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('Daftarkan RFID Baru');
-        $response->assertSee('name="product_id"', false);
+        $response->assertSee('type="hidden" name="product_id"', false);
+        $response->assertDontSee('<select name="product_id"', false);
+        $response->assertSee('Pilih Produk RFID');
+        $response->assertSee('Ketik nama, SKU, zone, atau kategori produk');
+        $response->assertSee($product->name);
         $response->assertSee($product->sku);
     }
 
