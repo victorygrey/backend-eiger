@@ -8,6 +8,10 @@ return [
     'max_video_bytes' => (int) env('PIM_MEDIA_MAX_VIDEO_MB', 250) * 1024 * 1024,
     'media_connect_timeout' => (int) env('PIM_MEDIA_CONNECT_TIMEOUT', 10),
     'media_download_attempts' => (int) env('PIM_MEDIA_DOWNLOAD_ATTEMPTS', 4),
+    // Device APIs generate a reusable WebP derivative for locally stored
+    // product photographs. Originals remain untouched for the CMS/PIM archive.
+    'device_image_webp_quality' => (int) env('PIM_DEVICE_IMAGE_WEBP_QUALITY', 80),
+    'device_image_max_edge' => (int) env('PIM_DEVICE_IMAGE_MAX_EDGE', 1600),
     'copy_http_media' => env('PIM_COPY_HTTP_MEDIA', false),
     'media_hosts' => array_values(array_filter(array_map('trim', explode(',', strtolower(env('PIM_MEDIA_HOSTS', 'storage.eigeradventure.com,pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-3.amazonaws.com')))))),
     'scan_enabled' => env('PIM_SCAN_ENABLED', true),
