@@ -46,6 +46,7 @@ class DeviceImageWebpTest extends TestCase
         }
 
         $original = $this->storeSourceImage();
+        $gallery = $this->storeSourceImage('gallery');
         $product = Product::factory()->create([
             'image' => '/api/pim-media/'.$original,
         ]);
@@ -62,7 +63,7 @@ class DeviceImageWebpTest extends TestCase
             'external_id' => 'gallery-1',
             'role' => 'gallery',
             'media_type' => 'image',
-            'url' => '/api/pim-media/'.$original,
+            'url' => '/api/pim-media/'.$gallery,
             'mime_type' => 'image/png',
         ]);
         ProductMedia::create([
@@ -80,7 +81,9 @@ class DeviceImageWebpTest extends TestCase
         $this->assertStringContainsString('/device-webp/', $webpUrl);
         $this->assertStringEndsWith('.webp', $webpUrl);
         $this->assertSame($webpUrl, $payload['variants'][0]['image']);
-        $this->assertSame($webpUrl, collect($payload['media'])->firstWhere('role', 'gallery')['url']);
+        $galleryUrl = collect($payload['media'])->firstWhere('role', 'gallery')['url'];
+        $this->assertStringContainsString('/device-webp/', $galleryUrl);
+        $this->assertStringEndsWith('.webp', $galleryUrl);
         $this->assertStringEndsWith('.mp4', collect($payload['media'])->firstWhere('role', 'product_video')['url']);
 
         $path = (string) parse_url($webpUrl, PHP_URL_PATH);
@@ -95,10 +98,11 @@ class DeviceImageWebpTest extends TestCase
         $this->assertSame($variant->image, '/api/pim-media/'.$original);
     }
 
-    private function storeSourceImage(): string
+    private function storeSourceImage(string $folder = ''): string
     {
         $hash = hash('sha256', $this->png);
-        $relative = 'products/photos/webp-test--910000001/'.$hash.'.png';
+        $relative = 'products/photos/webp-test--910000001/'
+            .($folder !== '' ? $folder.'/' : '').$hash.'.png';
         $path = $this->mediaDirectory.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relative);
         File::ensureDirectoryExists(dirname($path));
         File::put($path, $this->png);
