@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\PimMediaUrl;
+use Symfony\Component\Process\Process;
 
 /**
  * Creates compact, local WebP copies only for the in-store device contract.
@@ -16,7 +17,7 @@ class DeviceImageWebpService
     public function url(?string $mediaUrl): ?string
     {
         $publicUrl = PimMediaUrl::toPublicUrl($mediaUrl);
-        if (! $publicUrl || ! function_exists('imagewebp')) {
+        if (! $publicUrl) {
             return $publicUrl;
         }
 
@@ -50,7 +51,7 @@ class DeviceImageWebpService
         $target = rtrim((string) config('pim.media_path'), DIRECTORY_SEPARATOR)
             .DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $targetRelative);
 
-        if (! is_file($target) && ! $this->encode($source, $mime, $target)) {
+        if (! is_file($target) && ! $this->encode($source, $imageInfo, $target)) {
             return $publicUrl;
         }
 
@@ -103,63 +104,53 @@ class DeviceImageWebpService
         return ($directory === '.' ? '' : $directory.'/').'device-webp/'.$fingerprint.'.webp';
     }
 
-    private function encode(string $sourcePath, string $mime, string $targetPath): bool
+    /** @param array<int|string, mixed> $imageInfo */
+    private function encode(string $sourcePath, array $imageInfo, string $targetPath): bool
     {
-        $source = $mime === 'image/jpeg'
-            ? @imagecreatefromjpeg($sourcePath)
-            : @imagecreatefrompng($sourcePath);
-        if (! $source) {
-            return false;
-        }
-
         try {
-            $sourceWidth = imagesx($source);
-            $sourceHeight = imagesy($source);
+            $sourceWidth = (int) ($imageInfo[0] ?? 0);
+            $sourceHeight = (int) ($imageInfo[1] ?? 0);
+            if ($sourceWidth < 1 || $sourceHeight < 1) {
+                return false;
+            }
+
             $edge = max(1, (int) config('pim.device_image_max_edge', 1600));
             $scale = min(1, $edge / max($sourceWidth, $sourceHeight));
             $width = max(1, (int) round($sourceWidth * $scale));
             $height = max(1, (int) round($sourceHeight * $scale));
-            $canvas = imagecreatetruecolor($width, $height);
-            if (! $canvas) {
+            $directory = dirname($targetPath);
+            if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
                 return false;
             }
 
-            try {
-                imagealphablending($canvas, false);
-                imagesavealpha($canvas, true);
-                $transparent = imagecolorallocatealpha($canvas, 0, 0, 0, 127);
-                imagefilledrectangle($canvas, 0, 0, $width, $height, $transparent);
-                if (! imagecopyresampled($canvas, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight)) {
-                    return false;
-                }
+            $temporary = $targetPath.'.tmp-'.bin2hex(random_bytes(6));
+            $process = new Process([
+                'cwebp',
+                '-quiet',
+                '-q', (string) max(1, min(100, (int) config('pim.device_image_webp_quality', 80))),
+                '-resize', (string) $width, (string) $height,
+                $sourcePath,
+                '-o', $temporary,
+            ]);
+            $process->setTimeout(120);
+            $process->run();
+            if (! $process->isSuccessful() || ! is_file($temporary)) {
+                @unlink($temporary);
 
-                $directory = dirname($targetPath);
-                if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
-                    return false;
-                }
-
-                $temporary = $targetPath.'.tmp-'.bin2hex(random_bytes(6));
-                $written = @imagewebp($canvas, $temporary, max(1, min(100, (int) config('pim.device_image_webp_quality', 80))));
-                if (! $written || ! is_file($temporary)) {
-                    @unlink($temporary);
-
-                    return false;
-                }
-
-                if (! @rename($temporary, $targetPath)) {
-                    @unlink($temporary);
-                    if (! is_file($targetPath) || is_link($targetPath)) {
-                        return false;
-                    }
-                }
-                @chmod($targetPath, 0644);
-
-                return true;
-            } finally {
-                imagedestroy($canvas);
+                return false;
             }
-        } finally {
-            imagedestroy($source);
+
+            if (! @rename($temporary, $targetPath)) {
+                @unlink($temporary);
+                if (! is_file($targetPath) || is_link($targetPath)) {
+                    return false;
+                }
+            }
+            @chmod($targetPath, 0644);
+
+            return true;
+        } catch (\Throwable) {
+            return false;
         }
     }
 }
