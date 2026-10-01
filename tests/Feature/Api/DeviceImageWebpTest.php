@@ -41,7 +41,7 @@ class DeviceImageWebpTest extends TestCase
 
     public function test_device_payload_uses_cached_webp_copies_for_local_product_photos(): void
     {
-        if (! function_exists('imagewebp')) {
+        if (! function_exists('imagewebp') || ! (gd_info()['WebP Support'] ?? false)) {
             $this->markTestSkipped('The current PHP runtime does not have WebP-enabled GD. The CMS Docker image installs it.');
         }
 
