@@ -3,6 +3,8 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Product;
+use App\Models\ProductActivity;
+use App\Models\ProductSpecification;
 use App\Models\ProductVariant;
 use App\Models\RfidTag;
 use App\Models\TableExpeditionConfig;
@@ -24,241 +26,188 @@ class TableExpeditionApiTest extends TestCase
             'Letakkan produk di area scanner',
             'Lihat informasi produk',
         ]);
+        TableExpeditionConfig::set('standby_media_type', 'video');
+        TableExpeditionConfig::set('standby_media_url', '/api/pim-media/table-expedition/standby/video/'.str_repeat('a', 64).'.mp4');
     }
 
-    public function test_api_can_get_standby_screen(): void
+    public function test_standby_returns_global_content_and_local_media_contract(): void
     {
-        $response = $this->getJson('/api/v1/table-expedition/standby');
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'data' => [
-                'title' => 'Table Expedition Hub',
-                'subtitle' => 'Letakkan produk EIGER di atas sensor',
-            ],
-        ]);
-        $this->assertCount(2, $response->json('data.instructions'));
-        $response->assertJsonMissingPath('data.usage_instructions');
+        $this->getJson('/api/v1/table-expedition/standby')
+            ->assertOk()
+            ->assertJsonPath('screen', 'standby')
+            ->assertJsonPath('data.title', 'Table Expedition Hub')
+            ->assertJsonPath('data.instructions.0', 'Letakkan produk di area scanner')
+            ->assertJsonPath('data.media.type', 'video')
+            ->assertJsonPath('data.media.url', url(TableExpeditionConfig::get('standby_media_url')));
     }
 
-    public function test_api_can_scan_mapped_product(): void
+    public function test_scan_returns_full_product_and_relevant_active_recommendations(): void
     {
-        $similarProduct = Product::factory()->create([
-            'name' => 'EIGER Equator Tarp',
-            'price' => 450000,
-            'is_discontinued' => false,
-        ]);
-
-        $product = Product::factory()->create([
+        $product = $this->activeProduct('RFID-PRIMARY', [
             'name' => 'EIGER Rhinos 45L Backpack',
-            'sku' => 'SKU-RHINOS-45',
-            'image' => '/api/pim-media/rhinos-cover.jpg',
-            'price' => 1250000,
-            'description' => 'Tas carrier handal dengan sistem sirkulasi udara optimal.',
-            'pim_payload' => [
-                'category' => 'Mountaineering',
-                'material' => 'Polyester 600D, Ripstop Nylon',
-                'technology' => [['name' => 'Airflow', 'description' => 'Ventilasi optimal']],
-                'performance' => [['name' => 'Load Stability', 'selected' => 3, 'rating' => 4]],
-                'specification' => [['name' => 'Capacity', 'value' => '45L']],
-                'customAtributes' => [['attributeCode' => 'waterproof', 'value' => 'Ya']],
-            ],
-            'pim_media' => [['type' => 'video', 'url' => 'https://example.com/master-rhinos.mp4']],
+            'sku' => '910001111',
+            'category' => 'Backpack',
+            'stock' => 10,
+            'image' => '/api/pim-media/products/'.str_repeat('b', 64).'.jpg',
+            'description' => 'Carrier ekspedisi.',
         ]);
-
         ProductVariant::create([
             'product_id' => $product->id,
-            'sku' => 'SKU-RHINOS-45-OLV-M',
+            'sku' => '910001111001',
             'name' => 'Rhinos 45L Olive M',
             'size' => 'M',
             'color' => 'Olive',
             'stock' => 10,
         ]);
-        ProductVariant::create([
+        ProductSpecification::create([
             'product_id' => $product->id,
-            'sku' => 'SKU-RHINOS-45-BLK-L',
-            'name' => 'Rhinos 45L Black L',
-            'size' => 'L',
-            'color' => 'Black',
+            'code' => 'capacity',
+            'name' => 'Capacity',
+            'value' => '45L',
+            'sort_order' => 0,
+        ]);
+        ProductActivity::create([
+            'product_id' => $product->id,
+            'name' => 'Hiking',
+            'is_selected' => true,
+            'sort_order' => 0,
+        ]);
+
+        $similar = $this->activeProduct('RFID-SIMILAR', [
+            'name' => 'EIGER Equator Backpack',
+            'sku' => '910002222',
+            'category' => 'Backpack',
+            'stock' => 4,
+            'is_discontinued' => false,
+        ]);
+        ProductActivity::create([
+            'product_id' => $similar->id,
+            'name' => 'Hiking',
+            'is_selected' => true,
+            'sort_order' => 0,
+        ]);
+
+        $unrelated = $this->activeProduct('RFID-UNRELATED', [
+            'name' => 'EIGER Daily Shirt',
+            'sku' => '910003333',
+            'category' => 'Shirt',
             'stock' => 5,
+            'is_discontinued' => false,
+        ]);
+        ProductActivity::create([
+            'product_id' => $unrelated->id,
+            'name' => 'Daily Wear',
+            'is_selected' => true,
+            'sort_order' => 0,
         ]);
 
-        $item = TableExpeditionItem::create([
-            'rfid_tag' => 'E28011606000020468900001',
-            'product_id' => $product->id,
-            'activity_slug' => 'mountaineering',
-            'ideal_for' => 'Ekspedisi 3-5 Hari',
-            'video_url' => 'https://example.com/rhinos.mp4',
-            'features' => ['Ergonomic Backsystem', 'Raincover Included', 'Trekking Pole Holder'],
-            'technical_details' => ['Capacity' => '45L', 'Weight' => '1.6 kg', 'Dimensions' => '65 x 32 x 26 cm'],
-            'ai_summary' => 'Carrier tangguh dengan kenyamanan maksimal untuk jalur pendakian berat.',
-            'similar_product_ids' => [$similarProduct->id],
-            'is_active' => true,
-        ]);
-        $masterTag = RfidTag::create([
-            'uid' => 'E28011606000020468900001',
-            'product_id' => $product->id,
-        ]);
+        $response = $this->postJson('/api/v1/table-expedition/scan', ['rfid' => 'rfid-primary']);
 
-        $response = $this->postJson('/api/v1/table-expedition/scan', [
-            'rfid' => 'E28011606000020468900001',
-        ]);
+        $response->assertOk()
+            ->assertJsonPath('source', 'master_rfid')
+            ->assertJsonPath('screen', 'product_detail')
+            ->assertJsonPath('data.rfid_tag', 'RFIDPRIMARY')
+            ->assertJsonPath('data.readiness.ready', true)
+            ->assertJsonPath('data.product.id', $product->id)
+            ->assertJsonPath('data.product.variants.0.sku', '910001111001')
+            ->assertJsonPath('data.recommendations.0.id', $similar->id)
+            ->assertJsonMissingPath('data.ai_summary')
+            ->assertJsonMissingPath('data.ideal_for')
+            ->assertJsonMissingPath('data.similar_products');
 
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'data' => [
-                'rfid_tag' => 'E28011606000020468900001',
-                'is_mapped_table' => true,
-                'activity_slug' => 'mountaineering',
-                'ideal_for' => 'Ekspedisi 3-5 Hari',
-                'video_url' => 'https://example.com/master-rhinos.mp4',
-                'ai_summary' => 'Carrier tangguh dengan kenyamanan maksimal untuk jalur pendakian berat.',
-                'product' => [
-                    'id' => $product->id,
-                    'name' => 'EIGER Rhinos 45L Backpack',
-                    'sku' => 'SKU-RHINOS-45',
-                ],
-            ],
-        ]);
-
-        $response->assertJsonMissingPath('data.features');
-        $response->assertJsonMissingPath('data.technical_details');
-        $response->assertJsonMissingPath('data.variants');
-        $this->assertContains('M', collect($response->json('data.product.variants'))->pluck('size')->all());
-        $this->assertContains('Olive', collect($response->json('data.product.variants'))->pluck('color')->all());
-        $this->assertContains('SKU-RHINOS-45-OLV-M', collect($response->json('data.product.variants'))->pluck('sku')->all());
-        $this->assertSame(url('/api/pim-media/rhinos-cover.jpg'), $response->json('data.product.variants.0.image'));
-        $this->assertSame('Airflow', $response->json('data.product.technologies.0.name'));
-        $this->assertSame('Load Stability', $response->json('data.product.performances.0.name'));
-        $this->assertSame(3, $response->json('data.product.performances.0.selected'));
-        $this->assertSame(4, $response->json('data.product.performances.0.rating'));
-        $this->assertSame('waterproof', $response->json('data.product.custom_attributes.0.attributeCode'));
-        $this->assertCount(1, $response->json('data.similar_products'));
-        $this->assertEquals('EIGER Equator Tarp', $response->json('data.similar_products.0.name'));
-
-        $item->refresh();
-        $this->assertNotNull($item->last_scanned_at);
-        $this->assertNotNull($masterTag->fresh()->last_scanned_at);
+        $this->assertCount(1, $response->json('data.recommendations'));
+        $this->assertNotNull(TableExpeditionItem::where('rfid_tag', 'RFIDPRIMARY')->firstOrFail()->last_scanned_at);
+        $this->assertNotNull(RfidTag::where('uid', 'RFIDPRIMARY')->firstOrFail()->last_scanned_at);
     }
 
-    public function test_api_scan_requires_rfid_to_be_enabled_for_table_expedition(): void
-    {
-        $product = Product::factory()->create([
-            'name' => 'EIGER Caldera Sandal',
-            'sku' => 'SKU-CALDERA',
-            'price' => 250000,
-        ]);
-
-        $masterTag = RfidTag::create([
-            'uid' => 'E28011606000020468900999',
-            'product_id' => $product->id,
-        ]);
-
-        $response = $this->postJson('/api/v1/table-expedition/scan', [
-            'rfid' => 'E28011606000020468900999',
-        ]);
-
-        $response->assertStatus(404);
-        $response->assertJson([
-            'status' => 'error',
-            'matched' => false,
-        ]);
-        $this->assertNull($masterTag->fresh()->last_scanned_at);
-    }
-
-    public function test_api_scan_unknown_rfid_returns_404(): void
-    {
-        $response = $this->postJson('/api/v1/table-expedition/scan', [
-            'rfid' => 'E28011606000020468900000_NOT_FOUND',
-        ]);
-
-        $response->assertStatus(404);
-        $response->assertJson([
-            'status' => 'error',
-        ]);
-    }
-
-    public function test_api_can_trigger_item_lost(): void
-    {
-        $response = $this->postJson('/api/v1/table-expedition/item-lost', [
-            'rfid' => 'E28011606000020468900001',
-        ]);
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'data' => [
-                'action' => 'reset_to_standby',
-                'previous_rfid' => 'E28011606000020468900001',
-            ],
-        ]);
-    }
-
-    public function test_api_can_compare_two_products(): void
-    {
-        $p1 = Product::factory()->create(['name' => 'Backpack Alpha', 'price' => 1000000]);
-        $p2 = Product::factory()->create(['name' => 'Backpack Beta', 'price' => 1200000]);
-
-        TableExpeditionItem::create([
-            'rfid_tag' => 'RFID-ALPHA',
-            'product_id' => $p1->id,
-            'features' => ['Waterproof'],
-            'technical_details' => ['Capacity' => '40L'],
-            'is_active' => true,
-        ]);
-
-        TableExpeditionItem::create([
-            'rfid_tag' => 'RFID-BETA',
-            'product_id' => $p2->id,
-            'features' => ['Water Resistant', 'Extra Pocket'],
-            'technical_details' => ['Capacity' => '50L'],
-            'is_active' => true,
-        ]);
-
-        $response = $this->postJson('/api/v1/table-expedition/compare', [
-            'rfid_primary' => 'RFID-ALPHA',
-            'rfid_secondary' => 'RFID-BETA',
-        ]);
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'data' => [
-                'primary' => [
-                    'rfid_tag' => 'RFID-ALPHA',
-                    'product' => ['name' => 'Backpack Alpha'],
-                ],
-                'secondary' => [
-                    'rfid_tag' => 'RFID-BETA',
-                    'product' => ['name' => 'Backpack Beta'],
-                ],
-            ],
-        ]);
-        $response->assertJsonMissingPath('data.product_1');
-        $response->assertJsonMissingPath('data.product_2');
-    }
-
-    public function test_api_can_get_status(): void
+    public function test_scan_rejects_unknown_or_inactive_rfid(): void
     {
         $product = Product::factory()->create();
+        RfidTag::create(['uid' => 'RFIDINACTIVE', 'product_id' => $product->id]);
         TableExpeditionItem::create([
-            'rfid_tag' => 'RFID-TEST-01',
+            'rfid_tag' => 'RFIDINACTIVE',
+            'product_id' => $product->id,
+            'is_active' => false,
+        ]);
+
+        $this->postJson('/api/v1/table-expedition/scan', ['rfid' => 'RFIDINACTIVE'])
+            ->assertNotFound()
+            ->assertJsonPath('matched', false);
+        $this->postJson('/api/v1/table-expedition/scan', ['rfid' => 'UNKNOWN'])
+            ->assertNotFound()
+            ->assertJsonPath('matched', false);
+    }
+
+    public function test_compare_only_accepts_two_different_active_table_products(): void
+    {
+        $primary = $this->activeProduct('RFID-ALPHA', [
+            'name' => 'Backpack Alpha',
+            'price' => 1000000,
+            'stock' => 8,
+            'is_discontinued' => false,
+        ]);
+        $secondary = $this->activeProduct('RFID-BETA', [
+            'name' => 'Backpack Beta',
+            'price' => 1200000,
+            'stock' => 5,
+            'is_discontinued' => false,
+        ]);
+        $inactive = Product::factory()->create(['name' => 'Inactive Product']);
+
+        $this->postJson('/api/v1/table-expedition/compare', [
+            'product_id_1' => $primary->id,
+            'product_id_2' => $secondary->id,
+        ])->assertOk()
+            ->assertJsonPath('data.primary.product.name', 'Backpack Alpha')
+            ->assertJsonPath('data.secondary.product.name', 'Backpack Beta')
+            ->assertJsonPath('data.comparison.price_difference', 200000)
+            ->assertJsonMissingPath('data.ai_comparison_summary');
+
+        $this->postJson('/api/v1/table-expedition/compare', [
+            'product_id_1' => $primary->id,
+            'product_id_2' => $inactive->id,
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/v1/table-expedition/compare', [
+            'product_id_1' => $primary->id,
+            'product_id_2' => $primary->id,
+        ])->assertUnprocessable();
+    }
+
+    public function test_item_lost_and_status_use_clean_contract(): void
+    {
+        $product = $this->activeProduct('RFID-STATUS', [
+            'name' => 'Incomplete Product',
+            'image' => null,
+            'description' => null,
+        ]);
+
+        $this->postJson('/api/v1/table-expedition/item-lost', ['rfid' => 'rfid-status'])
+            ->assertOk()
+            ->assertJsonPath('data.previous_rfid', 'RFIDSTATUS');
+
+        $this->getJson('/api/v1/table-expedition/status')
+            ->assertOk()
+            ->assertJsonPath('data.active_items', 1)
+            ->assertJsonPath('data.ready_items', 0)
+            ->assertJsonPath('data.incomplete_items', 1)
+            ->assertJsonPath('data.standby_media_configured', true);
+
+        $this->assertNotNull($product);
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function activeProduct(string $rfid, array $attributes): Product
+    {
+        $product = Product::factory()->create($attributes + ['is_discontinued' => false]);
+        $uid = RfidTag::canonicalUid($rfid);
+        RfidTag::create(['uid' => $uid, 'product_id' => $product->id]);
+        TableExpeditionItem::create([
+            'rfid_tag' => $uid,
             'product_id' => $product->id,
             'is_active' => true,
         ]);
 
-        $response = $this->getJson('/api/v1/table-expedition/status');
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'success',
-            'data' => [
-                'mode' => 'standby',
-                'active_items' => 1,
-            ],
-        ]);
-        $response->assertJsonMissingPath('data.active_items_count');
+        return $product;
     }
 }

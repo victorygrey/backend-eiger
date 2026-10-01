@@ -3,168 +3,132 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\FitAndGoActivity;
-use App\Models\Product;
-use App\Models\RfidTag;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
+use App\Services\TableExpeditionMediaStorage;
+use App\Services\TableExpeditionReadiness;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class TableExpeditionController extends Controller
 {
-    /**
-     * Display Table Expedition Hub configuration (RFID mappings & Standby settings).
-     */
-    public function index(): View
+    public function index(TableExpeditionReadiness $readiness): View
     {
-        $items = TableExpeditionItem::with(['product.zone', 'rfidTag'])
-            ->latest('id')
-            ->get();
-        $mediaVideoCount = $items->filter(function ($item) {
-            foreach ($item->product?->pim_media ?? [] as $media) {
-                $url = is_string($media) ? $media : ($media['url'] ?? $media['value'] ?? null);
-                if (is_string($url) && (preg_match('/\.(mp4|webm)(\?|$)/i', $url) || (is_array($media) && stripos((string) ($media['type'] ?? ''), 'video') !== false))) {
-                    return true;
-                }
-            }
-            return false;
-        })->count();
+        $items = TableExpeditionItem::query()
+            ->where('is_active', true)
+            ->with([
+                'rfidTag',
+                'product.zone',
+                'product.atomCategory',
+                'product.atomSubCategory',
+                'product.variants',
+                'product.technologiesRelation',
+                'product.activitiesRelation.atomActivity.group',
+                'product.specificationsRelation',
+                'product.customAttributesRelation',
+                'product.mediaRelation',
+                'product.pimRecord',
+            ])
+            ->latest('last_scanned_at')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (TableExpeditionItem $item) use ($readiness): TableExpeditionItem {
+                $item->setAttribute('readiness', $readiness->inspect($item->product));
 
-        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)
-            ->orderBy('name')
-            ->get();
+                return $item;
+            });
 
-        $activities = FitAndGoActivity::where('is_active', true)
-            ->orderBy('sort_order')
-            ->get();
-
-        $availableRfidTags = RfidTag::query()
-            ->orderBy('name')
-            ->orderBy('uid')
-            ->get();
-
-        $standbyTitle = TableExpeditionConfig::get('standby_title', 'EIGER Table Expedition Hub');
-        $standbySubtitle = TableExpeditionConfig::get('standby_subtitle', 'Letakkan produk ber-tag RFID di atas meja untuk melihat spesifikasi detail dan komparasi.');
-        $rawInstructions = TableExpeditionConfig::get('usage_instructions', []);
-        $instructions = is_array($rawInstructions) ? $rawInstructions : (json_decode($rawInstructions, true) ?: []);
+        $standby = [
+            'title' => TableExpeditionConfig::get('standby_title', 'EIGER Table Expedition Hub'),
+            'subtitle' => TableExpeditionConfig::get('standby_subtitle', 'Letakkan produk ber-tag RFID di atas meja untuk melihat detail produk.'),
+            'instructions' => $this->instructions(),
+            'media_type' => TableExpeditionConfig::get('standby_media_type'),
+            'media_url' => TableExpeditionConfig::get('standby_media_url'),
+        ];
 
         return view('admin.table-expedition.index', [
-            'items'             => $items,
-            'mediaVideoCount'   => $mediaVideoCount,
-            'products'          => $products,
-            'activities'        => $activities,
-            'availableRfidTags' => $availableRfidTags,
-            'standbyTitle'      => $standbyTitle,
-            'standbySubtitle'   => $standbySubtitle,
-            'instructions'      => $instructions,
+            'items' => $items,
+            'standby' => $standby,
+            'summary' => [
+                'active' => $items->count(),
+                'ready' => $items->filter(fn (TableExpeditionItem $item): bool => (bool) data_get($item->readiness, 'ready'))->count(),
+                'incomplete' => $items->reject(fn (TableExpeditionItem $item): bool => (bool) data_get($item->readiness, 'ready'))->count(),
+                'scanned' => $items->whereNotNull('last_scanned_at')->count(),
+            ],
         ]);
     }
 
-    public function create(): View
-    {
-        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
-        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
-        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
-
-        return view('admin.table-expedition.create', compact('products', 'activities', 'availableRfidTags'));
-    }
-
-    /**
-     * Store a newly created Table Expedition RFID mapping.
-     */
-    public function store(Request $request): RedirectResponse
-    {
+    public function updateConfig(
+        Request $request,
+        TableExpeditionMediaStorage $mediaStorage,
+    ): RedirectResponse {
         $validated = $request->validate([
-            'rfid_tag'            => 'required|string|max:64|unique:table_expedition_items,rfid_tag',
-            'product_id'          => 'required|exists:products,id',
-            'activity_slug'       => 'nullable|string|max:50',
-            'ideal_for'           => 'nullable|string|max:255',
-            'ai_summary'          => 'nullable|string',
-            'similar_product_ids' => 'nullable|array|max:5',
-            'similar_product_ids.*' => 'integer|exists:products,id',
-            'notes'               => 'nullable|string|max:255',
-            'is_active'           => 'nullable|boolean',
+            'standby_title' => ['required', 'string', 'max:150'],
+            'standby_subtitle' => ['nullable', 'string', 'max:255'],
+            'usage_instructions' => ['nullable', 'string', 'max:2000'],
+            'remove_standby_media' => ['nullable', 'boolean'],
+            'standby_media_file' => [
+                'nullable',
+                'file',
+                'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm',
+                'max:'.((int) max(
+                    config('table_expedition.max_image_mb', 15),
+                    config('table_expedition.max_video_mb', 500),
+                ) * 1024),
+            ],
+        ], [
+            'standby_media_file.mimetypes' => 'Media standby harus berformat JPG, PNG, WebP, MP4, atau WebM.',
         ]);
 
-        $validated['rfid_tag'] = trim(strtoupper($validated['rfid_tag']));
-        $validated['is_active'] = $request->boolean('is_active', true);
+        if ($request->hasFile('standby_media_file')) {
+            $file = $request->file('standby_media_file');
+            $previousMediaUrl = TableExpeditionConfig::get('standby_media_url');
+            $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
+            $maxBytes = (int) config($isVideo
+                ? 'table_expedition.max_video_mb'
+                : 'table_expedition.max_image_mb') * 1024 * 1024;
 
-        TableExpeditionItem::create($validated);
+            if ($file->getSize() > $maxBytes) {
+                return back()->withErrors([
+                    'standby_media_file' => $isVideo
+                        ? 'Ukuran video standby melebihi batas yang diizinkan.'
+                        : 'Ukuran gambar standby melebihi batas yang diizinkan.',
+                ])->withInput();
+            }
 
-        return redirect()->route('admin.table-expedition.index')
-            ->with('success', "Mapping RFID {$validated['rfid_tag']} berhasil ditambahkan ke Table Expedition.");
-    }
-
-    public function edit(TableExpeditionItem $item): View
-    {
-        $item->load(['product.zone', 'rfidTag']);
-        $products = Product::where('is_discontinued', false)->where('pim_catalog_active', true)->orderBy('name')->get();
-        $activities = FitAndGoActivity::where('is_active', true)->orderBy('sort_order')->get();
-        $availableRfidTags = RfidTag::orderBy('name')->orderBy('uid')->get();
-
-        return view('admin.table-expedition.edit', compact('item', 'products', 'activities', 'availableRfidTags'));
-    }
-
-    /**
-     * Update an existing Table Expedition RFID mapping.
-     */
-    public function update(Request $request, TableExpeditionItem $item): RedirectResponse
-    {
-        $validated = $request->validate([
-            'rfid_tag'            => 'required|string|max:64|unique:table_expedition_items,rfid_tag,' . $item->id,
-            'product_id'          => 'required|exists:products,id',
-            'activity_slug'       => 'nullable|string|max:50',
-            'ideal_for'           => 'nullable|string|max:255',
-            'ai_summary'          => 'nullable|string',
-            'similar_product_ids' => 'nullable|array|max:5',
-            'similar_product_ids.*' => 'integer|exists:products,id',
-            'notes'               => 'nullable|string|max:255',
-            'is_active'           => 'nullable|boolean',
-        ]);
-
-        $validated['rfid_tag'] = trim(strtoupper($validated['rfid_tag']));
-        $validated['is_active'] = $request->boolean('is_active');
-
-        $item->update($validated);
-
-        return redirect()->route('admin.table-expedition.index')
-            ->with('success', "Konfigurasi Table Expedition untuk RFID {$item->rfid_tag} berhasil diperbarui.");
-    }
-
-    /**
-     * Remove an existing Table Expedition RFID mapping.
-     */
-    public function destroy(TableExpeditionItem $item): RedirectResponse
-    {
-        $tag = $item->rfid_tag;
-        $item->delete();
-
-        return redirect()->route('admin.table-expedition.index')
-            ->with('success', "Mapping RFID {$tag} berhasil dihapus dari Table Expedition.");
-    }
-
-    /**
-     * Update Table Expedition Standby instructions and welcome message.
-     */
-    public function updateConfig(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'standby_title'      => 'required|string|max:150',
-            'standby_subtitle'   => 'nullable|string|max:255',
-            'usage_instructions' => 'nullable|string',
-        ]);
-
-        TableExpeditionConfig::set('standby_title', $validated['standby_title']);
-        TableExpeditionConfig::set('standby_subtitle', $validated['standby_subtitle']);
-
-        if (isset($validated['usage_instructions'])) {
-            $inst = array_values(array_filter(array_map('trim', explode("\n", $validated['usage_instructions']))));
-            TableExpeditionConfig::set('usage_instructions', json_encode($inst));
+            $stored = $mediaStorage->store($file);
+            TableExpeditionConfig::set('standby_media_type', $stored['type']);
+            TableExpeditionConfig::set('standby_media_url', $stored['url']);
+            if ($previousMediaUrl !== $stored['url']) {
+                $mediaStorage->delete(is_string($previousMediaUrl) ? $previousMediaUrl : null);
+            }
+        } elseif ($request->boolean('remove_standby_media')) {
+            $previousMediaUrl = TableExpeditionConfig::get('standby_media_url');
+            $mediaStorage->delete(is_string($previousMediaUrl) ? $previousMediaUrl : null);
+            TableExpeditionConfig::set('standby_media_type', null);
+            TableExpeditionConfig::set('standby_media_url', null);
         }
 
+        TableExpeditionConfig::set('standby_title', $validated['standby_title']);
+        TableExpeditionConfig::set('standby_subtitle', $validated['standby_subtitle'] ?? null);
+        TableExpeditionConfig::set(
+            'usage_instructions',
+            array_values(array_filter(array_map(
+                'trim',
+                preg_split('/\r\n|\r|\n/', (string) ($validated['usage_instructions'] ?? '')) ?: [],
+            ))),
+        );
+
         return redirect()->route('admin.table-expedition.index')
-            ->with('success', 'Pengaturan Standby & Petunjuk Penggunaan Table Expedition berhasil diperbarui.');
+            ->with('success', 'Konfigurasi standby Table Expedition berhasil diperbarui.');
+    }
+
+    /** @return list<string> */
+    private function instructions(): array
+    {
+        $instructions = TableExpeditionConfig::get('usage_instructions', []);
+
+        return is_array($instructions) ? array_values($instructions) : [];
     }
 }

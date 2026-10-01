@@ -7,6 +7,8 @@ use App\Models\Product;
 use App\Models\RfidTag;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
+use App\Services\TableExpeditionReadiness;
+use App\Services\TableExpeditionRecommendationService;
 use App\Support\DeviceProductPayload;
 use App\Support\PimMediaUrl;
 use Illuminate\Http\JsonResponse;
@@ -14,131 +16,67 @@ use Illuminate\Http\Request;
 
 class TableExpeditionApiController extends Controller
 {
-    /**
-     * Get standby screen data and usage instructions.
-     * SRS FR-TABLE-01 & FR-TABLE-07: Idle screen saat tidak ada item terdeteksi beserta panduan wahana.
-     * GET /api/v1/table-expedition/standby
-     */
     public function standby(): JsonResponse
     {
-        $title = TableExpeditionConfig::get('standby_title', 'EIGER Table Expedition Hub');
-        $subtitle = TableExpeditionConfig::get('standby_subtitle', 'Letakkan produk ber-tag RFID di atas meja untuk melihat spesifikasi detail dan komparasi.');
-        $rawInstructions = TableExpeditionConfig::get('usage_instructions', []);
-        $instructions = is_array($rawInstructions) ? $rawInstructions : (json_decode($rawInstructions, true) ?: []);
+        $mediaUrl = TableExpeditionConfig::get('standby_media_url');
 
         return response()->json([
             'status' => 'success',
             'screen' => 'standby',
             'data' => [
-                'title' => $title,
-                'subtitle' => $subtitle,
-                'instructions' => $instructions,
+                'title' => TableExpeditionConfig::get('standby_title', 'EIGER Table Expedition Hub'),
+                'subtitle' => TableExpeditionConfig::get('standby_subtitle', 'Letakkan produk ber-tag RFID di atas meja untuk melihat detail produk.'),
+                'instructions' => $this->instructions(),
+                'media' => $mediaUrl ? [
+                    'type' => TableExpeditionConfig::get('standby_media_type'),
+                    'url' => PimMediaUrl::toPublicUrl($mediaUrl),
+                ] : null,
             ],
         ]);
     }
 
-    /**
-     * Scan RFID tag placed on the Table Expedition reader.
-     * SRS FR-TABLE-02 to FR-TABLE-06: Menampilkan Home screen produk, ukuran/warna, spesifikasi detail,
-     * video, AI Summary, dan rekomendasi produk serupa.
-     * POST /api/v1/table-expedition/scan
-     */
-    public function scan(Request $request): JsonResponse
-    {
-        $tagInput = $request->input('rfid_tag') ?? $request->input('rfid');
-        if (! $tagInput) {
+    public function scan(
+        Request $request,
+        TableExpeditionRecommendationService $recommendations,
+        TableExpeditionReadiness $readiness,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'rfid_tag' => ['required_without:rfid', 'nullable', 'string', 'max:64'],
+            'rfid' => ['required_without:rfid_tag', 'nullable', 'string', 'max:64'],
+        ]);
+        $rfidTag = RfidTag::canonicalUid((string) ($validated['rfid_tag'] ?? $validated['rfid']));
+
+        $item = $this->activeItemByRfid($rfidTag);
+        if (! $item || ! $item->product) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Tag RFID wajib diisi (parameter rfid_tag atau rfid).',
-            ], 422);
-        }
-
-        $rfidTag = trim(strtoupper($tagInput));
-
-        // 1. Check custom Table Expedition mapping
-        $item = TableExpeditionItem::with(array_map(
-            fn (string $relation): string => 'product.'.$relation,
-            DeviceProductPayload::relations()
-        ))
-            ->where('rfid_tag', $rfidTag)
-            ->where('is_active', true)
-            ->first();
-
-        $product = null;
-        $idealFor = null;
-        $videoUrl = null;
-        $aiSummary = null;
-        $similarProducts = collect();
-
-        if ($item && $item->product) {
-            $product = $item->product;
-            $idealFor = $item->ideal_for;
-            $aiSummary = $item->ai_summary;
-            $similarProducts = $item->similar_products;
-
-            $item->update(['last_scanned_at' => now()]);
-            RfidTag::recordScan($rfidTag);
-        }
-
-        if (! $product) {
-            return response()->json([
-                'status' => 'error',
+                'status' => 'not_found',
                 'matched' => false,
-                'message' => "Tag RFID '{$rfidTag}' tidak terdaftar pada modul Table Expedition.",
+                'message' => "Tag RFID '{$rfidTag}' tidak aktif pada modul Table Expedition.",
                 'rfid_tag' => $rfidTag,
             ], 404);
         }
 
-        foreach ($product->pim_media ?? [] as $media) {
-            $url = is_string($media) ? $media : ($media['url'] ?? $media['value'] ?? null);
-            if (is_string($url) && (preg_match('/\.(mp4|webm)(\?|$)/i', $url) || (is_array($media) && stripos((string) ($media['type'] ?? ''), 'video') !== false))) {
-                $videoUrl = $url;
-                break;
-            }
-        }
-        $videoUrl ??= $item?->video_url;
-        $videoUrl = PimMediaUrl::toPublicUrl($videoUrl);
-
-        if (empty($aiSummary)) {
-            $aiSummary = "Produk {$product->name} merupakan salah satu perlengkapan unggulan EIGER yang menggabungkan durabilitas tangguh dan fungsionalitas tinggi untuk kenyamanan eksplorasi harian maupun petualangan teknis.";
-        }
-
-        // Fallback up to 5 similar products if not manually set (SRS FR-TABLE-04)
-        if ($similarProducts->isEmpty()) {
-            $similarProducts = Product::where('id', '!=', $product->id)
-                ->where('is_discontinued', false)
-                ->latest('id')
-                ->limit(5)
-                ->get();
-        }
-
-        $similarProducts->load(DeviceProductPayload::relations());
-        $similarFormatted = $similarProducts
-            ->map(fn (Product $similarProduct) => DeviceProductPayload::make($similarProduct))
-            ->values();
+        $product = $item->product;
+        $recommendedProducts = $recommendations->for($product);
+        $item->update(['last_scanned_at' => now()]);
+        RfidTag::recordScan($rfidTag);
 
         return response()->json([
             'status' => 'success',
             'matched' => true,
-            'screen' => 'home',
+            'screen' => 'product_detail',
+            'source' => 'master_rfid',
             'data' => [
                 'rfid_tag' => $rfidTag,
-                'is_mapped_table' => (bool) $item,
-                'activity_slug' => $item?->activity_slug,
-                'ideal_for' => $idealFor ?: 'Aktivitas Outdoor & Penjelajahan Harian',
-                'video_url' => $videoUrl,
-                'ai_summary' => $aiSummary,
+                'readiness' => $readiness->inspect($product),
                 'product' => DeviceProductPayload::make($product),
-                'similar_products' => $similarFormatted,
+                'recommendations' => $recommendedProducts
+                    ->map(fn (Product $recommended): array => DeviceProductPayload::make($recommended))
+                    ->values(),
             ],
         ]);
     }
 
-    /**
-     * Item removed from Table reader.
-     * SRS FR-TABLE-01: Kembali ke Idle Screen saat item diangkat ("Item Lost").
-     * POST /api/v1/table-expedition/item-lost
-     */
     public function itemLost(Request $request): JsonResponse
     {
         $rfid = $request->input('rfid_tag') ?? $request->input('rfid');
@@ -146,88 +84,140 @@ class TableExpeditionApiController extends Controller
         return response()->json([
             'status' => 'success',
             'event' => 'item_lost',
-            'message' => 'Produk diangkat dari meja. Layar kembali ke Standby Screen.',
             'screen' => 'standby',
             'data' => [
                 'action' => 'reset_to_standby',
-                'previous_rfid' => $rfid,
+                'previous_rfid' => is_string($rfid) ? RfidTag::canonicalUid($rfid) : null,
             ],
         ]);
     }
 
-    /**
-     * Compare two products side-by-side with AI Summary comparison.
-     * SRS Hal 13: Product Comparison and Suggestion dengan ringkasan komparasi berbasis AI.
-     * POST /api/v1/table-expedition/compare
-     */
     public function compare(Request $request): JsonResponse
     {
-        $p1Id = $request->input('product_id_1');
-        $p2Id = $request->input('product_id_2');
+        $validated = $request->validate([
+            'product_id_1' => ['nullable', 'integer'],
+            'product_id_2' => ['nullable', 'integer'],
+            'rfid_primary' => ['nullable', 'string', 'max:64'],
+            'rfid_secondary' => ['nullable', 'string', 'max:64'],
+        ]);
 
-        if (! $p1Id && $request->filled('rfid_primary')) {
-            $item1 = TableExpeditionItem::where('rfid_tag', $request->input('rfid_primary'))->first();
-            $p1Id = $item1?->product_id;
-        }
+        $primary = $this->resolveActiveProduct(
+            $validated['product_id_1'] ?? null,
+            $validated['rfid_primary'] ?? null,
+        );
+        $secondary = $this->resolveActiveProduct(
+            $validated['product_id_2'] ?? null,
+            $validated['rfid_secondary'] ?? null,
+        );
 
-        if (! $p2Id && $request->filled('rfid_secondary')) {
-            $item2 = TableExpeditionItem::where('rfid_tag', $request->input('rfid_secondary'))->first();
-            $p2Id = $item2?->product_id;
-        }
-
-        if (! $p1Id || ! $p2Id) {
+        if (! $primary || ! $secondary) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Dibutuhkan 2 produk untuk komparasi (product_id_1 & product_id_2 atau rfid_primary & rfid_secondary).',
+                'message' => 'Kedua produk harus aktif pada Master RFID untuk Table Expedition.',
             ], 422);
         }
 
-        $prod1 = Product::with(DeviceProductPayload::relations())->findOrFail($p1Id);
-        $prod2 = Product::with(DeviceProductPayload::relations())->findOrFail($p2Id);
-
-        $aiComparisonSummary = "Perbandingan {$prod1->name} dan {$prod2->name}: ";
-        if ($prod1->price > $prod2->price) {
-            $diff = number_format($prod1->price - $prod2->price, 0, ',', '.');
-            $aiComparisonSummary .= "{$prod1->name} memiliki spesifikasi lebih premium (selisih Rp {$diff}), sedangkan {$prod2->name} menawarkan nilai ekonomis yang sangat baik untuk kebutuhan harian.";
-        } else {
-            $aiComparisonSummary .= 'Kedua produk saling melengkapi dengan karakteristik fungsional yang kuat untuk lini aktivitas penjelajahan EIGER.';
+        if ($primary->is($secondary)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Pilih dua produk yang berbeda untuk komparasi.',
+            ], 422);
         }
 
-        $data1 = DeviceProductPayload::make($prod1);
-        $data2 = DeviceProductPayload::make($prod2);
+        $primaryPayload = DeviceProductPayload::make($primary);
+        $secondaryPayload = DeviceProductPayload::make($secondary);
 
         return response()->json([
             'status' => 'success',
             'data' => [
                 'primary' => [
-                    'rfid_tag' => $request->input('rfid_primary'),
-                    'product' => $data1,
+                    'rfid_tag' => isset($validated['rfid_primary'])
+                        ? RfidTag::canonicalUid($validated['rfid_primary'])
+                        : null,
+                    'product' => $primaryPayload,
                 ],
                 'secondary' => [
-                    'rfid_tag' => $request->input('rfid_secondary'),
-                    'product' => $data2,
+                    'rfid_tag' => isset($validated['rfid_secondary'])
+                        ? RfidTag::canonicalUid($validated['rfid_secondary'])
+                        : null,
+                    'product' => $secondaryPayload,
                 ],
-                'ai_comparison_summary' => $aiComparisonSummary,
+                'comparison' => [
+                    'price_difference' => abs((float) $primary->price - (float) $secondary->price),
+                    'stock_difference' => abs((int) $primary->stock - (int) $secondary->stock),
+                    'shared_activities' => collect($primaryPayload['activities'])
+                        ->pluck('name')
+                        ->intersect(collect($secondaryPayload['activities'])->pluck('name'))
+                        ->values()
+                        ->all(),
+                ],
             ],
         ]);
     }
 
-    /**
-     * Get system status and configuration stats for Table Expedition.
-     * GET /api/v1/table-expedition/status
-     */
-    public function status(): JsonResponse
+    public function status(TableExpeditionReadiness $readiness): JsonResponse
     {
-        $activeCount = TableExpeditionItem::where('is_active', true)->count();
+        $items = TableExpeditionItem::query()
+            ->where('is_active', true)
+            ->with([
+                'product.variants',
+                'product.technologiesRelation',
+                'product.specificationsRelation',
+                'product.customAttributesRelation',
+                'product.mediaRelation',
+            ])
+            ->get();
+        $ready = $items->filter(fn (TableExpeditionItem $item): bool => $readiness->inspect($item->product)['ready'])->count();
 
         return response()->json([
             'status' => 'success',
             'data' => [
                 'mode' => 'standby',
-                'total_mapped_items' => TableExpeditionItem::count(),
-                'active_items' => $activeCount,
+                'active_items' => $items->count(),
+                'ready_items' => $ready,
+                'incomplete_items' => $items->count() - $ready,
+                'standby_media_configured' => filled(TableExpeditionConfig::get('standby_media_url')),
                 'server_time' => now()->toIso8601String(),
             ],
         ]);
+    }
+
+    private function activeItemByRfid(string $rfidTag): ?TableExpeditionItem
+    {
+        return TableExpeditionItem::query()
+            ->where('rfid_tag', $rfidTag)
+            ->where('is_active', true)
+            ->with(array_map(
+                fn (string $relation): string => 'product.'.$relation,
+                DeviceProductPayload::relations(),
+            ))
+            ->first();
+    }
+
+    private function resolveActiveProduct(mixed $productId, mixed $rfid): ?Product
+    {
+        if (! $productId && ! is_string($rfid)) {
+            return null;
+        }
+
+        $item = TableExpeditionItem::query()
+            ->where('is_active', true)
+            ->when($productId, fn ($query) => $query->where('product_id', $productId))
+            ->when(! $productId && is_string($rfid), fn ($query) => $query->where('rfid_tag', RfidTag::canonicalUid($rfid)))
+            ->with(array_map(
+                fn (string $relation): string => 'product.'.$relation,
+                DeviceProductPayload::relations(),
+            ))
+            ->first();
+
+        return $item?->product;
+    }
+
+    /** @return list<string> */
+    private function instructions(): array
+    {
+        $instructions = TableExpeditionConfig::get('usage_instructions', []);
+
+        return is_array($instructions) ? array_values($instructions) : [];
     }
 }

@@ -106,11 +106,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // Table Expedition (Table Expedition Hub / Product Knowledge)
     Route::prefix('table-expedition')->name('table-expedition.')->group(function () {
         Route::get('/', [TableExpeditionController::class, 'index'])->name('index');
-        Route::get('/create', [TableExpeditionController::class, 'create'])->name('create');
-        Route::post('/items', [TableExpeditionController::class, 'store'])->name('store');
-        Route::get('/items/{item}/edit', [TableExpeditionController::class, 'edit'])->name('edit');
-        Route::put('/items/{item}', [TableExpeditionController::class, 'update'])->name('update');
-        Route::delete('/items/{item}', [TableExpeditionController::class, 'destroy'])->name('destroy');
         Route::post('/config', [TableExpeditionController::class, 'updateConfig'])->name('config');
     });
 
