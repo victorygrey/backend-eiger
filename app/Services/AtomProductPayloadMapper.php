@@ -154,7 +154,7 @@ class AtomProductPayloadMapper
                 'color' => $color,
                 'images' => $rows->map(fn ($row) => [
                     'id' => $row['atom_id'] ?? null,
-                    'url' => $row['image'] ?? null,
+                    'url' => $this->normalizeUrl($row['image'] ?? null),
                 ])->filter(fn ($row) => is_string($row['url']) && $row['url'] !== '')->unique('url')->values()->all(),
             ])->values()->all();
     }
@@ -165,16 +165,16 @@ class AtomProductPayloadMapper
         $images = [];
         foreach ($detail['files'] ?? [] as $row) {
             if (($row['type'] ?? 'image') === 'image' && is_string($row['url'] ?? null)) {
-                $images[] = ['id' => $row['id'] ?? null, 'url' => $row['url']];
+                $images[] = ['id' => $row['id'] ?? null, 'url' => $this->normalizeUrl($row['url'])];
             }
         }
         foreach ($variantImages as $row) {
             if (is_string($row['image'] ?? null)) {
-                $images[] = ['id' => $row['atom_id'] ?? null, 'url' => $row['image']];
+                $images[] = ['id' => $row['atom_id'] ?? null, 'url' => $this->normalizeUrl($row['image'])];
             }
         }
 
-        return collect($images)->unique('url')->values()->all();
+        return collect($images)->filter(fn ($row) => filled($row['url']))->unique('url')->values()->all();
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -188,7 +188,7 @@ class AtomProductPayloadMapper
             'id' => $row['id'] ?? null,
             'name' => $row['name'] ?? $row['title'] ?? 'Technology',
             'description' => $row['description'] ?? null,
-            'image' => $row['image'] ?? null,
+            'image' => $this->normalizeUrl($row['image'] ?? $row['iconUrl'] ?? null),
         ])->values()->all();
     }
 
@@ -222,5 +222,32 @@ class AtomProductPayloadMapper
             'value' => is_scalar($row['value'] ?? null) ? (string) $row['value'] : null,
             'unit' => $row['unit'] ?? null,
         ])->filter(fn ($row) => filled($row['code']))->values()->all();
+    }
+
+    private function normalizeUrl(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $parts = parse_url(trim($value));
+        if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+
+        $path = implode('/', array_map(
+            fn (string $segment) => rawurlencode(rawurldecode($segment)),
+            explode('/', (string) ($parts['path'] ?? '')),
+        ));
+        $url = strtolower($parts['scheme']).'://'.strtolower($parts['host']);
+        if (isset($parts['port'])) {
+            $url .= ':'.$parts['port'];
+        }
+        $url .= $path;
+        if (isset($parts['query'])) {
+            $url .= '?'.$parts['query'];
+        }
+
+        return filter_var($url, FILTER_VALIDATE_URL) ? $url : null;
     }
 }

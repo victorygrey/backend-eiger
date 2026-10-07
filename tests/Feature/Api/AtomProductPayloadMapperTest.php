@@ -23,7 +23,7 @@ class AtomProductPayloadMapperTest extends TestCase
                 'category' => ['name' => 'Footwear', 'slug' => 'footwear'],
                 'subCategory' => ['name' => 'Sepatu', 'slug' => 'shoes'],
                 'type' => ['name' => 'Mid Cut Shoes'],
-                'files' => [['id' => 1, 'type' => 'image', 'url' => 'https://d1yutv2xslo29o.cloudfront.net/main.jpeg']],
+                'files' => [['id' => 1, 'type' => 'image', 'url' => 'https://d1yutv2xslo29o.cloudfront.net/main photo.jpeg']],
                 'specifications' => [['code' => 'PRODUCT_WEIGHT', 'name' => 'Product Weight', 'value' => '3000']],
             ],
             [[
@@ -43,7 +43,7 @@ class AtomProductPayloadMapperTest extends TestCase
         $this->assertSame(1929000.0, $validated['product']['variant'][0]['price']);
         $this->assertSame(3, $validated['product']['variant'][0]['stock']);
         $this->assertSame('BLACK', $validated['product']['variant'][0]['color']);
-        $this->assertSame('https://d1yutv2xslo29o.cloudfront.net/main.jpeg', $validated['product']['mainImage']);
+        $this->assertSame('https://d1yutv2xslo29o.cloudfront.net/main%20photo.jpeg', $validated['product']['mainImage']);
         $this->assertSame('Day Hike', collect($validated['product']['customAtributes'])
             ->firstWhere('attributeCode', 'activity')['value']);
     }
