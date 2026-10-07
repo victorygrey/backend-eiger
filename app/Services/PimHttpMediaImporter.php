@@ -29,7 +29,7 @@ class PimHttpMediaImporter
         } elseif (! $parts || ($parts['scheme'] ?? '') !== 'https'
             || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])
             || (isset($parts['port']) && $parts['port'] !== 443)
-            || ! in_array(strtolower($parts['host'] ?? ''), config('pim.media_hosts', []), true)) {
+            || ! in_array(strtolower($parts['host'] ?? ''), $this->allowedHosts(), true)) {
             throw ValidationException::withMessages(['media' => 'Sumber media harus berasal dari PIM atau host media yang diizinkan.']);
         }
 
@@ -86,6 +86,11 @@ class PimHttpMediaImporter
 
             $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($temp);
             $extension = self::MIME_EXTENSIONS[$mime] ?? null;
+            if (! $expectedHash && $this->mustStoreAsJpeg((string) ($parts['host'] ?? ''), (string) $mime)) {
+                $this->convertToJpeg($temp);
+                $mime = 'image/jpeg';
+                $extension = 'jpg';
+            }
             $limit = str_starts_with((string) $mime, 'video/')
                 ? (int) config('pim.max_video_bytes')
                 : (int) config('pim.max_image_bytes');
@@ -145,6 +150,44 @@ class PimHttpMediaImporter
         // already readable by the www-data user that serves /api/pim-media.
         if (! @chmod($path, 0644) && ! is_readable($path)) {
             throw new \RuntimeException('Cannot make PIM media readable');
+        }
+    }
+
+    private function mustStoreAsJpeg(string $host, string $mime): bool
+    {
+        return str_starts_with($mime, 'image/')
+            && in_array(strtolower($host), config('atom.media_hosts', []), true);
+    }
+
+    /** @return array<int, string> */
+    private function allowedHosts(): array
+    {
+        return array_values(array_unique(array_merge(
+            config('pim.media_hosts', []),
+            config('atom.media_hosts', []),
+        )));
+    }
+
+    private function convertToJpeg(string $path): void
+    {
+        $contents = file_get_contents($path);
+        $source = is_string($contents) && function_exists('imagecreatefromstring')
+            ? @\imagecreatefromstring($contents)
+            : false;
+        if (! $source) {
+            throw ValidationException::withMessages(['media' => 'Foto ATOM tidak dapat dikonversi ke JPG.']);
+        }
+
+        $target = \imagecreatetruecolor(\imagesx($source), \imagesy($source));
+        $white = \imagecolorallocate($target, 255, 255, 255);
+        \imagefill($target, 0, 0, $white);
+        \imagealphablending($target, true);
+        \imagecopy($target, $source, 0, 0, 0, 0, \imagesx($source), \imagesy($source));
+        $saved = \imagejpeg($target, $path, max(1, min(100, (int) config('atom.jpg_quality', 92))));
+        \imagedestroy($source);
+        \imagedestroy($target);
+        if (! $saved) {
+            throw new \RuntimeException('Cannot store ATOM media as JPG');
         }
     }
 }

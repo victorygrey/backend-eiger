@@ -13,7 +13,7 @@ class PimCareProductMapper
      *
      * @return array<string, mixed>
      */
-    public function map(array $product, array $imagePayload = [], ?array $scraped = null): array
+    public function map(array $product, array $imagePayload = [], ?array $scraped = null, bool $useCare = true): array
     {
         $sku = (string) ($product['generic'] ?? $scraped['product_code'] ?? $scraped['sku'] ?? '');
         $name = (string) ($product['name'] ?? $scraped['product_name'] ?? '');
@@ -39,7 +39,7 @@ class PimCareProductMapper
         $care = ['found' => false, 'price' => 0, 'stock' => 0, 'variants' => []];
 
         try {
-            if ($sku !== '') {
+            if ($useCare && $sku !== '') {
                 $care = $this->care->get($sku, array_column($pimVariants, 'sku'));
             }
         } catch (\Throwable $e) {
@@ -49,7 +49,7 @@ class PimCareProductMapper
             ]);
         }
 
-        $variants = $care['variants'] !== []
+        $variants = ($care['found'] ?? false) && $care['variants'] !== []
             ? $this->mergeCareVariants($care['variants'], $pimVariants, $imagePayload, $cover)
             : $this->normalizePimVariants($sku, $pimVariants, $imagePayload, $cover);
 
@@ -166,8 +166,10 @@ class PimCareProductMapper
                 'name' => (string) ($variant['name'] ?? ''),
                 'color' => (string) ($variant['color'] ?? ''),
                 'size' => (string) ($variant['size'] ?? ''),
-                'price' => 0,
-                'stock' => 0,
+                // PIM resmi tidak mengirim nilai komersial. Import ATOM sementara
+                // boleh membawanya; CARE tetap menang ketika hasil CARE tersedia.
+                'price' => (float) ($variant['price'] ?? 0),
+                'stock' => (int) ($variant['stock'] ?? 0),
                 'ecmsku' => $variant['ecmsku'] ?? null,
                 'moq' => $variant['moq'] ?? null,
                 'customAttributes' => $variant['customAttributes'] ?? [],

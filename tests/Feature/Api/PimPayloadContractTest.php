@@ -244,6 +244,31 @@ class PimPayloadContractTest extends TestCase
         );
     }
 
+    public function test_atom_photos_are_archived_as_jpg(): void
+    {
+        if (! function_exists('imagecreatefromstring')) {
+            $this->markTestSkipped('GD is supplied by the production image and CI runtime.');
+        }
+        config([
+            'atom.media_hosts' => ['d1yutv2xslo29o.cloudfront.net'],
+            'pim.media_hosts' => ['d1yutv2xslo29o.cloudfront.net'],
+        ]);
+        Http::fake([
+            'd1yutv2xslo29o.cloudfront.net/*' => Http::response($this->png, 200, ['Content-Type' => 'image/png']),
+        ]);
+
+        $media = app(PimHttpMediaImporter::class)->import(
+            'https://d1yutv2xslo29o.cloudfront.net/product/photo.png',
+            'main_image',
+            ['product_name' => 'Curtus', 'generic_sku' => '910012103'],
+        );
+
+        $this->assertSame('image/jpeg', $media['mime']);
+        $this->assertStringEndsWith('.jpg', $media['url']);
+        $relative = substr($media['url'], strlen('/api/pim-media/'));
+        $this->assertSame('image/jpeg', (new \finfo(FILEINFO_MIME_TYPE))->file($this->mediaDir.'/'.$relative));
+    }
+
     public function test_publish_keeps_remote_media_url_when_all_download_attempts_fail(): void
     {
         config(['pim.media_download_attempts' => 1]);

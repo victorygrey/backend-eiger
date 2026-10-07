@@ -25,6 +25,10 @@ class PimPayload
             'product.variant.*.size' => 'sometimes|nullable|string',
             'product.variant.*.moq' => 'sometimes|nullable|string',
             'product.variant.*.ecmsku' => 'sometimes|nullable|string',
+            // Optional temporary ATOM fallback. Official PIM requests omit these
+            // fields and continue to receive price/stock from CARE.
+            'product.variant.*.price' => 'sometimes|numeric|min:0',
+            'product.variant.*.stock' => 'sometimes|integer|min:0',
             'product.variant.*.customAttributes' => 'sometimes|array',
             'product.media' => 'sometimes|array',
             'product.media.*.attributeCode' => 'required|string',

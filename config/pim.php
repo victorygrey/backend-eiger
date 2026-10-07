@@ -18,7 +18,7 @@ return [
     'tablet_image_webp_quality' => (int) env('PIM_TABLET_IMAGE_WEBP_QUALITY', 30),
     'tablet_image_max_edge' => (int) env('PIM_TABLET_IMAGE_MAX_EDGE', 1024),
     'copy_http_media' => env('PIM_COPY_HTTP_MEDIA', false),
-    'media_hosts' => array_values(array_filter(array_map('trim', explode(',', strtolower(env('PIM_MEDIA_HOSTS', 'storage.eigeradventure.com,pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-3.amazonaws.com')))))),
+    'media_hosts' => array_values(array_filter(array_map('trim', explode(',', strtolower(env('PIM_MEDIA_HOSTS', 'storage.eigeradventure.com,pim-development-932708080162-ap-southeast-3-an.s3.ap-southeast-3.amazonaws.com,d1yutv2xslo29o.cloudfront.net')))))),
     'scan_enabled' => env('PIM_SCAN_ENABLED', true),
     'legacy_http_enabled' => env('PIM_LEGACY_HTTP_ENABLED', false),
     'url' => env('PIM_SIMULATOR_URL', 'http://127.0.0.1:8001'),
