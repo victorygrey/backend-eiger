@@ -17,7 +17,8 @@ class ImportAtomProductsCommand extends Command
         {--fresh : Buat ulang pilihan produk meskipun manifest sudah ada}
         {--dry-run : Pilih produk dan simpan manifest tanpa mengubah database}
         {--skip-media : Simpan URL ATOM tanpa mengunduh foto ke NAS}
-        {--limit=0 : Batasi jumlah item yang diproses untuk pengujian}';
+        {--limit=0 : Batasi jumlah item yang diproses untuk pengujian}
+        {--completion-marker= : Hapus marker ini setelah seluruh produk selesai}';
 
     protected $description = 'Import katalog sementara dari EIGER ATOM ke skema produk PIM CMS';
 
@@ -97,6 +98,9 @@ class ImportAtomProductsCommand extends Command
         $pending = count($manifest['products']) - $done;
         $this->newLine();
         $this->info("Selesai: {$done}; tersisa/gagal: {$pending}.");
+        if ($pending === 0 && is_string($this->option('completion-marker'))) {
+            File::delete((string) $this->option('completion-marker'));
+        }
 
         return $failed === 0 ? self::SUCCESS : self::FAILURE;
     }

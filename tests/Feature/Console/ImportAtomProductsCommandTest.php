@@ -5,6 +5,7 @@ namespace Tests\Feature\Console;
 use App\Models\Product;
 use App\Services\AtomProductImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -72,5 +73,41 @@ class ImportAtomProductsCommandTest extends TestCase
             'name' => 'Day Hike',
             'is_selected' => true,
         ]);
+    }
+
+    public function test_completed_manifest_removes_one_time_scheduler_marker(): void
+    {
+        $root = sys_get_temp_dir().'/atom-command-'.bin2hex(random_bytes(4));
+        $manifest = $root.'/manifest.json';
+        $marker = $root.'/atom-import.enabled';
+        File::ensureDirectoryExists($root);
+        File::put($marker, 'run');
+        File::put($manifest, json_encode([
+            'schema_version' => 1,
+            'per_type' => 50,
+            'products' => [[
+                'sku' => '910012103',
+                'slug' => 'curtus',
+                'name' => 'CURTUS',
+                'gender' => 'men',
+                'gender_source' => 'neutral_fallback',
+                'product_type' => 'shoes',
+                'activity' => 'Day Hike',
+                'activity_group' => 'camping_hiking',
+                'status' => 'done',
+                'attempts' => 1,
+            ]],
+        ]));
+
+        try {
+            $this->artisan('atom:import-products', [
+                '--manifest' => $manifest,
+                '--completion-marker' => $marker,
+            ])->assertSuccessful();
+
+            $this->assertFileDoesNotExist($marker);
+        } finally {
+            File::deleteDirectory($root);
+        }
     }
 }
