@@ -25,7 +25,7 @@ class PimPayloadContractTest extends TestCase
     {
         parent::setUp();
         $this->mediaDir = sys_get_temp_dir().'/pim-contract-'.bin2hex(random_bytes(6));
-        $this->png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=');
+        $this->png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAFklEQVQImWP8z8DAwMDAxMDAwMDAAAANHQEDDMfniQAAAABJRU5ErkJggg==');
         config(['pim.legacy_http_enabled' => true, 'pim.inbound_token' => 'test',
             'pim.copy_http_media' => true, 'pim.media_path' => $this->mediaDir,
             'pim.url' => 'http://pim.test', 'pim.media_hosts' => ['storage.eigeradventure.com']]);
