@@ -6,28 +6,25 @@
                 <span class="badge bg-light text-dark border">AI Fit &amp; Go</span>
             </div>
             <div class="card-body p-3 p-lg-4">
+                <div class="alert alert-light border d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-lock-fill text-secondary mt-1"></i>
+                    <div class="small"><strong>Identitas kiosk dikunci.</strong> Nama, identifier, lokasi, dan status ditetapkan sebagai slot perangkat lantai.</div>
+                </div>
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
-                        <label class="form-label fw-semibold" for="device-name">Nama Perangkat <span class="text-danger">*</span></label>
-                        <input id="device-name" type="text" name="name" class="form-control @error('name') is-invalid @enderror"
-                               value="{{ old('name', $device->name ?? '') }}" placeholder="Contoh: AI Fit & Go Lantai 1" required>
-                        @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <label class="form-label fw-semibold" for="device-name">Nama Perangkat</label>
+                        <input id="device-name" type="text" class="form-control bg-light" value="{{ $device->name }}" readonly>
                     </div>
                     <div class="col-12 col-md-6">
-                        <label class="form-label fw-semibold" for="device-code">Slug URL / Device Identifier <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold" for="device-code">Slug URL / Device Identifier</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light">/fit-and-go/</span>
-                            <input id="device-code" type="text" name="device_code" class="form-control font-monospace @error('device_code') is-invalid @enderror"
-                                   value="{{ old('device_code', $device->device_code ?? '') }}" placeholder="lantai-1" required>
+                            <input id="device-code" type="text" class="form-control font-monospace bg-light" value="{{ $device->device_code }}" readonly>
                         </div>
-                        @error('device_code')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-                        <div class="form-text">Huruf kecil, angka, dan tanda hubung.</div>
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold" for="device-location">Lokasi Perangkat</label>
-                        <input id="device-location" type="text" name="location" class="form-control @error('location') is-invalid @enderror"
-                               value="{{ old('location', $device->location ?? '') }}" placeholder="Contoh: Lantai 1 - Area Apparel Pria">
-                        @error('location')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <input id="device-location" type="text" class="form-control bg-light" value="{{ $device->location }}" readonly>
                     </div>
                 </div>
             </div>
@@ -56,13 +53,6 @@
                     </div>
                 @endisset
 
-                <hr>
-                <div class="form-check form-switch">
-                    <input type="hidden" name="is_active" value="0">
-                    <input class="form-check-input" type="checkbox" role="switch" id="is-active" name="is_active" value="1" @checked(old('is_active', $device->is_active ?? true))>
-                    <label class="form-check-label fw-semibold" for="is-active">Perangkat Aktif</label>
-                </div>
-                <div class="form-text">Perangkat nonaktif tidak dapat melakukan aktivasi atau mengambil konfigurasi.</div>
             </div>
         </div>
     </div>
@@ -70,19 +60,12 @@
 
 <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
     <a href="{{ route('admin.fit-and-go.index', ['tab' => 'kiosks']) }}" class="btn btn-light px-4">Batal</a>
-    <button type="submit" class="btn btn-eiger fw-bold px-4 shadow-sm"><i class="bi bi-check-lg me-1"></i>{{ isset($device) ? 'Simpan Konfigurasi Kiosk' : 'Tambah Kiosk' }}</button>
+    <button type="submit" class="btn btn-eiger fw-bold px-4 shadow-sm"><i class="bi bi-check-lg me-1"></i>Simpan Kode Aktivasi</button>
 </div>
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const name = document.getElementById('device-name');
-    const slug = document.getElementById('device-code');
-    if (name && slug && !slug.value) {
-        name.addEventListener('input', () => {
-            slug.value = name.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        });
-    }
     document.getElementById('generate-activation-code')?.addEventListener('click', () => {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let code = 'FIT-';

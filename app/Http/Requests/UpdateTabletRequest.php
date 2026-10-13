@@ -19,8 +19,6 @@ class UpdateTabletRequest extends FormRequest
         $tabletId = $this->route('tablet')?->id;
 
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('tablets', 'slug')->ignore($tabletId)],
             'location' => ['nullable', 'string', 'max:255'],
             'featured_product_id' => ['required', 'integer', Rule::exists('products', 'id')],
             'recommendation_ids' => ['required', 'array', 'min:1', 'max:30'],

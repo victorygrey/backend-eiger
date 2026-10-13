@@ -16,6 +16,11 @@ class TabletDisplayTest extends TestCase
 
     private int $tabletSkuSequence = 910800000;
 
+    private function staticTablet(int $slot): Tablet
+    {
+        return Tablet::where('slug', Tablet::STATIC_SLOTS[$slot]['slug'])->firstOrFail();
+    }
+
     private function tabletProduct(array $attributes = []): Product
     {
         return Product::factory()->create(array_merge([
@@ -114,13 +119,12 @@ class TabletDisplayTest extends TestCase
         $oldFeatured = $this->tabletProduct();
         $newFeatured = $this->tabletProduct();
         $recommendation = $this->tabletProduct();
-        $tablet = Tablet::create([
-            'slug' => 'lobby-01',
-            'name' => 'Lobby Tablet 01',
+        $tablet = $this->staticTablet(1);
+        $tablet->forceFill([
             'featured_product_id' => $newFeatured->id,
             'activation_code_hash' => Hash::make('LOBBY-01'),
             'config_version' => 2,
-        ]);
+        ])->save();
         $tablet->recommendations()->attach($recommendation->id, ['sort_order' => 0]);
         $version = TabletConfigVersion::create([
             'tablet_id' => $tablet->id,
@@ -140,14 +144,13 @@ class TabletDisplayTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_save_valid_product_ids_from_the_tablet_form(): void
+    public function test_admin_can_save_valid_product_ids_to_a_static_tablet(): void
     {
         $featured = $this->tabletProduct();
         $recommendation = $this->tabletProduct();
 
-        $this->post(route('admin.tablets.store'), [
-            'name' => 'Lobby Tablet 01',
-            'slug' => 'lobby-01',
+        $tablet = $this->staticTablet(2);
+        $this->put(route('admin.tablets.update', $tablet), [
             'location' => 'Main Lobby',
             'featured_product_id' => (string) $featured->id,
             'recommendation_ids' => [(string) $recommendation->id],
@@ -156,7 +159,7 @@ class TabletDisplayTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('tablets', [
-            'slug' => 'lobby-01',
+            'slug' => Tablet::STATIC_SLOTS[2]['slug'],
             'featured_product_id' => $featured->id,
         ]);
         $this->assertDatabaseHas('tablet_recommendations', [
@@ -164,7 +167,8 @@ class TabletDisplayTest extends TestCase
             'sort_order' => 0,
         ]);
         $this->assertDatabaseHas('tablet_config_versions', [
-            'version_number' => 1,
+            'tablet_id' => $tablet->id,
+            'version_number' => 2,
             'featured_product_id' => $featured->id,
         ]);
     }

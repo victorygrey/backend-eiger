@@ -12,6 +12,23 @@ class Tablet extends Model
 {
     use HasFactory;
 
+    public const STATIC_SLOTS = [
+        1 => ['name' => 'Interactive Tablet 1', 'slug' => 'interactive-tablet-1'],
+        2 => ['name' => 'Interactive Tablet 2', 'slug' => 'interactive-tablet-2'],
+        3 => ['name' => 'Interactive Tablet 3', 'slug' => 'interactive-tablet-3'],
+        4 => ['name' => 'Interactive Tablet 4', 'slug' => 'interactive-tablet-4'],
+    ];
+
+    public static function staticSlugs(): array
+    {
+        return array_column(self::STATIC_SLOTS, 'slug');
+    }
+
+    public function isStaticSlot(): bool
+    {
+        return in_array($this->slug, self::staticSlugs(), true);
+    }
+
     protected $attributes = [
         'config_version' => 1,
     ];

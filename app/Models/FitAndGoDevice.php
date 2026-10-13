@@ -10,6 +10,34 @@ class FitAndGoDevice extends Model
 {
     use HasFactory;
 
+    public const STATIC_SLOTS = [
+        1 => [
+            'name' => 'AI Fit & Go Lantai 1',
+            'device_code' => 'fit-and-go-lantai-1',
+            'location' => 'Lantai 1',
+        ],
+        2 => [
+            'name' => 'AI Fit & Go Lantai 2',
+            'device_code' => 'fit-and-go-lantai-2',
+            'location' => 'Lantai 2',
+        ],
+        3 => [
+            'name' => 'AI Fit & Go Lantai 3',
+            'device_code' => 'fit-and-go-lantai-3',
+            'location' => 'Lantai 3',
+        ],
+    ];
+
+    public static function staticDeviceCodes(): array
+    {
+        return array_column(self::STATIC_SLOTS, 'device_code');
+    }
+
+    public function isStaticSlot(): bool
+    {
+        return in_array($this->device_code, self::staticDeviceCodes(), true);
+    }
+
     protected $fillable = [
         'name',
         'device_code',

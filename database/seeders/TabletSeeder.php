@@ -18,28 +18,39 @@ class TabletSeeder extends Seeder
         }
 
         $featured = $products->firstWhere('is_featured', true) ?? $products->first();
-        $tablet = Tablet::firstOrCreate(
-            ['slug' => 'lobby-01'],
-            [
-                'name' => 'Lobby Tablet 01',
-                'location' => 'Main Lobby',
-                'featured_product_id' => $featured->id,
-                'activation_code_hash' => Hash::make('LOBBY-01'),
-                'is_active' => true,
-            ],
-        );
+        foreach (Tablet::STATIC_SLOTS as $slotNumber => $slot) {
+            $activationCode = 'TABLET-0'.$slotNumber;
+            $tablet = Tablet::firstOrCreate(
+                ['slug' => $slot['slug']],
+                [
+                    ...$slot,
+                    'featured_product_id' => $featured->id,
+                    'activation_code_hash' => Hash::make($activationCode),
+                    'activation_code_lookup_hash' => Tablet::activationCodeLookupHash($activationCode),
+                    'activation_code_encrypted' => $activationCode,
+                    'is_active' => true,
+                ],
+            );
 
-        if ($tablet->wasRecentlyCreated) {
+            if (! $tablet->wasRecentlyCreated && $tablet->featured_product_id) {
+                continue;
+            }
+
+            $tablet->forceFill(['featured_product_id' => $featured->id])->save();
             $recommendations = $products->where('id', '!=', $featured->id)->values();
             $tablet->recommendations()->sync(
                 $recommendations->mapWithKeys(fn ($product, $index) => [$product->id => ['sort_order' => $index]])->all(),
             );
-            TabletConfigVersion::create([
-                'tablet_id' => $tablet->id,
-                'version_number' => 1,
-                'featured_product_id' => $featured->id,
-                'recommendation_product_ids' => $recommendations->pluck('id')->all(),
-            ]);
+            TabletConfigVersion::updateOrCreate(
+                [
+                    'tablet_id' => $tablet->id,
+                    'version_number' => 1,
+                ],
+                [
+                    'featured_product_id' => $featured->id,
+                    'recommendation_product_ids' => $recommendations->pluck('id')->all(),
+                ],
+            );
         }
     }
 }

@@ -30,19 +30,19 @@
                 <span class="badge bg-light text-dark border">Interactive Table / Tablet</span>
             </div>
             <div class="card-body">
+                <div class="alert alert-light border d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-lock-fill text-secondary mt-1"></i>
+                    <div class="small"><strong>Identitas perangkat dikunci.</strong> Nama dan identifier merupakan slot tablet statis. Lokasi tetap dapat disesuaikan.</div>
+                </div>
                 <div class="row g-3">
                     <div class="col-md-7">
                         <label class="form-label fw-semibold">Nama Tablet / Display <span class="text-danger">*</span></label>
-                        <input type="text" id="tablet-name" name="name" class="form-control @error('name') is-invalid @enderror"
-                               value="{{ old('name', $tablet->name ?? '') }}" placeholder="Contoh: Tablet Meja Ekspedisi 01" required>
-                        @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <input type="text" id="tablet-name" class="form-control bg-light" value="{{ $tablet->name }}" readonly>
                     </div>
                     <div class="col-md-5">
                         <label class="form-label fw-semibold">Identifier Internal <span class="text-danger">*</span></label>
-                        <input type="text" id="tablet-slug" name="slug" class="form-control font-monospace @error('slug') is-invalid @enderror"
-                               value="{{ old('slug', $tablet->slug ?? '') }}" placeholder="meja-01" required>
+                        <input type="text" id="tablet-slug" class="form-control font-monospace bg-light" value="{{ $tablet->slug }}" readonly>
                         <div class="form-text">Digunakan oleh sistem internal; perangkat melakukan pairing menggunakan kode aktivasi.</div>
-                        @error('slug')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold">Lokasi Penempatan Meja / Display</label>

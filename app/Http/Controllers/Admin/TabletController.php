@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreTabletRequest;
 use App\Http\Requests\UpdateTabletRequest;
 use App\Models\Product;
 use App\Models\Tablet;
@@ -18,43 +17,17 @@ class TabletController extends Controller
     {
         $tablets = Tablet::with(['featuredProduct.zone', 'recommendations.zone'])
             ->withCount('recommendations')
-            ->latest()
+            ->whereIn('slug', Tablet::staticSlugs())
+            ->orderBy('slug')
             ->paginate(15);
 
         return view('admin.tablets.index', compact('tablets'));
     }
 
-    public function create()
-    {
-        return view('admin.tablets.create', ['products' => $this->availableProducts()]);
-    }
-
-    public function store(StoreTabletRequest $request)
-    {
-        $this->assertProductsAreEnabledForTablet($request->integer('featured_product_id'), $request->input('recommendation_ids', []));
-
-        $tablet = DB::transaction(function () use ($request) {
-            $activationCode = Tablet::normalizeActivationCode((string) $request->string('activation_code'));
-            $tablet = Tablet::create([
-                ...$request->safe()->except(['recommendation_ids', 'activation_code', 'is_active']),
-                'activation_code_hash' => Hash::make($activationCode),
-                'activation_code_lookup_hash' => Tablet::activationCodeLookupHash($activationCode),
-                'activation_code_encrypted' => $activationCode,
-                'is_active' => $request->boolean('is_active'),
-            ]);
-
-            $this->syncRecommendations($tablet, $request->input('recommendation_ids', []));
-            $this->createVersionSnapshot($tablet);
-
-            return $tablet;
-        });
-
-        return redirect()->route('admin.tablets.edit', $tablet)
-            ->with('success', 'Tablet berhasil dibuat. Gunakan kode aktivasi yang baru diatur pada perangkat.');
-    }
-
     public function edit(Tablet $tablet)
     {
+        abort_unless($tablet->isStaticSlot(), 404);
+
         $tablet->load(['recommendations', 'versions.featuredProduct']);
 
         return view('admin.tablets.edit', [
@@ -65,11 +38,15 @@ class TabletController extends Controller
 
     public function update(UpdateTabletRequest $request, Tablet $tablet)
     {
+        abort_unless($tablet->isStaticSlot(), 404);
+
         $this->assertProductsAreEnabledForTablet($request->integer('featured_product_id'), $request->input('recommendation_ids', []));
 
         DB::transaction(function () use ($request, $tablet) {
+            $identity = collect(Tablet::STATIC_SLOTS)->firstWhere('slug', $tablet->slug);
             $tablet->fill([
                 ...$request->safe()->except(['recommendation_ids', 'activation_code', 'is_active']),
+                ...$identity,
                 'is_active' => $request->boolean('is_active'),
             ]);
 
@@ -94,15 +71,10 @@ class TabletController extends Controller
             ->with('success', 'Konfigurasi tablet dipublikasikan sebagai versi '.$tablet->config_version.'.');
     }
 
-    public function destroy(Tablet $tablet)
-    {
-        $tablet->delete();
-
-        return redirect()->route('admin.tablets.index')->with('success', 'Tablet berhasil dihapus.');
-    }
-
     public function rollback(Tablet $tablet, TabletConfigVersion $version)
     {
+        abort_unless($tablet->isStaticSlot(), 404);
+
         if ($version->tablet_id !== $tablet->id) {
             abort(404);
         }

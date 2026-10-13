@@ -75,8 +75,8 @@ class FitAndGoController extends Controller
 
         $kioskDevices = FitAndGoDevice::query()
             ->withCount('itemVisibilities')
-            ->orderBy('location')
-            ->orderBy('name')
+            ->whereIn('device_code', FitAndGoDevice::staticDeviceCodes())
+            ->orderBy('device_code')
             ->get();
         $wahanaOptions = $kioskDevices
             ->where('is_active', true)
@@ -124,6 +124,8 @@ class FitAndGoController extends Controller
         FitAndGoProductClassifier $classifier
     ): RedirectResponse
     {
+        abort_unless($device->isStaticSlot(), 404);
+
         $validated = $request->validate([
             'selection_mode' => 'required|in:latest,selected',
             'product_ids' => 'nullable|array|max:30',
@@ -173,57 +175,31 @@ class FitAndGoController extends Controller
     // DEVICE CONFIGURATION ACTIONS
     // ==========================================
 
-    public function createDevice(): View
-    {
-        return view('admin.fit-and-go.devices.create');
-    }
-
-    public function storeDevice(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'name'          => 'required|string|max:100',
-            'device_code'   => 'required|regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/|max:50|unique:fit_and_go_devices,device_code',
-            'location'      => 'nullable|string|max:100',
-            'activation_code' => 'required|string|min:6|max:64',
-            'is_active'     => 'nullable|boolean',
-        ]);
-
-        $validated['is_active'] = $request->boolean('is_active', true);
-        $validated['status'] = 'offline';
-        $validated['activation_code_hash'] = Hash::make($validated['activation_code']);
-        $validated['activation_code_encrypted'] = $validated['activation_code'];
-        unset($validated['activation_code']);
-
-        FitAndGoDevice::create($validated);
-
-        return redirect()->route('admin.fit-and-go.index', ['tab' => 'kiosks'])
-            ->with('success', "Perangkat {$validated['name']} berhasil ditambahkan.");
-    }
-
     public function editDevice(FitAndGoDevice $device): View
     {
+        abort_unless($device->isStaticSlot(), 404);
+
         return view('admin.fit-and-go.devices.edit', compact('device'));
     }
 
     public function updateDevice(Request $request, FitAndGoDevice $device): RedirectResponse
     {
+        abort_unless($device->isStaticSlot(), 404);
+
         $validated = $request->validate([
-            'name'          => 'required|string|max:100',
-            'device_code'   => 'required|regex:/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/|max:50|unique:fit_and_go_devices,device_code,' . $device->id,
-            'location'      => 'nullable|string|max:100',
-            'activation_code' => 'nullable|string|min:6|max:64',
-            'is_active'     => 'nullable|boolean',
+            'activation_code' => 'required|string|min:6|max:64',
         ]);
 
-        $validated['is_active'] = $request->boolean('is_active');
-        if ($request->filled('activation_code')
-            && $validated['activation_code'] !== $device->activation_code_encrypted) {
-            $validated['activation_code_hash'] = Hash::make($validated['activation_code']);
-            $validated['activation_code_encrypted'] = $validated['activation_code'];
-            $validated['device_token_hash'] = null;
+        $identity = collect(FitAndGoDevice::STATIC_SLOTS)
+            ->firstWhere('device_code', $device->device_code);
+        $updates = [...$identity, 'is_active' => true];
+
+        if ($validated['activation_code'] !== $device->activation_code_encrypted) {
+            $updates['activation_code_hash'] = Hash::make($validated['activation_code']);
+            $updates['activation_code_encrypted'] = $validated['activation_code'];
+            $updates['device_token_hash'] = null;
         }
-        unset($validated['activation_code']);
-        $device->update($validated);
+        $device->update($updates);
 
         return redirect()->route('admin.fit-and-go.index', ['tab' => 'kiosks'])
             ->with('success', "Konfigurasi perangkat {$device->name} berhasil diperbarui.");
@@ -231,6 +207,8 @@ class FitAndGoController extends Controller
 
     public function pingDevice(FitAndGoDevice $device): RedirectResponse
     {
+        abort_unless($device->isStaticSlot(), 404);
+
         $device->update([
             'last_heartbeat_at' => now(),
             'status'            => 'online',
@@ -238,15 +216,6 @@ class FitAndGoController extends Controller
 
         return redirect()->route('admin.fit-and-go.index', ['tab' => 'kiosks'])
             ->with('success', "Status perangkat {$device->name} berhasil diperiksa (Online).");
-    }
-
-    public function destroyDevice(FitAndGoDevice $device): RedirectResponse
-    {
-        $name = $device->name;
-        $device->delete();
-
-        return redirect()->route('admin.fit-and-go.index', ['tab' => 'kiosks'])
-            ->with('success', "Perangkat {$name} berhasil dihapus.");
     }
 
 }

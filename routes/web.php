@@ -78,23 +78,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     // Interactive Tablets
     Route::get('/tablets',                  [TabletController::class, 'index'])->name('tablets.index');
-    Route::get('/tablets/create',           [TabletController::class, 'create'])->name('tablets.create');
-    Route::post('/tablets',                 [TabletController::class, 'store'])->name('tablets.store');
     Route::get('/tablets/{tablet}/edit',    [TabletController::class, 'edit'])->name('tablets.edit');
     Route::put('/tablets/{tablet}',         [TabletController::class, 'update'])->name('tablets.update');
     Route::post('/tablets/{tablet}/versions/{version}/rollback', [TabletController::class, 'rollback'])->name('tablets.rollback');
-    Route::delete('/tablets/{tablet}',      [TabletController::class, 'destroy'])->name('tablets.destroy');
 
     // AI Fit & Go
     Route::prefix('fit-and-go')->name('fit-and-go.')->group(function () {
         Route::get('/', [FitAndGoController::class, 'index'])->name('index');
         Route::put('/config-products/{device}', [FitAndGoController::class, 'updateProductConfig'])->name('product-config.update');
-        Route::get('/devices/create', [FitAndGoController::class, 'createDevice'])->name('devices.create');
-        Route::post('/devices', [FitAndGoController::class, 'storeDevice'])->name('devices.store');
         Route::get('/devices/{device}/edit', [FitAndGoController::class, 'editDevice'])->name('devices.edit');
         Route::put('/devices/{device}', [FitAndGoController::class, 'updateDevice'])->name('devices.update');
         Route::post('/devices/{device}/ping', [FitAndGoController::class, 'pingDevice'])->name('devices.ping');
-        Route::delete('/devices/{device}', [FitAndGoController::class, 'destroyDevice'])->name('devices.destroy');
     });
 
     // Photo Capture & Print History (operational log, separate from Fit & Go configuration)

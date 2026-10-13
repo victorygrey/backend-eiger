@@ -11,20 +11,17 @@ class FitAndGoSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Initial Kiosk Device
-        FitAndGoDevice::updateOrCreate(
-            ['device_code' => 'fit-kiosk-01'],
-            [
-                'name'              => 'Kiosk Virtual Fitting 01',
-                'location'          => 'Lantai 1 - Area Fitting Room',
-                'ip_address'        => '192.168.18.51',
-                'gpu_endpoint'      => 'http://192.168.18.50:8080',
-                'camera_source'     => 'DSLR Kiosk Cam 01',
-                'status'            => 'online',
-                'is_active'         => true,
-                'last_heartbeat_at' => now(),
-            ]
-        );
+        // 1. Fixed kiosk slots for floors 1-3.
+        foreach (FitAndGoDevice::STATIC_SLOTS as $slot) {
+            FitAndGoDevice::updateOrCreate(
+                ['device_code' => $slot['device_code']],
+                [
+                    ...$slot,
+                    'status' => 'offline',
+                    'is_active' => true,
+                ],
+            );
+        }
 
         // 2. Initial EIGER Activities (SRS Hal 10: data activity dari Care MC Level 2 + gambar)
         $activities = [

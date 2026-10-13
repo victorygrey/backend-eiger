@@ -18,11 +18,7 @@
             Kelola konfigurasi perangkat layar sentuh meja ekspedisi (Table Product Knowledge) dan tablet display katalog produk EIGER.
         </p>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{{ route('admin.tablets.create') }}" class="btn btn-eiger fw-bold shadow-sm">
-            <i class="bi bi-plus-lg me-1"></i>Tambah Perangkat Table / Display
-        </a>
-    </div>
+    <span class="badge bg-light text-dark border px-3 py-2"><i class="bi bi-lock-fill me-1"></i>4 perangkat statis</span>
 </div>
 
 {{-- Flash Messages --}}
@@ -198,46 +194,14 @@
                                     <a href="{{ route('admin.tablets.edit', $tablet) }}" class="btn btn-outline-primary" title="Edit Konfigurasi">
                                         <i class="bi bi-pencil-fill"></i>
                                     </a>
-                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteTabletModal{{ $tablet->id }}" title="Hapus">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </button>
                                 </div>
                             </td>
                         </tr>
-
-                        {{-- Delete Confirmation Modal --}}
-                        <div class="modal fade" id="deleteTabletModal{{ $tablet->id }}" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <form action="{{ route('admin.tablets.destroy', $tablet) }}" method="POST">
-                                        @csrf
-                                        @method('DELETE')
-                                        <div class="modal-header">
-                                            <h5 class="modal-title fw-bold text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Hapus Perangkat Table</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            Apakah Anda yakin ingin menghapus konfigurasi <strong>{{ $tablet->name }}</strong> (<code>{{ $tablet->slug }}</code>)?
-                                            Tindakan ini akan memutus akses tablet tersebut ke katalog.
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                                            <button type="submit" class="btn btn-danger fw-bold">Hapus Tablet</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
                     @empty
                         <tr>
                             <td colspan="6" class="text-center py-5 text-muted">
                                 <i class="bi bi-tablet-landscape fs-1 d-block mb-2 text-secondary"></i>
-                                Belum ada perangkat Interactive Table / Display yang terdaftar.
-                                <div class="mt-3">
-                                    <a href="{{ route('admin.tablets.create') }}" class="btn btn-sm btn-eiger">
-                                        <i class="bi bi-plus-lg me-1"></i>Tambah Perangkat Pertama
-                                    </a>
-                                </div>
+                                Slot Interactive Tablet statis belum tersedia. Jalankan migrasi database terbaru.
                             </td>
                         </tr>
                     @endforelse

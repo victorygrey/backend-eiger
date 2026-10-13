@@ -13,12 +13,14 @@ class FitAndGoWebTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function staticDevice(int $floor): FitAndGoDevice
+    {
+        return FitAndGoDevice::where('device_code', FitAndGoDevice::STATIC_SLOTS[$floor]['device_code'])->firstOrFail();
+    }
+
     public function test_fit_and_go_opens_product_config_and_only_lists_selected_ai_products(): void
     {
-        $device = FitAndGoDevice::create([
-            'name' => 'AI Fit & Go Lantai 1', 'device_code' => 'fit-floor-1',
-            'location' => 'Lantai 1', 'status' => 'online', 'is_active' => true,
-        ]);
+        $device = $this->staticDevice(1);
         $selected = Product::factory()->create([
             'sku' => '910000111', 'name' => 'Summit Jacket', 'category' => 'Jacket',
             'ai_fit_and_go_active' => false, 'pim_catalog_active' => true, 'is_discontinued' => false,
@@ -43,14 +45,8 @@ class FitAndGoWebTest extends TestCase
 
     public function test_selected_products_are_saved_independently_for_each_floor_device(): void
     {
-        $floorOne = FitAndGoDevice::create([
-            'name' => 'AI Fit & Go Lantai 1', 'device_code' => 'fit-floor-1',
-            'location' => 'Lantai 1', 'status' => 'online', 'is_active' => true,
-        ]);
-        $floorTwo = FitAndGoDevice::create([
-            'name' => 'AI Fit & Go Lantai 2', 'device_code' => 'fit-floor-2',
-            'location' => 'Lantai 2', 'status' => 'online', 'is_active' => true,
-        ]);
+        $floorOne = $this->staticDevice(1);
+        $floorTwo = $this->staticDevice(2);
         $product = Product::factory()->create([
             'sku' => '910000113', 'name' => 'Floor One Jacket', 'category' => 'Jacket',
             'ai_fit_and_go_active' => true, 'pim_catalog_active' => true, 'is_discontinued' => false,
@@ -71,10 +67,7 @@ class FitAndGoWebTest extends TestCase
 
     public function test_latest_mode_is_saved_without_erasing_previous_manual_selection(): void
     {
-        $device = FitAndGoDevice::create([
-            'name' => 'AI Fit & Go Lantai 3', 'device_code' => 'fit-floor-3',
-            'location' => 'Lantai 3', 'status' => 'online', 'is_active' => true,
-        ]);
+        $device = $this->staticDevice(3);
         $product = Product::factory()->create([
             'sku' => '910000114', 'name' => 'Saved Jacket', 'category' => 'Jacket',
             'ai_fit_and_go_active' => true, 'pim_catalog_active' => true, 'is_discontinued' => false,
@@ -98,16 +91,13 @@ class FitAndGoWebTest extends TestCase
 
     public function test_kiosk_config_tab_replaces_activity_and_old_device_tabs(): void
     {
-        $device = FitAndGoDevice::create([
-            'name' => 'Kiosk Lantai 1', 'device_code' => 'lantai-1',
-            'location' => 'Lantai 1', 'status' => 'offline', 'is_active' => true,
-            'activation_code_hash' => Hash::make('FLOOR-01'),
-        ]);
+        $device = $this->staticDevice(1);
 
         $this->get(route('admin.fit-and-go.index', ['tab' => 'kiosks']))
             ->assertOk()
             ->assertSee('Konfig Kiosk')
             ->assertSee($device->name)
+            ->assertSee('Tiga kiosk lantai bersifat tetap')
             ->assertSee('Kode Aktivasi Aktif')
             ->assertDontSee('Aktivitas EIGER')
             ->assertDontSee('Kategori &amp; Visibilitas', false)
@@ -122,9 +112,8 @@ class FitAndGoWebTest extends TestCase
 
     public function test_device_form_only_contains_identity_location_and_activation_security(): void
     {
-        $device = FitAndGoDevice::create([
-            'name' => 'Kiosk Lantai 2', 'device_code' => 'lantai-2',
-            'location' => 'Lantai 2', 'status' => 'offline', 'is_active' => true,
+        $device = $this->staticDevice(2);
+        $device->update([
             'activation_code_hash' => Hash::make('FLOOR-02'),
             'activation_code_encrypted' => 'FLOOR-02',
         ]);
@@ -134,49 +123,46 @@ class FitAndGoWebTest extends TestCase
             ->assertSee('Slug URL / Device Identifier')
             ->assertSee('Aktivasi &amp; Keamanan', false)
             ->assertSee('value="FLOOR-02"', false)
+            ->assertSee('readonly', false)
+            ->assertDontSee('name="name"', false)
+            ->assertDontSee('name="device_code"', false)
+            ->assertDontSee('name="is_active"', false)
             ->assertDontSee('Kategori &amp; Visibilitas', false)
             ->assertDontSee('EIGER Activity')
             ->assertDontSee('GPU')
             ->assertDontSee('Sumber Kamera');
     }
 
-    public function test_can_create_secure_kiosk_device(): void
+    public function test_kiosk_slots_are_fixed_and_create_delete_routes_are_unavailable(): void
     {
-        $this->post(route('admin.fit-and-go.devices.store'), [
-            'name' => 'Lobby Kiosk',
-            'device_code' => 'kiosk-lobby',
-            'location' => 'Lantai 1 Lobby',
-            'activation_code' => 'LOBBY-01',
-            'is_active' => 1,
-        ])->assertRedirect(route('admin.fit-and-go.index', ['tab' => 'kiosks']));
-
-        $device = FitAndGoDevice::where('device_code', 'kiosk-lobby')->firstOrFail();
-        $this->assertSame('offline', $device->status);
-        $this->assertTrue(Hash::check('LOBBY-01', $device->activation_code_hash));
-        $this->assertSame('LOBBY-01', $device->activation_code_encrypted);
-        $this->assertNotSame('LOBBY-01', $device->getRawOriginal('activation_code_encrypted'));
+        $this->assertSame(3, FitAndGoDevice::whereIn('device_code', FitAndGoDevice::staticDeviceCodes())->count());
+        $this->get('/admin/fit-and-go/devices/create')->assertStatus(405);
+        $this->post('/admin/fit-and-go/devices')->assertNotFound();
+        $this->delete('/admin/fit-and-go/devices/'.$this->staticDevice(1)->id)->assertStatus(405);
     }
 
     public function test_updating_activation_code_revokes_existing_device_token(): void
     {
-        $device = FitAndGoDevice::create([
-            'name' => 'Legacy Kiosk', 'device_code' => 'KIOSK-02',
-            'location' => 'Lantai 2', 'status' => 'online', 'is_active' => true,
+        $device = $this->staticDevice(2);
+        $device->update([
             'activation_code_hash' => Hash::make('OLD-CODE'),
             'activation_code_encrypted' => 'OLD-CODE',
             'device_token_hash' => Hash::make('old-token'),
         ]);
 
         $this->put(route('admin.fit-and-go.devices.update', $device), [
-            'name' => 'Legacy Kiosk Updated',
-            'device_code' => 'KIOSK-02',
-            'location' => 'Lantai 2',
+            'name' => 'Nama Tidak Boleh Berubah',
+            'device_code' => 'slug-tidak-boleh-berubah',
+            'location' => 'Lokasi Tidak Boleh Berubah',
             'activation_code' => 'NEW-CODE',
-            'is_active' => 1,
+            'is_active' => 0,
         ])->assertRedirect(route('admin.fit-and-go.index', ['tab' => 'kiosks']));
 
         $device->refresh();
-        $this->assertSame('Legacy Kiosk Updated', $device->name);
+        $this->assertSame(FitAndGoDevice::STATIC_SLOTS[2]['name'], $device->name);
+        $this->assertSame(FitAndGoDevice::STATIC_SLOTS[2]['device_code'], $device->device_code);
+        $this->assertSame(FitAndGoDevice::STATIC_SLOTS[2]['location'], $device->location);
+        $this->assertTrue($device->is_active);
         $this->assertTrue(Hash::check('NEW-CODE', $device->activation_code_hash));
         $this->assertSame('NEW-CODE', $device->activation_code_encrypted);
         $this->assertNull($device->device_token_hash);
@@ -185,20 +171,15 @@ class FitAndGoWebTest extends TestCase
     public function test_saving_the_same_visible_activation_code_keeps_existing_pairing_token(): void
     {
         $tokenHash = Hash::make('paired-token');
-        $device = FitAndGoDevice::create([
-            'name' => 'Paired Kiosk', 'device_code' => 'paired-kiosk',
-            'location' => 'Lantai 3', 'status' => 'online', 'is_active' => true,
+        $device = $this->staticDevice(3);
+        $device->update([
             'activation_code_hash' => Hash::make('VISIBLE-03'),
             'activation_code_encrypted' => 'VISIBLE-03',
             'device_token_hash' => $tokenHash,
         ]);
 
         $this->put(route('admin.fit-and-go.devices.update', $device), [
-            'name' => 'Paired Kiosk Updated',
-            'device_code' => 'paired-kiosk',
-            'location' => 'Lantai 3',
             'activation_code' => 'VISIBLE-03',
-            'is_active' => 1,
         ])->assertRedirect();
 
         $this->assertSame($tokenHash, $device->fresh()->device_token_hash);

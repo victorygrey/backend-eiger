@@ -56,11 +56,7 @@
             <h4 class="mb-1 fw-bold"><i class="bi bi-person-bounding-box text-warning me-2"></i>AI Fit &amp; Go</h4>
             <p class="text-muted mb-0">Atur katalog produk yang digunakan pada pengalaman virtual fitting EIGER.</p>
         </div>
-        @if($currentTab === 'kiosks')
-            <a href="{{ route('admin.fit-and-go.devices.create') }}" class="btn btn-eiger fw-bold shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i>Tambah Kiosk
-            </a>
-        @else
+        @if($currentTab !== 'kiosks')
             <a href="{{ route('admin.products.index', ['ai_status' => 1]) }}" class="btn btn-outline-primary fw-semibold">
                 <i class="bi bi-check2-square me-1"></i>Kelola Pilihan di List Product
             </a>
@@ -240,7 +236,7 @@
             <div class="card-header bg-white py-3 px-3 px-lg-4 border-bottom d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
                 <div>
                     <h6 class="fw-bold mb-1"><i class="bi bi-display text-primary me-2"></i>Perangkat Kiosk per Lantai</h6>
-                    <div class="text-muted small">Kelola identitas, slug URL, lokasi, dan keamanan aktivasi perangkat.</div>
+                    <div class="text-muted small">Tiga kiosk lantai bersifat tetap. Konfigurasi perangkat hanya mengubah kode aktivasi.</div>
                 </div>
                 <span class="fit-chip selected">{{ $kioskDevices->where('is_active', true)->count() }} perangkat aktif</span>
             </div>
@@ -267,7 +263,7 @@
                             <td class="text-end"><a href="{{ route('admin.fit-and-go.devices.edit', $device) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-sliders me-1"></i>Konfigurasi</a></td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="text-center py-5"><i class="bi bi-display fs-1 text-muted"></i><h6 class="fw-bold mt-3">Belum ada perangkat kiosk</h6><a href="{{ route('admin.fit-and-go.devices.create') }}" class="btn btn-primary btn-sm mt-2">Tambah Kiosk</a></td></tr>
+                        <tr><td colspan="6" class="text-center py-5 text-muted">Slot kiosk statis belum tersedia. Jalankan migrasi database terbaru.</td></tr>
                     @endforelse
                     </tbody>
                 </table>
