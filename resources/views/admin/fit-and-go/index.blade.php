@@ -50,6 +50,12 @@
     .fit-config-status.done { background: #e3f5eb; color: #137046; }
     .fit-configure-button { border-radius: 8px; font-size: .7rem; white-space: nowrap; }
     .fit-product-select:disabled { cursor: not-allowed; }
+    .fit-color-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 3px 2px 10px; }
+    .fit-color-tab { background: #f5f6f8; border: 1px solid #e1e5eb; border-radius: 9px; color: #5e6675; padding: 9px 14px; white-space: nowrap; font-size: .8rem; font-weight: 700; }
+    .fit-color-tab[aria-selected="true"] { background: #fff1e7; border-color: #e8500a; color: #b83d00; }
+    .fit-color-tab:focus-visible { outline: 3px solid #171b2d; outline-offset: 1px; }
+    .fit-color-tab .color-state { margin-left: 7px; color: #9299a6; }
+    .fit-color-tab.is-complete .color-state { color: #137046; }
     .fit-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-height: 390px; overflow-y: auto; padding: 4px; }
     .fit-photo-option { cursor: pointer; position: relative; margin: 0; }
     .fit-photo-option input { position: absolute; top: 10px; right: 10px; z-index: 1; accent-color: #e8500a; }
@@ -211,7 +217,7 @@
                                             $isConfigured = in_array($product->id, $configuredProductIds, true);
                                             $isSelected = $isConfigured && in_array($product->id, $selectedProductIds, true);
                                             $isLatest = in_array($product->id, $latestProductIds, true);
-                                            $previewImage = \App\Support\PimMediaUrl::toPublicUrl($isConfigured ? $product->fitAndGoConfiguration->image : $product->image);
+                                            $previewImage = \App\Support\PimMediaUrl::toPublicUrl($isConfigured ? $presentation->primaryImage($product) : $product->image);
                                             $categoryName = $product->atomSubCategory?->name ?? $product->atomCategory?->name ?? $product->category;
                                             $activityNames = collect($product->activities)->map(fn ($activity) => data_get($activity, 'master_activity.name') ?: data_get($activity, 'name'))->filter()->unique()->take(2);
                                         @endphp
@@ -261,11 +267,16 @@
                         <div id="fit-presentation-loading" class="text-center text-muted py-5" role="status"><span class="spinner-border spinner-border-sm me-2"></span>Memuat galeri produk...</div>
                         <div class="alert alert-danger d-none" id="fit-presentation-error" role="alert"></div>
                         <form id="fit-presentation-form" class="d-none">
+                            <div class="d-flex justify-content-between gap-2 mb-2"><span class="fw-bold">Varian Warna</span><span class="small text-muted" id="fit-color-progress" aria-live="polite"></span></div>
+                            <div class="fit-color-tabs" id="fit-presentation-colors" role="tablist" aria-label="Varian warna produk"></div>
+                            <div id="fit-color-panel" role="tabpanel">
                             <div class="fw-bold mb-2">Pilih Foto <span class="text-danger">*</span></div>
                             <div class="fit-photo-grid mb-3" id="fit-presentation-photos" role="radiogroup" aria-label="Foto produk untuk AI Fit & Go"></div>
                             <label for="fit-presentation-description" class="form-label fw-bold">Deskripsi Barang <span class="text-danger">*</span></label>
                             <textarea class="form-control" id="fit-presentation-description" name="description" rows="4" maxlength="5000" required placeholder="Tulis deskripsi barang untuk AI Fit & Go..."></textarea>
-                            <div class="d-flex justify-content-between gap-2 small text-muted mt-2"><span>Foto dan deskripsi ini berlaku untuk produk yang sama di semua lantai.</span><span id="fit-description-count">0/5000</span></div>
+                            <div class="d-flex justify-content-between gap-2 small text-muted mt-2"><span>Deskripsi mengikuti warna dan foto yang dipilih. Konfigurasi setiap warna berlaku di semua lantai.</span><span id="fit-description-count">0/5000</span></div>
+                            </div>
+                            <div class="small text-muted mt-3">Lengkapi foto dan deskripsi semua warna untuk mendapatkan status Config Done.</div>
                         </form>
                     </div>
                     <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button><button type="submit" form="fit-presentation-form" class="btn btn-eiger fw-bold" id="fit-presentation-save" disabled><i class="bi bi-check-lg me-1"></i>Simpan Konfigurasi</button></div>
@@ -336,6 +347,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalPhotos = document.getElementById('fit-presentation-photos');
     const modalDescription = document.getElementById('fit-presentation-description');
     const modalSave = document.getElementById('fit-presentation-save');
+    const modalColors = document.getElementById('fit-presentation-colors');
+    let colors = [];
+    let activeColor = null;
     let activeCard = null;
     let presentationUrl = null;
     let galleryRequest = null;
@@ -346,9 +360,65 @@ document.addEventListener('DOMContentLoaded', () => {
         modalError.classList.remove('d-none');
     }
 
+    function rememberDescription() {
+        if (activeColor?.image) {
+            activeColor.description = modalDescription.value;
+            activeColor.photo_descriptions[activeColor.image] = modalDescription.value;
+        }
+    }
+
+    function colorComplete(color) {
+        return color.photos.some(photo => photo.value === color.image && !photo.failed) && !!color.description.trim();
+    }
+
     function updateSaveState() {
         document.getElementById('fit-description-count').textContent = `${modalDescription.value.length}/5000`;
-        modalSave.disabled = saving || !modalPhotos.querySelector('input:checked') || !modalDescription.value.trim();
+        const completed = colors.filter(colorComplete).length;
+        document.getElementById('fit-color-progress').textContent = `${completed}/${colors.length} warna siap`;
+        [...modalColors.children].forEach((tab, index) => {
+            const complete = colorComplete(colors[index]);
+            tab.classList.toggle('is-complete', complete);
+            tab.querySelector('.color-state').textContent = complete ? '✓' : '○';
+        });
+        modalSave.disabled = saving || !colors.length || completed !== colors.length;
+        modalColors.querySelectorAll('button').forEach(button => button.disabled = saving);
+        modalDescription.disabled = saving || !activeColor?.image;
+        modalPhotos.querySelectorAll('input').forEach(input => input.disabled = saving || !!activeColor.photos.find(photo => photo.value === input.value)?.failed);
+    }
+
+    function openColor(color) {
+        rememberDescription();
+        activeColor = color;
+        const index = colors.indexOf(color);
+        [...modalColors.children].forEach((tab, tabIndex) => {
+            tab.setAttribute('aria-selected', String(tabIndex === index));
+            tab.tabIndex = tabIndex === index ? 0 : -1;
+        });
+        document.getElementById('fit-color-panel').setAttribute('aria-labelledby', `fit-color-${index}`);
+        modalPhotos.setAttribute('aria-label', `Foto warna ${color.name} untuk AI Fit & Go`);
+        modalPhotos.replaceChildren();
+        color.photos.forEach((photo, photoIndex) => {
+            const label = document.createElement('label'); label.className = 'fit-photo-option';
+            const input = document.createElement('input');
+            input.type = 'radio'; input.name = 'image'; input.value = photo.value;
+            input.checked = photo.value === color.image; input.required = true;
+            input.setAttribute('aria-label', `Foto ${photoIndex + 1}`);
+            const tile = document.createElement('span'); tile.className = 'fit-photo-tile';
+            const image = document.createElement('img'); image.src = photo.url;
+            image.alt = `${color.name} - Foto ${photoIndex + 1}`; image.loading = 'lazy';
+            const caption = document.createElement('span'); caption.className = 'fit-photo-label';
+            caption.textContent = `Foto ${photoIndex + 1}`;
+            image.addEventListener('error', () => {
+                photo.failed = true; input.disabled = true; input.checked = false;
+                caption.textContent = 'Foto tidak dapat dimuat'; updateSaveState();
+            });
+            tile.append(image, caption); label.append(input, tile); modalPhotos.append(label);
+        });
+        modalDescription.value = color.description;
+        modalDescription.placeholder = `Tulis deskripsi warna ${color.name} untuk foto yang dipilih...`;
+        modalError.classList.add('d-none');
+        if (!color.photos.length) showModalError(`Warna ${color.name} belum memiliki foto. Tunggu foto dari PIM sebelum melakukan konfigurasi.`);
+        updateSaveState();
     }
 
     function refresh() {
@@ -399,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalError.classList.add('d-none');
         modalLoading.classList.remove('d-none');
         modalPhotos.replaceChildren();
+        modalColors.replaceChildren(); colors = []; activeColor = null;
         modalDescription.value = '';
         modalSave.disabled = true;
         document.getElementById('fit-presentation-product').textContent = activeCard.querySelector('.fit-product-name').textContent;
@@ -411,44 +482,48 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Galeri tidak dapat dimuat. Tutup popup lalu coba kembali.');
             const data = await response.json();
             if (galleryRequest !== request || request.signal.aborted) return;
-            data.photos.forEach((photo, index) => {
-                const label = document.createElement('label');
-                label.className = 'fit-photo-option';
-                const input = document.createElement('input');
-                input.type = 'radio'; input.name = 'image'; input.value = photo.value;
-                input.required = true; input.checked = photo.value === data.image;
-                input.setAttribute('aria-label', `Foto ${index + 1}`);
-                const tile = document.createElement('span'); tile.className = 'fit-photo-tile';
-                const image = document.createElement('img'); image.src = photo.url;
-                image.alt = `${data.product.name} - Foto ${index + 1}`; image.loading = 'lazy';
-                image.addEventListener('error', () => {
-                    input.disabled = true; input.checked = false;
-                    caption.textContent = 'Foto tidak dapat dimuat'; updateSaveState();
+            colors = data.colors.map(color => ({ ...color, photo_descriptions: { ...color.photo_descriptions } }));
+            colors.forEach((color, index) => {
+                const tab = document.createElement('button');
+                tab.type = 'button'; tab.className = 'fit-color-tab'; tab.id = `fit-color-${index}`;
+                tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'fit-color-panel');
+                const name = document.createElement('span'); name.textContent = color.name;
+                const state = document.createElement('span'); state.className = 'color-state'; state.setAttribute('aria-hidden', 'true');
+                tab.append(name, state); tab.addEventListener('click', () => openColor(color));
+                tab.addEventListener('keydown', event => {
+                    let next;
+                    if (event.key === 'ArrowRight') next = (index + 1) % colors.length;
+                    if (event.key === 'ArrowLeft') next = (index + colors.length - 1) % colors.length;
+                    if (event.key === 'Home') next = 0;
+                    if (event.key === 'End') next = colors.length - 1;
+                    if (next !== undefined) { event.preventDefault(); openColor(colors[next]); modalColors.children[next].focus(); }
                 });
-                const caption = document.createElement('span'); caption.className = 'fit-photo-label';
-                caption.textContent = `Foto ${index + 1}`;
-                tile.append(image, caption); label.append(input, tile); modalPhotos.append(label);
+                modalColors.append(tab);
             });
-            modalDescription.value = data.description || '';
             modalForm.classList.remove('d-none');
-            if (!data.photos.length) showModalError('Produk ini belum memiliki foto. Tunggu foto produk dari PIM sebelum melakukan konfigurasi.');
-            updateSaveState();
+            openColor(colors[0]);
         } catch (error) {
             if (error.name !== 'AbortError') showModalError(error.message);
         } finally {
             if (galleryRequest === request) modalLoading.classList.add('d-none');
         }
     }));
-    modalPhotos.addEventListener('change', updateSaveState);
-    modalDescription.addEventListener('input', updateSaveState);
+    modalPhotos.addEventListener('change', event => {
+        rememberDescription();
+        activeColor.image = event.target.value;
+        activeColor.description = activeColor.photo_descriptions[activeColor.image] || '';
+        modalDescription.value = activeColor.description;
+        updateSaveState();
+    });
+    modalDescription.addEventListener('input', () => { rememberDescription(); updateSaveState(); });
     modalElement.addEventListener('hide.bs.modal', event => {
         if (saving) event.preventDefault();
         else galleryRequest?.abort();
     });
     modalForm.addEventListener('submit', async event => {
         event.preventDefault();
-        const selected = modalPhotos.querySelector('input:checked');
-        if (!selected || !modalDescription.value.trim() || saving) return;
+        rememberDescription();
+        if (!colors.length || !colors.every(colorComplete) || saving) return;
         saving = true; updateSaveState(); modalError.classList.add('d-none');
         modalSave.textContent = 'Menyimpan...';
         try {
@@ -457,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     Accept: 'application/json', 'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': form.querySelector('input[name="_token"]').value
                 },
-                body: JSON.stringify({ image: selected.value, description: modalDescription.value })
+                body: JSON.stringify({ colors: colors.map(({key, image, description, photo_descriptions}) => ({key, image, description, photo_descriptions})) })
             });
             if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Sesi berakhir. Muat ulang halaman dan login kembali.');
             const data = await response.json();
@@ -467,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
             status.textContent = 'Config Done'; status.classList.replace('pending', 'done');
             const preview = activeCard.querySelector('.fit-product-image');
             const image = document.createElement('img');
-            image.src = selected.closest('label').querySelector('img').src;
+            image.src = colors[0].photos.find(photo => photo.value === colors[0].image).url;
             image.alt = activeCard.querySelector('.fit-product-name').textContent;
             preview.replaceChildren(image);
             refresh(); saving = false;

@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FitAndGoProductConfiguration extends Model
 {
-    protected $fillable = ['product_id', 'image', 'description'];
+    protected $fillable = ['product_id', 'image', 'description', 'colors'];
+
+    protected $casts = ['colors' => 'array'];
 
     public function product(): BelongsTo
     {

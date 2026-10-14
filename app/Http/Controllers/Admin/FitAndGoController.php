@@ -8,8 +8,8 @@ use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
 use App\Services\FitAndGoProductClassifier;
 use App\Services\FitAndGoProductPresentation;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -27,7 +27,7 @@ class FitAndGoController extends Controller
         if ($currentTab === 'devices') {
             $currentTab = 'kiosks';
         }
-        if (!in_array($currentTab, ['products', 'kiosks'], true)) {
+        if (! in_array($currentTab, ['products', 'kiosks'], true)) {
             $currentTab = 'products';
         }
 
@@ -115,6 +115,7 @@ class FitAndGoController extends Controller
             'latestProductIds' => $latestProductIds,
             'configuredProductCount' => $configuredProductCount,
             'configuredProductIds' => $configuredProductIds,
+            'presentation' => $presentation,
         ]);
     }
 
@@ -122,8 +123,7 @@ class FitAndGoController extends Controller
         Request $request,
         FitAndGoDevice $device,
         FitAndGoProductClassifier $classifier
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
         abort_unless($device->isStaticSlot(), 404);
 
         $validated = $request->validate([
@@ -181,11 +181,14 @@ class FitAndGoController extends Controller
     {
         abort_unless(Product::query()->aiFitAndGoCatalog()->whereKey($product->id)->exists(), 404);
 
+        $colors = $presentation->colors($product);
+
         return response()->json([
             'product' => ['id' => $product->id, 'name' => $product->name, 'sku' => $product->sku],
             'photos' => $presentation->photos($product),
-            'image' => $product->fitAndGoConfiguration?->image,
-            'description' => $product->fitAndGoConfiguration?->description ?? '',
+            'colors' => $colors,
+            'image' => $colors[0]['image'],
+            'description' => $colors[0]['description'],
             'configured' => $presentation->isConfigured($product),
         ]);
     }
@@ -193,20 +196,58 @@ class FitAndGoController extends Controller
     public function updateProductPresentation(Request $request, Product $product, FitAndGoProductPresentation $presentation): JsonResponse
     {
         abort_unless(Product::query()->aiFitAndGoCatalog()->whereKey($product->id)->exists(), 404);
-        $data = $request->validate([
-            'image' => ['required', 'string', 'max:16384'],
-            'description' => ['required', 'string', 'max:5000'],
-        ]);
-        $image = $presentation->imageKey($data['image']);
-        $description = trim($data['description']);
-        if (! in_array($image, array_column($presentation->photos($product), 'value'), true)) {
-            throw ValidationException::withMessages(['image' => 'Pilih foto yang tersedia pada galeri produk ini.']);
+        $groups = collect($presentation->colors($product))->keyBy('key');
+        $perColor = $request->has('colors');
+        if ($perColor) {
+            $data = $request->validate([
+                'colors' => ['required', 'array', 'list', 'min:1', 'max:100'],
+                'colors.*.key' => ['required', 'string', 'distinct'],
+                'colors.*.image' => ['required', 'string', 'max:16384'],
+                'colors.*.description' => ['required', 'string', 'max:5000'],
+                'colors.*.photo_descriptions' => ['sometimes', 'array', 'max:200'],
+                'colors.*.photo_descriptions.*' => ['nullable', 'string', 'max:5000'],
+            ]);
+            $rows = $data['colors'];
+        } else {
+            $data = $request->validate([
+                'image' => ['required', 'string', 'max:16384'],
+                'description' => ['required', 'string', 'max:5000'],
+            ]);
+            $rows = [['key' => $groups->keys()->first(), ...$data]];
         }
-        if ($description === '') {
-            throw ValidationException::withMessages(['description' => 'Deskripsi barang wajib diisi.']);
+        if (count($rows) !== $groups->count() || collect($rows)->pluck('key')->diff($groups->keys())->isNotEmpty()) {
+            throw ValidationException::withMessages(['colors' => 'Pilih foto dan isi deskripsi untuk setiap warna produk. Muat ulang popup jika varian berubah.']);
         }
 
-        $product->fitAndGoConfiguration()->updateOrCreate([], ['image' => $image, 'description' => $description]);
+        $colors = [];
+        foreach ($rows as $index => $row) {
+            $group = $groups[$row['key']];
+            $prefix = $perColor ? "colors.{$index}." : '';
+            $image = $presentation->imageKey($row['image']);
+            $allowed = array_column($group['photos'], 'value');
+            if (! in_array($image, $allowed, true)) {
+                throw ValidationException::withMessages([$prefix.'image' => "Pilih foto dari galeri warna {$group['name']}."]);
+            }
+            $description = trim($row['description']);
+            if ($description === '') {
+                throw ValidationException::withMessages([$prefix.'description' => "Deskripsi warna {$group['name']} wajib diisi."]);
+            }
+            $drafts = [];
+            foreach ($row['photo_descriptions'] ?? [] as $url => $draft) {
+                $key = $presentation->imageKey((string) $url);
+                if (! in_array($key, $allowed, true)) {
+                    throw ValidationException::withMessages([$prefix.'photo_descriptions' => 'Deskripsi foto harus berasal dari galeri warna yang dipilih.']);
+                }
+                $drafts[$key] = trim((string) $draft);
+            }
+            $drafts[$image] = $description;
+            $colors[$row['key']] = ['image' => $image, 'description' => $description, 'photo_descriptions' => $drafts];
+        }
+        // Write once after every color has passed validation; top-level fields keep compatibility.
+        $primary = $colors[$groups->keys()->first()];
+        $product->fitAndGoConfiguration()->updateOrCreate([], [
+            'image' => $primary['image'], 'description' => $primary['description'], 'colors' => $colors,
+        ]);
 
         return response()->json(['message' => 'Konfigurasi foto dan deskripsi berhasil disimpan.', 'configured' => true]);
     }
@@ -247,11 +288,10 @@ class FitAndGoController extends Controller
 
         $device->update([
             'last_heartbeat_at' => now(),
-            'status'            => 'online',
+            'status' => 'online',
         ]);
 
         return redirect()->route('admin.fit-and-go.index', ['tab' => 'kiosks'])
             ->with('success', "Status perangkat {$device->name} berhasil diperiksa (Online).");
     }
-
 }
