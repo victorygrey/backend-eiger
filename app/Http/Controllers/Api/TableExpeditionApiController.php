@@ -95,7 +95,7 @@ class TableExpeditionApiController extends Controller
         ]);
     }
 
-    public function compare(Request $request): JsonResponse
+    public function compare(Request $request, TableExpeditionComparisonService $comparisons): JsonResponse
     {
         $validated = $request->validate([
             'product_id_1' => ['nullable', 'integer'],
@@ -108,20 +108,18 @@ class TableExpeditionApiController extends Controller
             $validated['product_id_1'] ?? null,
             $validated['rfid_primary'] ?? null,
         );
-        $secondaryItem = $this->resolveActiveItem(
-            $validated['product_id_2'] ?? null,
-            $validated['rfid_secondary'] ?? null,
-        );
+        $secondary = isset($validated['product_id_2'])
+            ? Product::find($validated['product_id_2'])
+            : $this->resolveActiveItem(null, $validated['rfid_secondary'] ?? null)?->product;
 
-        if (! $primaryItem?->product || ! $secondaryItem?->product) {
+        if (! $primaryItem?->product || ! $secondary) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Kedua produk harus aktif pada Master RFID untuk Table Expedition.',
+                'message' => 'Produk utama harus aktif pada Master RFID Table Expedition dan produk pembanding harus tersedia pada katalog.',
             ], 422);
         }
 
         $primary = $primaryItem->product;
-        $secondary = $secondaryItem->product;
 
         if ($primary->is($secondary)) {
             return response()->json([
@@ -130,14 +128,14 @@ class TableExpeditionApiController extends Controller
             ], 422);
         }
 
-        $configuredComparisonIds = collect($primaryItem->similar_product_ids ?? [])
-            ->map(fn (mixed $id): int => (int) $id);
-        if (! $configuredComparisonIds->contains((int) $secondary->id)) {
+        $configuredComparisons = $comparisons->for($primaryItem)->keyBy('id');
+        if (! $configuredComparisons->has((int) $secondary->id)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Produk kedua tidak terdaftar sebagai pilihan komparasi untuk produk utama.',
             ], 422);
         }
+        $secondary = $configuredComparisons->get((int) $secondary->id);
 
         $primaryPayload = DeviceProductPayload::make($primary);
         $secondaryPayload = DeviceProductPayload::make($secondary);

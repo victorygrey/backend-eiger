@@ -183,22 +183,24 @@ class TableExpeditionApiTest extends TestCase
             ->assertJsonPath('data.active_items', 0);
     }
 
-    public function test_compare_only_accepts_two_different_active_table_products(): void
+    public function test_compare_only_accepts_different_eligible_admin_selected_products(): void
     {
         $primary = $this->activeProduct('RFID-ALPHA', [
             'name' => 'Backpack Alpha',
+            'category' => 'Backpack',
             'price' => 1000000,
             'stock' => 8,
             'is_discontinued' => false,
         ]);
         $secondary = $this->activeProduct('RFID-BETA', [
             'name' => 'Backpack Beta',
+            'category' => 'Backpack',
             'price' => 1200000,
             'stock' => 5,
             'is_discontinued' => false,
         ]);
         $inactive = Product::factory()->create(['name' => 'Inactive Product']);
-        $unselected = $this->activeProduct('RFID-GAMMA', ['name' => 'Backpack Gamma']);
+        $unselected = $this->activeProduct('RFID-GAMMA', ['name' => 'Backpack Gamma', 'category' => 'Backpack']);
         TableExpeditionItem::where('product_id', $primary->id)->update([
             'similar_product_ids' => [$secondary->id],
         ]);

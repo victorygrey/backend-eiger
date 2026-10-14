@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\TableExpeditionConfig;
 use App\Models\TableExpeditionItem;
+use App\Services\TableExpeditionComparisonService;
 use App\Services\TableExpeditionMediaStorage;
 use App\Services\TableExpeditionReadiness;
 use App\Support\PimMediaUrl;
@@ -16,7 +17,7 @@ use Illuminate\View\View;
 
 class TableExpeditionController extends Controller
 {
-    public function index(TableExpeditionReadiness $readiness): View
+    public function index(TableExpeditionReadiness $readiness, TableExpeditionComparisonService $comparisons): View
     {
         $items = TableExpeditionItem::query()
             ->activeFromMasterRfid()
@@ -50,9 +51,14 @@ class TableExpeditionController extends Controller
             'media_url' => TableExpeditionConfig::get('standby_media_url'),
         ];
 
+        $comparisonTypes = $items->mapWithKeys(fn (TableExpeditionItem $item): array => [
+            $item->product_id => $item->product ? $comparisons->type($item->product) : null,
+        ])->all();
+
         return view('admin.table-expedition.index', [
             'items' => $items,
-            'comparisonProducts' => $this->comparisonProducts(),
+            'comparisonProducts' => $this->comparisonProducts($comparisons, array_column(array_filter($comparisonTypes), 'key')),
+            'comparisonTypes' => $comparisonTypes,
             'standby' => $standby,
             'summary' => [
                 'active' => $items->count(),
@@ -128,7 +134,7 @@ class TableExpeditionController extends Controller
             ->with('success', 'Konfigurasi standby Table Expedition berhasil diperbarui.');
     }
 
-    public function updateComparisons(Request $request, TableExpeditionItem $item): RedirectResponse
+    public function updateComparisons(Request $request, TableExpeditionItem $item, TableExpeditionComparisonService $comparisons): RedirectResponse
     {
         abort_unless(
             TableExpeditionItem::query()->activeFromMasterRfid()->whereKey($item)->exists(),
@@ -149,16 +155,17 @@ class TableExpeditionController extends Controller
             ]);
         }
 
-        $activeIds = TableExpeditionItem::query()
-            ->activeFromMasterRfid()
-            ->whereIn('product_id', $selectedIds)
-            ->pluck('product_id')
+        $eligibleIds = $comparisons->eligibleQuery()
+            ->whereIn('id', $selectedIds)
+            ->get()
+            ->filter(fn (Product $product): bool => $comparisons->isSameType($item->product, $product))
+            ->pluck('id')
             ->map(fn (mixed $id): int => (int) $id)
             ->unique();
 
-        if ($selectedIds->diff($activeIds)->isNotEmpty()) {
+        if ($selectedIds->diff($eligibleIds)->isNotEmpty()) {
             throw ValidationException::withMessages([
-                'similar_product_ids' => 'Semua produk komparasi harus aktif pada Table Expedition.',
+                'similar_product_ids' => 'Pilih produk sejenis yang masih tersedia pada katalog. RFID aktif tidak diwajibkan untuk produk pembanding.',
             ]);
         }
 
@@ -176,24 +183,23 @@ class TableExpeditionController extends Controller
         return is_array($instructions) ? array_values($instructions) : [];
     }
 
-    /** @return list<array{id:int,name:string,sku:string,image:?string}> */
-    private function comparisonProducts(): array
+    /** @return list<array{id:int,name:string,sku:string,image:?string,type:?array}> */
+    private function comparisonProducts(TableExpeditionComparisonService $comparisons, array $types): array
     {
-        $productIds = TableExpeditionItem::query()
-            ->activeFromMasterRfid()
-            ->pluck('product_id')
-            ->unique();
+        if ($types === []) {
+            return [];
+        }
 
-        return Product::query()
-            ->whereIn('id', $productIds)
-            ->where('is_discontinued', false)
+        return $comparisons->eligibleQuery()
             ->orderBy('name')
-            ->get(['id', 'name', 'sku', 'image'])
+            ->get(['id', 'name', 'sku', 'image', 'category', 'atom_product_category_id', 'atom_product_sub_category_id'])
+            ->filter(fn (Product $product): bool => in_array($comparisons->type($product)['key'] ?? null, $types, true))
             ->map(fn (Product $product): array => [
                 'id' => $product->id,
                 'name' => $product->name,
                 'sku' => $product->sku,
                 'image' => PimMediaUrl::toPublicUrl($product->image),
+                'type' => $comparisons->type($product),
             ])
             ->values()
             ->all();

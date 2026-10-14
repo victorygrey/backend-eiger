@@ -28,7 +28,6 @@
 @section('content')
 @php
     $standbyMediaUrl = \App\Support\PimMediaUrl::toPublicUrl($standby['media_url']);
-    $availableComparisonIds = collect($comparisonProducts)->pluck('id')->map(fn ($id) => (int) $id);
 @endphp
 
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
@@ -102,6 +101,10 @@
                         $imageUrl = \App\Support\PimMediaUrl::toPublicUrl($product?->image);
                         $activities = collect($product?->activities ?? [])->pluck('name')->filter()->take(3);
                         $category = $product?->atomSubCategory?->name ?? $product?->atomCategory?->name ?? $product?->category;
+                        $comparisonType = $comparisonTypes[$product?->id] ?? null;
+                        $availableComparisonIds = collect($comparisonProducts)
+                            ->filter(fn ($candidate) => $comparisonType && ($candidate['type']['key'] ?? null) === $comparisonType['key'])
+                            ->pluck('id')->map(fn ($id) => (int) $id);
                         $selectedComparisonIds = collect($item->similar_product_ids ?? [])
                             ->map(fn ($id) => (int) $id)
                             ->filter(fn ($id) => $id !== (int) $product?->id && $availableComparisonIds->contains($id))
@@ -175,6 +178,8 @@
                                             data-item-id="{{ $item->id }}"
                                             data-product-id="{{ $product->id }}"
                                             data-product-name="{{ $product->name }}"
+                                            data-product-type="{{ $comparisonType['key'] ?? '' }}"
+                                            data-product-type-label="{{ $comparisonType['label'] ?? 'Jenis produk belum tersedia' }}"
                                             data-selected='@json($selectedComparisonIds)'>
                                         <i class="bi bi-shuffle me-1"></i>Komparasi
                                         <span class="badge text-bg-success ms-1">{{ count($selectedComparisonIds) }}/5</span>
@@ -249,12 +254,16 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-light border small mb-3">
-                        Pilih maksimal lima produk yang boleh dibandingkan dengan produk utama. Hanya produk dengan RFID Table Expedition aktif yang tersedia.
+                        Pilih maksimal lima produk sejenis dari seluruh katalog. Produk pembanding tidak harus memiliki RFID aktif. Urutan di sebelah kanan akan dikirim ke wahana.
                     </div>
+                    <div class="small text-muted mb-3" id="comparisonProductType"></div>
+                    @if(old('form_context') === 'comparisons' && $errors->any())
+                        <div class="alert alert-danger small" role="alert">{{ implode(' ', $errors->all()) }}</div>
+                    @endif
                     <div class="row g-3">
                         <div class="col-lg-6">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label for="comparisonSearch" class="fw-semibold">Produk tersedia</label>
+                                <label for="comparisonSearch" class="fw-semibold">Produk sejenis tersedia</label>
                                 <span class="small text-muted" id="comparisonAvailableCount"></span>
                             </div>
                             <input type="search" id="comparisonSearch" class="form-control form-control-sm mb-2" placeholder="Cari nama atau SKU produk...">
@@ -296,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const availableCount = document.getElementById('comparisonAvailableCount');
     const limitMessage = document.getElementById('comparisonLimitMessage');
     let primaryId = 0;
+    let primaryType = '';
     let selectedIds = [];
 
     function productRow(product, actionLabel, actionClass, action) {
@@ -307,6 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (product.image) {
             image.src = product.image;
             image.alt = product.name;
+            image.loading = 'lazy';
+            image.addEventListener('error', () => { image.style.visibility = 'hidden'; });
         } else {
             image.classList.add('d-inline-flex', 'align-items-center', 'justify-content-center', 'text-muted');
             image.innerHTML = '<i class="bi bi-image"></i>';
@@ -333,8 +345,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function render() {
+        if (selectedIds.length < 5) limitMessage.classList.add('d-none');
         const query = search.value.trim().toLowerCase();
         const available = products.filter(product => Number(product.id) !== primaryId
+            && primaryType && product.type?.key === primaryType
             && !selectedIds.includes(Number(product.id))
             && (!query || `${product.name} ${product.sku || ''}`.toLowerCase().includes(query)));
 
@@ -395,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedInputs.append(input);
         });
         if (!selectedIds.length) {
-            selectedList.innerHTML = '<div class="text-center text-muted small py-5"><i class="bi bi-hand-index-thumb fs-3 d-block mb-2"></i>Belum ada produk komparasi dipilih.</div>';
+            selectedList.innerHTML = '<div class="text-center text-muted small py-5"><i class="bi bi-hand-index-thumb fs-3 d-block mb-2"></i>Belum ada produk komparasi dipilih.<br>Tambahkan produk sejenis dari daftar di sebelah kiri.</div>';
         }
         selectedCount.textContent = `${selectedIds.length} / 5`;
     }
@@ -406,11 +420,17 @@ document.addEventListener('DOMContentLoaded', () => {
         form.action = button.dataset.action;
         document.getElementById('comparisonItemId').value = button.dataset.itemId;
         primaryId = Number(button.dataset.productId);
-        selectedIds = JSON.parse(button.dataset.selected || '[]')
+        primaryType = button.dataset.productType;
+        const failedItemId = Number(@json(old('comparison_item_id')));
+        const previous = @json(old('form_context') === 'comparisons' ? old('similar_product_ids', []) : null);
+        selectedIds = (previous && failedItemId === Number(button.dataset.itemId) ? previous : JSON.parse(button.dataset.selected || '[]'))
             .map(Number)
-            .filter(id => productById.has(id) && id !== primaryId)
+            .filter(id => productById.has(id) && id !== primaryId && primaryType && productById.get(id).type?.key === primaryType)
             .slice(0, 5);
         document.getElementById('comparisonPrimaryName').textContent = `Produk utama: ${button.dataset.productName}`;
+        document.getElementById('comparisonProductType').textContent = primaryType
+            ? `Jenis produk: ${button.dataset.productTypeLabel}. Menampilkan produk sejenis dari seluruh katalog, termasuk yang belum memiliki RFID.`
+            : 'Jenis produk belum tersedia. Lengkapi kategori/subkategori produk melalui data PIM terlebih dahulu.';
         search.value = '';
         limitMessage.classList.add('d-none');
         render();

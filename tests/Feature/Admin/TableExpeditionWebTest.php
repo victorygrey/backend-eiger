@@ -84,7 +84,7 @@ class TableExpeditionWebTest extends TestCase
             ->assertSee('Siap')
             ->assertSee('Atur Produk Komparasi')
             ->assertSee('Komparasi')
-            ->assertDontSee('Produk Nonaktif')
+            ->assertViewHas('items', fn ($items) => $items->pluck('product_id')->all() === [$readyProduct->id])
             ->assertDontSee('Tambah Mapping RFID')
             ->assertDontSee('Edit Mapping');
     }
@@ -145,12 +145,12 @@ class TableExpeditionWebTest extends TestCase
         $this->delete("/admin/table-expedition/items/{$item->id}")->assertNotFound();
     }
 
-    public function test_admin_can_choose_ordered_comparison_products_from_active_table_catalog(): void
+    public function test_admin_can_choose_ordered_comparison_products_of_the_same_kind(): void
     {
-        $primary = Product::factory()->create(['name' => 'Primary Expedition']);
-        $comparisonOne = Product::factory()->create(['name' => 'Comparison One']);
-        $comparisonTwo = Product::factory()->create(['name' => 'Comparison Two']);
-        $inactive = Product::factory()->create(['name' => 'Inactive Comparison']);
+        $primary = Product::factory()->create(['name' => 'Primary Expedition', 'category' => 'Backpack', 'is_discontinued' => false]);
+        $comparisonOne = Product::factory()->create(['name' => 'Comparison One', 'category' => 'Backpack', 'is_discontinued' => false]);
+        $comparisonTwo = Product::factory()->create(['name' => 'Comparison Two', 'category' => 'Backpack', 'is_discontinued' => false]);
+        $inactive = Product::factory()->create(['name' => 'Discontinued Comparison', 'category' => 'Backpack', 'is_discontinued' => true]);
 
         $primaryItem = TableExpeditionItem::create([
             'rfid_tag' => 'RFID-PRIMARY',
