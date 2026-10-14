@@ -45,6 +45,23 @@
     .fit-chip.selected { background: rgba(25, 135, 84, .1); color: #137046; }
     .group-empty { color: #98a0ad; font-size: .78rem; padding: 1.35rem; text-align: center; }
     .filter-label { color: #6d7583; font-size: .68rem; font-weight: 800; letter-spacing: .05em; margin-bottom: .35rem; text-transform: uppercase; }
+    .fit-config-status { border-radius: 99px; font-size: .64rem; font-weight: 800; padding: .3rem .5rem; white-space: nowrap; }
+    .fit-config-status.pending { background: #fff0df; color: #985000; }
+    .fit-config-status.done { background: #e3f5eb; color: #137046; }
+    .fit-configure-button { border-radius: 8px; font-size: .7rem; white-space: nowrap; }
+    .fit-product-select:disabled { cursor: not-allowed; }
+    .fit-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-height: 390px; overflow-y: auto; padding: 4px; }
+    .fit-photo-option { cursor: pointer; position: relative; margin: 0; }
+    .fit-photo-option input { position: absolute; top: 10px; right: 10px; z-index: 1; accent-color: #e8500a; }
+    .fit-photo-tile { border: 2px solid #e5e8ee; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; padding: 10px; text-align: center; }
+    .fit-photo-tile img { background: #f8f9fb; height: 132px; object-fit: contain; width: 100%; }
+    .fit-photo-option input:checked + .fit-photo-tile { border-color: #e8500a; background: #fff4ec; box-shadow: 0 0 0 2px #e8500a20; }
+    .fit-photo-option input:focus-visible + .fit-photo-tile { outline: 3px solid #171b2d; outline-offset: 2px; }
+    .fit-photo-label { color: #6d7583; font-size: .75rem; margin-top: 7px; }
+    #fit-presentation-modal .modal-content { border: 0; border-radius: 18px; overflow: hidden; }
+    #fit-presentation-modal .modal-header { background: #171b2d; color: white; }
+    @media (prefers-reduced-motion: reduce) { .fit-product, .modal.fade .modal-dialog { transition: none; } }
+    @media (max-width: 575.98px) { .fit-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 767.98px) { .fit-product-image { flex-basis: 62px; height: 70px; width: 62px; } }
 </style>
 @endpush
@@ -96,7 +113,7 @@
                             <div class="fit-summary-value mt-1">{{ $configuredProductCount }} produk dikonfigurasi</div>
                             <div class="small mt-2" style="color:#c8cedb">
                                 {{ $selectionMode === 'latest'
-                                    ? 'Mode Terbaru memilih otomatis maksimal 30 produk AI Product yang paling baru.'
+                                    ? 'Mode Terbaru memilih otomatis maksimal 30 produk terbaru yang sudah Config Done.'
                                     : 'Mode Terpilih memakai produk yang dicentang khusus untuk perangkat ini.' }}
                             </div>
                         </div>
@@ -149,7 +166,7 @@
                                     <input type="radio" name="selection_mode" value="latest" @checked($selectionMode === 'latest')>
                                     <span class="mode-option-body d-flex gap-3">
                                         <span class="group-title-icon flex-shrink-0"><i class="bi bi-clock-history"></i></span>
-                                        <span class="flex-grow-1"><span class="d-flex justify-content-between"><strong>Terbaru</strong><i class="bi bi-check-circle-fill mode-option-check"></i></span><span class="d-block small text-muted mt-1">Otomatis menampilkan maksimal 30 produk AI Product yang paling baru.</span></span>
+                                    <span class="flex-grow-1"><span class="d-flex justify-content-between"><strong>Terbaru</strong><i class="bi bi-check-circle-fill mode-option-check"></i></span><span class="d-block small text-muted mt-1">Otomatis menampilkan maksimal 30 produk terbaru yang sudah memilih foto dan mengisi deskripsi.</span></span>
                                     </span>
                                 </label>
                             </div>
@@ -167,14 +184,14 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div><h6 class="fw-bold mb-1">Produk untuk {{ $selectedDevice->location ?: $selectedDevice->name }}</h6><div class="text-muted small">Sumber produk tetap mengikuti status AI Product pada List Product.</div></div>
+                    <div><h6 class="fw-bold mb-1">Produk untuk {{ $selectedDevice->location ?: $selectedDevice->name }}</h6><div class="text-muted small">Pilih foto dan isi deskripsi melalui tombol Konfigurasi sebelum mencentang produk.</div></div>
                     <span class="fit-chip selected" id="fit-selected-count"><i class="bi bi-check-circle-fill me-1"></i>{{ $configuredProductCount }} Dipakai</span>
                 </div>
 
                 <div class="d-grid gap-3" id="fit-product-groups">
                     @foreach($productGroups as $group)
                         @php
-                            $groupSelectedCount = $group['products']->whereIn('id', $selectedProductIds)->count();
+                            $groupSelectedCount = $group['products']->whereIn('id', $selectedProductIds)->whereIn('id', $configuredProductIds)->count();
                             $groupLatestCount = $group['products']->whereIn('id', $latestProductIds)->count();
                         @endphp
                         <section class="group-card">
@@ -191,25 +208,31 @@
                                 <div class="p-3"><div class="row g-3">
                                     @foreach($group['products'] as $product)
                                         @php
-                                            $isSelected = in_array($product->id, $selectedProductIds, true);
+                                            $isConfigured = in_array($product->id, $configuredProductIds, true);
+                                            $isSelected = $isConfigured && in_array($product->id, $selectedProductIds, true);
                                             $isLatest = in_array($product->id, $latestProductIds, true);
+                                            $previewImage = \App\Support\PimMediaUrl::toPublicUrl($isConfigured ? $product->fitAndGoConfiguration->image : $product->image);
                                             $categoryName = $product->atomSubCategory?->name ?? $product->atomCategory?->name ?? $product->category;
                                             $activityNames = collect($product->activities)->map(fn ($activity) => data_get($activity, 'master_activity.name') ?: data_get($activity, 'name'))->filter()->unique()->take(2);
                                         @endphp
                                         <div class="col-12 col-lg-6 col-xxl-4 fit-product-wrapper" data-search="{{ Str::lower($product->name.' '.$product->sku.' '.$categoryName) }}">
-                                            <label class="fit-product d-flex gap-3 {{ ($selectionMode === 'latest' && $isLatest) || ($selectionMode === 'selected' && $isSelected) ? 'is-selected' : '' }}" data-auto-selected="{{ $isLatest ? 1 : 0 }}">
+                                            <div class="fit-product d-flex gap-3 {{ ($selectionMode === 'latest' && $isLatest) || ($selectionMode === 'selected' && $isSelected) ? 'is-selected' : '' }}" data-auto-selected="{{ $isLatest ? 1 : 0 }}" data-configured="{{ $isConfigured ? 1 : 0 }}" data-rank="{{ $aiProducts->search(fn ($item) => $item->id === $product->id) }}" data-product-id="{{ $product->id }}">
                                                 <div class="fit-product-image">
-                                                    @if($product->image)<img src="{{ $product->image }}" alt="{{ $product->name }}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block';"><i class="bi bi-image text-muted" style="display:none"></i>@else<i class="bi bi-image text-muted"></i>@endif
+                                                    @if($previewImage)<img src="{{ $previewImage }}" alt="{{ $product->name }}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block';"><i class="bi bi-image text-muted" style="display:none"></i>@else<i class="bi bi-image text-muted"></i>@endif
                                                 </div>
                                                 <div class="d-flex flex-column min-width-0 flex-grow-1">
                                                     <div class="d-flex justify-content-between gap-2">
-                                                        <div class="min-width-0"><div class="fit-product-name text-truncate" title="{{ $product->name }}">{{ $product->name }}</div><div class="fit-product-sku font-monospace mt-1">{{ $product->sku }}</div></div>
-                                                        <input class="form-check-input fit-product-select" type="checkbox" name="product_ids[]" value="{{ $product->id }}" @checked($isSelected)>
+                                                        <div class="min-width-0"><div class="fit-product-name text-truncate" id="fit-product-name-{{ $product->id }}" title="{{ $product->name }}">{{ $product->name }}</div><div class="fit-product-sku font-monospace mt-1">{{ $product->sku }}</div></div>
+                                                        <input class="form-check-input fit-product-select" type="checkbox" name="product_ids[]" value="{{ $product->id }}" aria-labelledby="fit-product-name-{{ $product->id }}" @checked($isSelected) @disabled(!$isConfigured || $selectionMode === 'latest')>
                                                     </div>
                                                     <div class="d-flex flex-wrap gap-1 mt-2"><span class="fit-chip">{{ $categoryName ?: 'Tanpa kategori' }}</span>@foreach($activityNames as $activityName)<span class="fit-chip">{{ $activityName }}</span>@endforeach</div>
                                                     <div class="small mt-auto pt-2"><span class="fw-bold">{{ $product->variants_count }}</span> <span class="text-muted">varian</span><span class="text-muted mx-1">•</span><span class="fw-bold">{{ number_format($product->stock) }}</span> <span class="text-muted">stok</span></div>
+                                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
+                                                        <span class="fit-config-status {{ $isConfigured ? 'done' : 'pending' }}" aria-live="polite">{{ $isConfigured ? 'Config Done' : 'Not Configure' }}</span>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary fit-configure-button" data-url="{{ route('admin.fit-and-go.product-presentation.show', $product) }}" aria-label="Konfigurasi foto dan deskripsi {{ $product->name }}"><i class="bi bi-sliders me-1"></i>Konfigurasi</button>
+                                                    </div>
                                                 </div>
-                                            </label>
+                                            </div>
                                         </div>
                                     @endforeach
                                 </div></div>
@@ -226,6 +249,29 @@
         @else
             <div class="card fit-config-card"><div class="card-body text-center py-5"><i class="bi bi-display fs-1 text-muted"></i><h6 class="fw-bold mt-3">Belum ada device AI Fit &amp; Go</h6><p class="text-muted small mb-0">Konfigurasi produk membutuhkan data perangkat per lantai.</p></div></div>
         @endif
+
+        <div class="modal fade" id="fit-presentation-modal" tabindex="-1" aria-labelledby="fit-presentation-title" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div><h5 class="modal-title fw-bold" id="fit-presentation-title">Konfigurasi Produk AI Fit &amp; Go</h5><div class="small opacity-75 mt-1" id="fit-presentation-product"></div></div>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="fit-presentation-loading" class="text-center text-muted py-5" role="status"><span class="spinner-border spinner-border-sm me-2"></span>Memuat galeri produk...</div>
+                        <div class="alert alert-danger d-none" id="fit-presentation-error" role="alert"></div>
+                        <form id="fit-presentation-form" class="d-none">
+                            <div class="fw-bold mb-2">Pilih Foto <span class="text-danger">*</span></div>
+                            <div class="fit-photo-grid mb-3" id="fit-presentation-photos" role="radiogroup" aria-label="Foto produk untuk AI Fit & Go"></div>
+                            <label for="fit-presentation-description" class="form-label fw-bold">Deskripsi Barang <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="fit-presentation-description" name="description" rows="4" maxlength="5000" required placeholder="Tulis deskripsi barang untuk AI Fit & Go..."></textarea>
+                            <div class="d-flex justify-content-between gap-2 small text-muted mt-2"><span>Foto dan deskripsi ini berlaku untuk produk yang sama di semua lantai.</span><span id="fit-description-count">0/5000</span></div>
+                        </form>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button><button type="submit" form="fit-presentation-form" class="btn btn-eiger fw-bold" id="fit-presentation-save" disabled><i class="bi bi-check-lg me-1"></i>Simpan Konfigurasi</button></div>
+                </div>
+            </div>
+        </div>
 
         @if($aiProducts->isEmpty())
             <div class="card fit-config-card mt-3"><div class="card-body text-center py-5"><h6 class="fw-bold">Belum ada produk AI Fit &amp; Go</h6><p class="text-muted small mb-3">Aktifkan status AI Product pada halaman List Product agar produknya muncul di sini.</p><a href="{{ route('admin.products.index') }}" class="btn btn-primary">Buka List Product</a></div></div>
@@ -282,12 +328,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const productInputs = [...form.querySelectorAll('.fit-product-select')];
     const counter = document.getElementById('fit-selected-count');
     const search = document.getElementById('fit-product-search');
+    const cards = [...form.querySelectorAll('.fit-product')];
+    const modalElement = document.getElementById('fit-presentation-modal');
+    const modalForm = document.getElementById('fit-presentation-form');
+    const modalError = document.getElementById('fit-presentation-error');
+    const modalLoading = document.getElementById('fit-presentation-loading');
+    const modalPhotos = document.getElementById('fit-presentation-photos');
+    const modalDescription = document.getElementById('fit-presentation-description');
+    const modalSave = document.getElementById('fit-presentation-save');
+    let activeCard = null;
+    let presentationUrl = null;
+    let galleryRequest = null;
+    let saving = false;
+
+    function showModalError(message) {
+        modalError.textContent = message;
+        modalError.classList.remove('d-none');
+    }
+
+    function updateSaveState() {
+        document.getElementById('fit-description-count').textContent = `${modalDescription.value.length}/5000`;
+        modalSave.disabled = saving || !modalPhotos.querySelector('input:checked') || !modalDescription.value.trim();
+    }
 
     function refresh() {
         const latestMode = form.querySelector('input[name="selection_mode"]:checked')?.value === 'latest';
+        const latestCards = cards.filter(card => card.dataset.configured === '1')
+            .sort((a, b) => Number(a.dataset.rank) - Number(b.dataset.rank)).slice(0, 30);
+        cards.forEach(card => card.dataset.autoSelected = latestCards.includes(card) ? '1' : '0');
         productInputs.forEach(input => {
             const card = input.closest('.fit-product');
-            input.disabled = latestMode;
+            input.disabled = latestMode || card.dataset.configured !== '1';
+            if (card.dataset.configured !== '1') input.checked = false;
             card.classList.toggle('is-selected', latestMode ? card.dataset.autoSelected === '1' : input.checked);
         });
 
@@ -318,6 +390,93 @@ document.addEventListener('DOMContentLoaded', () => {
         form.querySelectorAll('.fit-product-wrapper').forEach(wrapper => {
             wrapper.classList.toggle('d-none', !wrapper.dataset.search.includes(keyword));
         });
+    });
+
+    form.querySelectorAll('.fit-configure-button').forEach(button => button.addEventListener('click', async () => {
+        activeCard = button.closest('.fit-product');
+        presentationUrl = button.dataset.url;
+        modalForm.classList.add('d-none');
+        modalError.classList.add('d-none');
+        modalLoading.classList.remove('d-none');
+        modalPhotos.replaceChildren();
+        modalDescription.value = '';
+        modalSave.disabled = true;
+        document.getElementById('fit-presentation-product').textContent = activeCard.querySelector('.fit-product-name').textContent;
+        bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        galleryRequest?.abort();
+        const request = new AbortController();
+        galleryRequest = request;
+        try {
+            const response = await fetch(presentationUrl, { headers: { Accept: 'application/json' }, signal: request.signal });
+            if (!response.ok) throw new Error('Galeri tidak dapat dimuat. Tutup popup lalu coba kembali.');
+            const data = await response.json();
+            if (galleryRequest !== request || request.signal.aborted) return;
+            data.photos.forEach((photo, index) => {
+                const label = document.createElement('label');
+                label.className = 'fit-photo-option';
+                const input = document.createElement('input');
+                input.type = 'radio'; input.name = 'image'; input.value = photo.value;
+                input.required = true; input.checked = photo.value === data.image;
+                input.setAttribute('aria-label', `Foto ${index + 1}`);
+                const tile = document.createElement('span'); tile.className = 'fit-photo-tile';
+                const image = document.createElement('img'); image.src = photo.url;
+                image.alt = `${data.product.name} - Foto ${index + 1}`; image.loading = 'lazy';
+                image.addEventListener('error', () => {
+                    input.disabled = true; input.checked = false;
+                    caption.textContent = 'Foto tidak dapat dimuat'; updateSaveState();
+                });
+                const caption = document.createElement('span'); caption.className = 'fit-photo-label';
+                caption.textContent = `Foto ${index + 1}`;
+                tile.append(image, caption); label.append(input, tile); modalPhotos.append(label);
+            });
+            modalDescription.value = data.description || '';
+            modalForm.classList.remove('d-none');
+            if (!data.photos.length) showModalError('Produk ini belum memiliki foto. Tunggu foto produk dari PIM sebelum melakukan konfigurasi.');
+            updateSaveState();
+        } catch (error) {
+            if (error.name !== 'AbortError') showModalError(error.message);
+        } finally {
+            if (galleryRequest === request) modalLoading.classList.add('d-none');
+        }
+    }));
+    modalPhotos.addEventListener('change', updateSaveState);
+    modalDescription.addEventListener('input', updateSaveState);
+    modalElement.addEventListener('hide.bs.modal', event => {
+        if (saving) event.preventDefault();
+        else galleryRequest?.abort();
+    });
+    modalForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        const selected = modalPhotos.querySelector('input:checked');
+        if (!selected || !modalDescription.value.trim() || saving) return;
+        saving = true; updateSaveState(); modalError.classList.add('d-none');
+        modalSave.textContent = 'Menyimpan...';
+        try {
+            const response = await fetch(presentationUrl, {
+                method: 'PUT', headers: {
+                    Accept: 'application/json', 'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': form.querySelector('input[name="_token"]').value
+                },
+                body: JSON.stringify({ image: selected.value, description: modalDescription.value })
+            });
+            if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Sesi berakhir. Muat ulang halaman dan login kembali.');
+            const data = await response.json();
+            if (!response.ok) throw new Error(Object.values(data.errors || {}).flat().join(' ') || data.message || 'Konfigurasi gagal disimpan.');
+            activeCard.dataset.configured = '1';
+            const status = activeCard.querySelector('.fit-config-status');
+            status.textContent = 'Config Done'; status.classList.replace('pending', 'done');
+            const preview = activeCard.querySelector('.fit-product-image');
+            const image = document.createElement('img');
+            image.src = selected.closest('label').querySelector('img').src;
+            image.alt = activeCard.querySelector('.fit-product-name').textContent;
+            preview.replaceChildren(image);
+            refresh(); saving = false;
+            bootstrap.Modal.getInstance(modalElement).hide();
+        } catch (error) {
+            showModalError(error.message);
+        } finally {
+            saving = false; modalSave.textContent = 'Simpan Konfigurasi'; updateSaveState();
+        }
     });
 
     refresh();

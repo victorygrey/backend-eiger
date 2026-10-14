@@ -12,6 +12,7 @@ use Tests\TestCase;
 class FitAndGoWebTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ConfiguresFitAndGoProducts;
 
     private function staticDevice(int $floor): FitAndGoDevice
     {
@@ -52,6 +53,7 @@ class FitAndGoWebTest extends TestCase
             'ai_fit_and_go_active' => true, 'pim_catalog_active' => true, 'is_discontinued' => false,
         ]);
 
+        $this->configureFitProduct($product);
         $this->put(route('admin.fit-and-go.product-config.update', $floorOne), [
             'selection_mode' => 'selected', 'product_ids' => [$product->id],
         ])->assertRedirect(route('admin.fit-and-go.index', ['tab' => 'products', 'device_id' => $floorOne->id]));

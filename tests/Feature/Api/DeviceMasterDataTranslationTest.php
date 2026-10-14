@@ -17,6 +17,7 @@ use Tests\TestCase;
 class DeviceMasterDataTranslationTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ConfiguresFitAndGoProducts;
 
     public function test_every_device_api_receives_translated_product_and_variant_custom_attributes(): void
     {
@@ -82,6 +83,7 @@ class DeviceMasterDataTranslationTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->configureFitProduct($product);
         $fitAndGo = $this->getJson('/api/v1/fit-and-go/products/'.$product->id)
             ->assertOk()
             ->json('data');

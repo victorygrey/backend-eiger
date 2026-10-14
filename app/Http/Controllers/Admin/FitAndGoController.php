@@ -7,7 +7,9 @@ use App\Models\FitAndGoDevice;
 use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
 use App\Services\FitAndGoProductClassifier;
+use App\Services\FitAndGoProductPresentation;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -19,7 +21,7 @@ class FitAndGoController extends Controller
     /**
      * Display AI Fit & Go product configuration and activity master data.
      */
-    public function index(Request $request, FitAndGoProductClassifier $classifier): View
+    public function index(Request $request, FitAndGoProductClassifier $classifier, FitAndGoProductPresentation $presentation): View
     {
         $currentTab = $request->query('tab', 'products');
         if ($currentTab === 'devices') {
@@ -30,18 +32,14 @@ class FitAndGoController extends Controller
         }
 
         $aiProducts = Product::query()
+            ->aiFitAndGoCatalog()
+            ->with(FitAndGoProductPresentation::relations())
             ->with([
                 'atomCategory',
                 'atomSubCategory',
                 'activitiesRelation.atomActivity.group',
             ])
             ->withCount('variants')
-            ->whereRaw('LENGTH(sku) = 9')
-            ->where('ai_fit_and_go_active', true)
-            ->where('is_discontinued', false)
-            ->where(function ($query) {
-                $query->whereDoesntHave('pimRecord')->orWhere('pim_catalog_active', true);
-            })
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim($request->string('search')->toString());
                 $query->where(fn ($products) => $products
@@ -95,10 +93,11 @@ class FitAndGoController extends Controller
                 ->all()
             : [];
         $selectionMode = $selectedDevice?->product_selection_mode ?? 'selected';
-        $latestProductIds = $aiProducts->take(30)->pluck('id')->all();
+        $configuredProductIds = $presentation->ready($aiProducts)->pluck('id')->all();
+        $latestProductIds = array_slice($configuredProductIds, 0, 30);
         $activeSelectedProductIds = array_values(array_intersect(
             $selectedProductIds,
-            $aiProducts->pluck('id')->all()
+            $configuredProductIds
         ));
         $configuredProductCount = $selectionMode === 'latest'
             ? count($latestProductIds)
@@ -115,6 +114,7 @@ class FitAndGoController extends Controller
             'selectionMode' => $selectionMode,
             'latestProductIds' => $latestProductIds,
             'configuredProductCount' => $configuredProductCount,
+            'configuredProductIds' => $configuredProductIds,
         ]);
     }
 
@@ -135,18 +135,20 @@ class FitAndGoController extends Controller
 
         if ($validated['selection_mode'] === 'selected') {
             $eligibleProducts = Product::query()
-                ->with(['atomCategory', 'atomSubCategory'])
+                ->with(['atomCategory', 'atomSubCategory', ...FitAndGoProductPresentation::relations()])
+                ->aiFitAndGoCatalog()
                 ->whereIn('id', $productIds)
-                ->where('ai_fit_and_go_active', true)
-                ->where('is_discontinued', false)
-                ->where(function ($query) {
-                    $query->whereDoesntHave('pimRecord')->orWhere('pim_catalog_active', true);
-                })
                 ->get();
 
             if ($eligibleProducts->count() !== count($productIds)) {
                 throw ValidationException::withMessages([
                     'product_ids' => 'Pilihan hanya boleh berisi produk yang aktif untuk AI Fit & Go.',
+                ]);
+            }
+
+            if (app(FitAndGoProductPresentation::class)->ready($eligibleProducts)->count() !== count($productIds)) {
+                throw ValidationException::withMessages([
+                    'product_ids' => 'Pilih foto dan isi deskripsi barang terlebih dahulu. Produk harus berstatus Config Done sebelum dipakai.',
                 ]);
             }
 
@@ -174,6 +176,40 @@ class FitAndGoController extends Controller
     // ==========================================
     // DEVICE CONFIGURATION ACTIONS
     // ==========================================
+
+    public function productPresentation(Product $product, FitAndGoProductPresentation $presentation): JsonResponse
+    {
+        abort_unless(Product::query()->aiFitAndGoCatalog()->whereKey($product->id)->exists(), 404);
+
+        return response()->json([
+            'product' => ['id' => $product->id, 'name' => $product->name, 'sku' => $product->sku],
+            'photos' => $presentation->photos($product),
+            'image' => $product->fitAndGoConfiguration?->image,
+            'description' => $product->fitAndGoConfiguration?->description ?? '',
+            'configured' => $presentation->isConfigured($product),
+        ]);
+    }
+
+    public function updateProductPresentation(Request $request, Product $product, FitAndGoProductPresentation $presentation): JsonResponse
+    {
+        abort_unless(Product::query()->aiFitAndGoCatalog()->whereKey($product->id)->exists(), 404);
+        $data = $request->validate([
+            'image' => ['required', 'string', 'max:16384'],
+            'description' => ['required', 'string', 'max:5000'],
+        ]);
+        $image = $presentation->imageKey($data['image']);
+        $description = trim($data['description']);
+        if (! in_array($image, array_column($presentation->photos($product), 'value'), true)) {
+            throw ValidationException::withMessages(['image' => 'Pilih foto yang tersedia pada galeri produk ini.']);
+        }
+        if ($description === '') {
+            throw ValidationException::withMessages(['description' => 'Deskripsi barang wajib diisi.']);
+        }
+
+        $product->fitAndGoConfiguration()->updateOrCreate([], ['image' => $image, 'description' => $description]);
+
+        return response()->json(['message' => 'Konfigurasi foto dan deskripsi berhasil disimpan.', 'configured' => true]);
+    }
 
     public function editDevice(FitAndGoDevice $device): View
     {

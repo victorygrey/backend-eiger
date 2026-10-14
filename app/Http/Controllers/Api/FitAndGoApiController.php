@@ -9,6 +9,7 @@ use App\Models\FitAndGoDevice;
 use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
 use App\Services\FitAndGoProductClassifier;
+use App\Services\FitAndGoProductPresentation;
 use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,8 @@ use Illuminate\Support\Str;
 
 class FitAndGoApiController extends Controller
 {
+    public function __construct(private readonly FitAndGoProductPresentation $presentation) {}
+
     /**
      * Get the complete configuration for one kiosk by its URL slug/device identifier.
      * GET /api/v1/fit-and-go/kiosks/{deviceCode}
@@ -88,7 +91,7 @@ class FitAndGoApiController extends Controller
                     'sort_order' => $activity->sort_order,
                     'recommendation_count' => $products->count(),
                     'recommended_items' => $products
-                        ->map(fn (Product $product) => DeviceProductPayload::make($product))
+                        ->map(fn (Product $product) => $this->presentation->payload($product))
                         ->values(),
                 ];
             });
@@ -99,11 +102,13 @@ class FitAndGoApiController extends Controller
             ->map(function (FitAndGoCategory $category) use ($device): array {
                 $productIds = $this->visibleProductIds($category->code, $device);
                 $positions = collect($productIds)->flip();
-                $products = Product::with(DeviceProductPayload::relations())
+                $products = Product::with([...DeviceProductPayload::relations(), ...FitAndGoProductPresentation::relations()])
+                    ->aiFitAndGoConfiguredCatalog()
                     ->whereIn('id', $productIds)
                     ->where('pim_catalog_active', true)
                     ->where('is_discontinued', false)
                     ->get()
+                    ->filter(fn (Product $product): bool => $this->presentation->isConfigured($product))
                     ->sortBy(fn (Product $product) => $positions[$product->id] ?? PHP_INT_MAX)
                     ->values();
 
@@ -115,7 +120,7 @@ class FitAndGoApiController extends Controller
                     'background_image' => $category->background_image,
                     'product_count' => $products->count(),
                     'shown_items' => $products
-                        ->map(fn (Product $product) => DeviceProductPayload::make($product))
+                        ->map(fn (Product $product) => $this->presentation->payload($product))
                         ->values(),
                 ];
             });
@@ -209,7 +214,7 @@ class FitAndGoApiController extends Controller
                     'description' => $activity->description,
                     'sort_order' => $activity->sort_order,
                     'recommendation_count' => $products->count(),
-                    'recommended_items' => $products->map(fn (Product $product) => DeviceProductPayload::make($product))->values(),
+                    'recommended_items' => $products->map(fn (Product $product) => $this->presentation->payload($product))->values(),
                 ];
             });
 
@@ -242,7 +247,7 @@ class FitAndGoApiController extends Controller
             ],
             'device_code' => $device?->device_code,
             'count' => $products->count(),
-            'data' => $products->map(fn (Product $product) => DeviceProductPayload::make($product))->values(),
+            'data' => $products->map(fn (Product $product) => $this->presentation->payload($product))->values(),
         ]);
     }
 
@@ -280,7 +285,7 @@ class FitAndGoApiController extends Controller
             $device = FitAndGoDevice::where('device_code', $deviceCode)->first();
         }
 
-        $query = Product::query()->where('is_discontinued', false)->where('pim_catalog_active', true);
+        $query = Product::query()->aiFitAndGoConfiguredCatalog();
         if ($categoryParam) {
             $category = FitAndGoCategory::where('is_active', true)
                 ->where(function ($q) use ($categoryParam) {
@@ -309,9 +314,10 @@ class FitAndGoApiController extends Controller
         }
 
         // Sort latest and limit (default 15 per SRS recommendation)
-        $products = $query->with(DeviceProductPayload::relations())->latest('id')
-            ->limit($limit)
-            ->get();
+        $products = $this->presentation->ready($query
+            ->with(FitAndGoProductPresentation::relations())
+            ->latest('id')->get())->take($limit)->values();
+        $products->load(DeviceProductPayload::relations());
 
         return response()->json([
             'status' => 'success',
@@ -322,7 +328,7 @@ class FitAndGoApiController extends Controller
                 'device_code' => $deviceCode,
                 'limit' => $limit,
             ],
-            'data' => $products->map(fn (Product $product) => DeviceProductPayload::make($product)),
+            'data' => $products->map(fn (Product $product) => $this->presentation->payload($product)),
         ]);
     }
 
@@ -332,11 +338,12 @@ class FitAndGoApiController extends Controller
      */
     public function showProduct(Product $product): JsonResponse
     {
-        abort_if($product->is_discontinued || ! $product->pim_catalog_active, 404);
+        abort_unless(Product::query()->aiFitAndGoCatalog()->whereKey($product->id)->exists()
+            && $this->presentation->isConfigured($product), 404);
 
         return response()->json([
             'status' => 'success',
-            'data' => DeviceProductPayload::make($product),
+            'data' => $this->presentation->payload($product),
         ]);
     }
 
@@ -363,11 +370,12 @@ class FitAndGoApiController extends Controller
             $device = FitAndGoDevice::where('device_code', $deviceCode)->first();
         }
 
-        $query = Product::query()->where('pim_catalog_active', true)->where('is_discontinued', false)
+        $query = Product::query()->aiFitAndGoConfiguredCatalog()
             ->where(function ($sub) use ($q) {
                 $sub->where('name', 'like', "%{$q}%")
                     ->orWhere('sku', 'like', "%{$q}%")
                     ->orWhere('description', 'like', "%{$q}%")
+                    ->orWhereHas('fitAndGoConfiguration', fn ($config) => $config->where('description', 'like', "%{$q}%"))
                     ->orWhereHas('customAttributesRelation', fn ($attributes) => $attributes
                         ->where('attribute_code', 'like', "%{$q}%")
                         ->orWhere('value', 'like', "%{$q}%"))
@@ -389,13 +397,16 @@ class FitAndGoApiController extends Controller
 
         $query->whereIn('id', $this->visibleProductIds(null, $device));
 
-        $products = $query->with(DeviceProductPayload::relations())->latest('id')->limit($limit)->get();
+        $products = $this->presentation->ready($query
+            ->with(FitAndGoProductPresentation::relations())
+            ->latest('id')->get())->take($limit)->values();
+        $products->load(DeviceProductPayload::relations());
 
         return response()->json([
             'status' => 'success',
             'query' => $q,
             'count' => $products->count(),
-            'data' => $products->map(fn (Product $product) => DeviceProductPayload::make($product)),
+            'data' => $products->map(fn (Product $product) => $this->presentation->payload($product)),
         ]);
     }
 
@@ -416,11 +427,13 @@ class FitAndGoApiController extends Controller
 
         $positions = $ids->values()->flip();
 
-        return Product::with(DeviceProductPayload::relations())
+        return Product::with([...DeviceProductPayload::relations(), ...FitAndGoProductPresentation::relations()])
+            ->aiFitAndGoConfiguredCatalog()
             ->whereIn('id', $ids)
             ->where('pim_catalog_active', true)
             ->where('is_discontinued', false)
             ->get()
+            ->filter(fn (Product $product): bool => $this->presentation->isConfigured($product))
             ->sortBy(fn (Product $product) => $positions[$product->id] ?? PHP_INT_MAX)
             ->values();
     }
@@ -429,13 +442,11 @@ class FitAndGoApiController extends Controller
     {
         if ($device?->product_selection_mode === 'latest') {
             $products = Product::query()
-                ->with(['atomCategory', 'atomSubCategory'])
-                ->where('ai_fit_and_go_active', true)
-                ->where('pim_catalog_active', true)
-                ->where('is_discontinued', false)
+                ->with(['atomCategory', 'atomSubCategory', ...FitAndGoProductPresentation::relations()])
+                ->aiFitAndGoConfiguredCatalog()
                 ->latest('updated_at')
-                ->limit(30)
                 ->get();
+            $products = $this->presentation->ready($products)->take(30);
 
             if ($categoryCode) {
                 $classifier = app(FitAndGoProductClassifier::class);

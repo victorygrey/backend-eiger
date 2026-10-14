@@ -112,6 +112,27 @@ class Product extends Model
             && (! $this->pimRecord || $this->pim_catalog_active);
     }
 
+    public function fitAndGoConfiguration(): HasOne
+    {
+        return $this->hasOne(FitAndGoProductConfiguration::class);
+    }
+
+    public function scopeAiFitAndGoCatalog(Builder $query): Builder
+    {
+        return $query->whereRaw('LENGTH(sku) = 9')
+            ->where('ai_fit_and_go_active', true)
+            ->where('is_discontinued', false)
+            ->where(function (Builder $products): void {
+                $products->whereDoesntHave('pimRecord')->orWhere('pim_catalog_active', true);
+            });
+    }
+
+    public function scopeAiFitAndGoConfiguredCatalog(Builder $query): Builder
+    {
+        return $query->aiFitAndGoCatalog()->whereHas('fitAndGoConfiguration', fn (Builder $config) => $config
+            ->where('image', '!=', '')->where('description', '!=', ''));
+    }
+
     /**
      * Get product category accessor from pim_payload or zone.
      */

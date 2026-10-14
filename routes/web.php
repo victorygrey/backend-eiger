@@ -86,6 +86,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::prefix('fit-and-go')->name('fit-and-go.')->group(function () {
         Route::get('/', [FitAndGoController::class, 'index'])->name('index');
         Route::put('/config-products/{device}', [FitAndGoController::class, 'updateProductConfig'])->name('product-config.update');
+        Route::get('/products/{product}/presentation', [FitAndGoController::class, 'productPresentation'])->name('product-presentation.show');
+        Route::put('/products/{product}/presentation', [FitAndGoController::class, 'updateProductPresentation'])->name('product-presentation.update');
         Route::get('/devices/{device}/edit', [FitAndGoController::class, 'editDevice'])->name('devices.edit');
         Route::put('/devices/{device}', [FitAndGoController::class, 'updateDevice'])->name('devices.update');
         Route::post('/devices/{device}/ping', [FitAndGoController::class, 'pingDevice'])->name('devices.ping');

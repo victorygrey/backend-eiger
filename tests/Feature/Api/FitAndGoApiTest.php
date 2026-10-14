@@ -16,6 +16,7 @@ use Tests\TestCase;
 class FitAndGoApiTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ConfiguresFitAndGoProducts;
 
     protected function setUp(): void
     {
@@ -131,6 +132,9 @@ class FitAndGoApiTest extends TestCase
             'ai_fit_and_go_active' => false, 'pim_catalog_active' => true, 'is_discontinued' => false,
         ]);
 
+        $this->configureFitProduct($older);
+        $this->configureFitProduct($newer);
+
         $response = $this->getJson('/api/v1/fit-and-go/products?device_code=fit-kiosk-01&category=apparel');
 
         $response->assertOk()
@@ -177,6 +181,7 @@ class FitAndGoApiTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        $this->configureFitProduct($product);
         $response = $this->getJson('/api/v1/fit-and-go/kiosks/fit-kiosk-01');
 
         $response->assertOk()
@@ -225,7 +230,7 @@ class FitAndGoApiTest extends TestCase
     {
         // Product 1: explicitly assigned to category and activity
         $prod1 = Product::create([
-            'sku' => 'JKT-001',
+            'sku' => '910700001',
             'name' => 'Jaket Eiger Torrent',
             'description' => 'Jaket mountaineering tahan cuaca ekstrem',
             'price' => 750000,
@@ -234,13 +239,15 @@ class FitAndGoApiTest extends TestCase
 
         // Product 2: Apparel (hidden by staff)
         $prod2 = Product::create([
-            'sku' => 'SHIRT-002',
+            'sku' => '910700002',
             'name' => 'Kaos Eiger Mountain',
             'description' => 'Kaos mountaineering outdoor',
             'price' => 199000,
             'stock' => 12,
         ]);
 
+        $this->configureFitProduct($prod1);
+        $this->configureFitProduct($prod2);
         $this->getJson('/api/v1/fit-and-go/products?category=apparel&activity=mountaineering')
             ->assertJson(['count' => 0]);
 
@@ -263,14 +270,14 @@ class FitAndGoApiTest extends TestCase
             'status' => 'success',
             'count' => 1,
         ]);
-        $response->assertJsonFragment(['sku' => 'JKT-001']);
-        $response->assertJsonMissing(['sku' => 'SHIRT-002']);
+        $response->assertJsonFragment(['sku' => '910700001']);
+        $response->assertJsonMissing(['sku' => '910700002']);
     }
 
     public function test_api_search(): void
     {
         $product = Product::create([
-            'sku' => 'SRCH-001',
+            'sku' => '910700003',
             'name' => 'Special Polar Vest',
             'category' => 'Apparel',
             'price' => 350000,
@@ -282,10 +289,11 @@ class FitAndGoApiTest extends TestCase
             'is_visible' => true,
         ]);
 
+        $this->configureFitProduct($product);
         $response = $this->getJson('/api/v1/fit-and-go/search?q=Polar');
 
         $response->assertStatus(200);
-        $response->assertJsonFragment(['sku' => 'SRCH-001']);
+        $response->assertJsonFragment(['sku' => '910700003']);
     }
 
     public function test_api_heartbeat(): void
@@ -310,6 +318,7 @@ class FitAndGoApiTest extends TestCase
         $device = FitAndGoDevice::where('device_code', 'fit-kiosk-01')->firstOrFail();
         $activity = FitAndGoActivity::where('slug', 'mountaineering')->firstOrFail();
         $product = Product::factory()->create(['sku' => '910000004', 'pim_catalog_active' => true, 'is_discontinued' => false]);
+        $this->configureFitProduct($product);
         DB::table('fit_and_go_device_activity_products')->insert([
             'device_id' => $device->id, 'activity_id' => $activity->id, 'product_id' => $product->id,
             'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
@@ -350,6 +359,7 @@ class FitAndGoApiTest extends TestCase
         ]);
         $activity->recommendedProducts()->sync([$product->id => ['sort_order' => 0]]);
 
+        $this->configureFitProduct($product);
         $this->getJson('/api/v1/fit-and-go/activities/mountaineering/recommendations')
             ->assertOk()
             ->assertJsonPath('activity.slug', 'mountaineering')
