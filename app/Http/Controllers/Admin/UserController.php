@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
-use App\Services\UserInvitation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -34,6 +33,13 @@ class UserController extends Controller
             'role' => ['required', 'string', Rule::exists('roles', 'slug')],
             'job_title' => ['required', 'string', 'max:150'],
             'is_active' => ['sometimes', 'boolean'],
+            'password' => [$user && ! $user->awaitingSetup() ? 'required_with:password_confirmation' : 'required', 'nullable', 'string', 'min:8', 'max:72', 'confirmed',
+                function ($attribute, $value, $fail) {
+                    if (is_string($value) && strlen($value) > 72) {
+                        $fail('Password maksimal 72 byte.');
+                    }
+                },
+            ],
         ]);
         if (User::whereRaw('LOWER(email) = ?', [$data['email']])->when($user, fn ($q) => $q->whereKeyNot($user->id))->exists()) {
             throw ValidationException::withMessages(['email' => 'Email sudah terdaftar.']);
@@ -47,54 +53,49 @@ class UserController extends Controller
             throw ValidationException::withMessages(['role' => 'Pilih role yang aktif.']);
         }
         $data['is_active'] = $request->boolean('is_active', $user?->is_active ?? true);
+        if (empty($data['password'])) {
+            unset($data['password']);
+        }
 
         return $data;
     }
 
-    public function store(Request $request, UserInvitation $invitations)
+    public function store(Request $request)
     {
         $data = $this->data($request);
-        $link = DB::transaction(function () use ($data, $invitations) {
-            $user = User::create($data + ['password' => Str::random(64)]);
+        User::create($data);
 
-            return $invitations->issue($user);
-        });
-
-        return redirect()->route('admin.users.index')->with('success', 'User berhasil dibuat. Berikan tautan aktivasi untuk mengatur password.')->with('invitation_link', $link);
+        return redirect()->route('admin.users.index')->with('success', 'User berhasil dibuat. Akun aktif dapat langsung login dengan password yang ditentukan SuperAdmin.');
     }
 
-    public function update(Request $request, User $user, UserInvitation $invitations)
+    public function update(Request $request, User $user)
     {
         $data = $this->data($request, $user);
         if ($request->user()->is($user)) {
             if ($data['role'] !== $user->role) {
-                return back()->withInput()->withErrors(['role' => 'Anda tidak dapat mengubah role akun sendiri.']);
+                return back()->withInput($request->except('password', 'password_confirmation'))->withErrors(['role' => 'Anda tidak dapat mengubah role akun sendiri.']);
             }
             if (! $data['is_active']) {
-                return back()->withInput()->withErrors(['is_active' => 'Anda tidak dapat menonaktifkan akun sendiri.']);
+                return back()->withInput($request->except('password', 'password_confirmation'))->withErrors(['is_active' => 'Anda tidak dapat menonaktifkan akun sendiri.']);
             }
         }
-        $emailChanged = $data['email'] !== $user->email;
         DB::transaction(function () use ($user, $data) {
             $roots = User::whereIn('role', ['superadmin', 'superuser'])->where('is_active', true)->lockForUpdate()->get();
             if ($user->isSuperAdmin() && ($data['role'] !== 'superadmin' || ! $data['is_active']) && $roots->where('id', '!=', $user->id)->isEmpty()) {
                 throw ValidationException::withMessages(['role' => 'Sistem wajib memiliki minimal satu SuperAdmin aktif.']);
             }
-            $user->update($data);
+            if (isset($data['password'])) {
+                // Resolve invitations from the earlier preview and revoke their old tokens.
+                $data['invited_at'] = null;
+                $data['invitation_accepted_at'] = null;
+                $data['password_setup_token_hash'] = null;
+                $data['password_setup_expires_at'] = null;
+                $data['remember_token'] = Str::random(60);
+            }
+            $user->forceFill($data)->save();
         });
-        $response = redirect()->route('admin.users.index')->with('success', 'Informasi user berhasil diperbarui.');
-        if ($emailChanged && $user->awaitingSetup()) {
-            $response->with('invitation_link', $invitations->issue($user));
-        }
 
-        return $response;
-    }
-
-    public function invitation(User $user, UserInvitation $invitations)
-    {
-        abort_unless($user->awaitingSetup() && $user->isActive(), 422, 'Tautan hanya tersedia untuk user aktif yang belum menyelesaikan aktivasi.');
-
-        return back()->with('success', 'Tautan baru dibuat; tautan sebelumnya tidak berlaku.')->with('invitation_link', $invitations->issue($user));
+        return redirect()->route('admin.users.index')->with('success', 'Informasi user berhasil diperbarui.');
     }
 
     public function destroy(Request $request, User $user)

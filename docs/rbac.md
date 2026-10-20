@@ -20,16 +20,18 @@ SQLite `storage/app/rbac-preview.sqlite`; database NAS tidak dipakai untuk pengu
 
 ## Pembuatan user
 
-1. SuperAdmin mengisi Nama, Email, Role, dan Jabatan pada popup Buat User.
-2. Backend membuat password acak yang tidak ditampilkan. Status user menunggu aktivasi.
-3. Admin mendapat tautan sekali pakai untuk atur password. Tautan berlaku 24 jam;
-   token disimpan dalam bentuk hash di record user. Tautan baru membatalkan tautan lama.
-4. User membuka tautan dan membuat password minimal 8 karakter dengan konfirmasi.
-5. Token dibersihkan setelah berhasil, lalu user dapat masuk menggunakan email.
+1. SuperAdmin mengisi Nama, Email, Role, Jabatan, Password, dan Konfirmasi Password.
+2. Password wajib 8–72 karakter, konfirmasi harus cocok, dan backend menyimpan hash.
+3. User dengan akun dan role aktif dapat langsung login menggunakan password tersebut.
+4. Saat mengubah user, SuperAdmin dapat mengisi password baru beserta konfirmasinya.
+   Kosongkan kedua kolom untuk mempertahankan password lama.
 
-Tidak ada pengiriman email otomatis dalam implementasi ini. Tautan ditampilkan
-sesudah pembuatan atau penerbitan ulang dan dapat disalin oleh SuperAdmin.
-Tautan yang kedaluwarsa, sudah digunakan, atau milik akun/role nonaktif ditolak.
+Tidak ada tautan setup password atau pengiriman email dalam alur ini. Email tetap
+menjadi identitas login. Endpoint setup publik dan penerbitan undangan telah dihapus.
+User pending dari preview lama tetap diblokir sampai SuperAdmin menetapkan password
+melalui Ubah User. Penggantian password menghapus token undangan lama dan merotasi
+remember token. Password tidak ditampilkan ulang atau diisi kembali setelah validasi gagal.
+Kolom undangan pada migrasi lama dipertahankan untuk kompatibilitas database preview.
 
 ## API dan export
 

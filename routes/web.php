@@ -17,7 +17,6 @@ use App\Http\Controllers\Admin\TableExpeditionController;
 use App\Http\Controllers\Admin\TabletController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ZoneController;
-use App\Http\Controllers\Auth\AccountSetupController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Middleware\EnsureCmsPermission;
 use Illuminate\Support\Facades\Route;
@@ -30,8 +29,6 @@ Route::get('/', function () {
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-Route::get('/account/setup/{token}', [AccountSetupController::class, 'show'])->middleware('throttle:20,1')->name('account.setup');
-Route::post('/account/setup/{token}', [AccountSetupController::class, 'store'])->middleware('throttle:6,1')->name('account.setup.store');
 
 // ====== Admin Console ======
 Route::prefix('admin')->name('admin.')->middleware(['auth', EnsureCmsPermission::class])->group(function () {
@@ -45,7 +42,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', EnsureCmsPermission:
         Route::post('/', [UserController::class, 'store'])->name('store');
         Route::put('/{user}', [UserController::class, 'update'])->name('update');
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
-        Route::post('/{user}/invitation', [UserController::class, 'invitation'])->name('invitation');
     });
 
     Route::resource('roles', RoleController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('role:superadmin');

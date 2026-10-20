@@ -35,7 +35,7 @@ class UserManagementWebTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_superadmin_can_create_user_with_password_setup_invitation(): void
+    public function test_superadmin_can_create_user_with_manual_password(): void
     {
         $superAdmin = User::factory()->superadmin()->create();
 
@@ -43,6 +43,7 @@ class UserManagementWebTest extends TestCase
             'name' => 'Budi Outdoor',
             'email' => 'budi@eigeradventure.com',
             'password' => 'password123',
+            'password_confirmation' => 'password123',
             'job_title' => 'Store Staff',
             'role' => 'admin',
             'is_active' => '1',
@@ -59,9 +60,9 @@ class UserManagementWebTest extends TestCase
         ]);
 
         $newUser = User::where('email', 'budi@eigeradventure.com')->first();
-        $this->assertFalse(Hash::check('password123', $newUser->password));
-        $this->assertTrue($newUser->awaitingSetup());
-        $response->assertSessionHas('invitation_link');
+        $this->assertTrue(Hash::check('password123', $newUser->password));
+        $this->assertFalse($newUser->awaitingSetup());
+        $response->assertSessionMissing('invitation_link');
     }
 
     public function test_superadmin_can_update_user(): void
