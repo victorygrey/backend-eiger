@@ -3,177 +3,113 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use App\Services\UserInvitation;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\View\View;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    /**
-     * Display a listing of system users.
-     */
-    public function index(Request $request): View
+    public function index(Request $request)
     {
-        $query = User::query();
+        $users = User::with('accessRole')
+            ->when($request->filled('search'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$request->string('search').'%')->orWhere('email', 'like', '%'.$request->string('search').'%')->orWhere('job_title', 'like', '%'.$request->string('search').'%')))
+            ->when($request->filled('role'), fn ($q) => $q->where('role', $request->input('role')))
+            ->when($request->filled('status'), fn ($q) => $q->where('is_active', $request->boolean('status')))
+            ->orderBy('name')->paginate(20)->withQueryString();
 
-        // Search filter (name or email)
-        if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        // Role filter
-        if ($role = $request->input('role')) {
-            $query->where('role', $role);
-        }
-
-        // Status filter
-        if ($request->filled('status')) {
-            $query->where('is_active', $request->boolean('status'));
-        }
-
-        $users = $query->orderBy('name')->paginate(15)->withQueryString();
-
-        $stats = [
-            'total'       => User::count(),
-            'superadmins' => User::where('role', 'superadmin')->count(),
-            'admins'      => User::where('role', 'admin')->count(),
-            'active'      => User::where('is_active', true)->count(),
-        ];
-
-        return view('admin.users.index', [
-            'users' => $users,
-            'stats' => $stats,
-        ]);
+        return view('admin.users.index', ['users' => $users, 'roles' => Role::orderBy('name')->get()]);
     }
 
-    /**
-     * Store a newly created user.
-     */
-    public function store(Request $request): RedirectResponse
+    private function data(Request $request, ?User $user = null): array
     {
-        $validated = $request->validate([
-            'name'      => 'required|string|max:100',
-            'email'     => 'required|email|max:150|unique:users,email',
-            'password'  => 'required|string|min:6',
-            'role'      => 'required|in:superadmin,admin',
-            'is_active' => 'nullable|boolean',
-        ], [
-            'name.required'     => 'Nama lengkap wajib diisi.',
-            'email.required'    => 'Alamat email wajib diisi.',
-            'email.unique'      => 'Alamat email ini sudah terdaftar.',
-            'password.required' => 'Kata sandi awal wajib diisi.',
-            'password.min'      => 'Kata sandi minimal 6 karakter.',
-            'role.required'     => 'Peran pengguna wajib dipilih.',
+        $request->merge(['name' => trim((string) $request->input('name')), 'email' => mb_strtolower(trim((string) $request->input('email')))]);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'max:150', Rule::unique('users')->ignore($user?->id)],
+            'role' => ['required', 'string', Rule::exists('roles', 'slug')],
+            'job_title' => ['required', 'string', 'max:150'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
+        if (User::whereRaw('LOWER(email) = ?', [$data['email']])->when($user, fn ($q) => $q->whereKeyNot($user->id))->exists()) {
+            throw ValidationException::withMessages(['email' => 'Email sudah terdaftar.']);
+        }
+        $data['job_title'] = trim($data['job_title']);
+        if ($data['job_title'] === '') {
+            throw ValidationException::withMessages(['job_title' => 'Jabatan wajib diisi.']);
+        }
+        $role = Role::where('slug', $data['role'])->firstOrFail();
+        if (! $role->is_active && $data['role'] !== $user?->role) {
+            throw ValidationException::withMessages(['role' => 'Pilih role yang aktif.']);
+        }
+        $data['is_active'] = $request->boolean('is_active', $user?->is_active ?? true);
 
-        User::create([
-            'name'      => $validated['name'],
-            'email'     => $validated['email'],
-            'password'  => Hash::make($validated['password']),
-            'role'      => $validated['role'],
-            'is_active' => $request->boolean('is_active', true),
-        ]);
-
-        return redirect()->route('admin.users.index')
-            ->with('success', "Akun pengguna {$validated['name']} berhasil ditambahkan.");
+        return $data;
     }
 
-    /**
-     * Update the specified user.
-     */
-    public function update(Request $request, User $user): RedirectResponse
+    public function store(Request $request, UserInvitation $invitations)
     {
-        $currentUser = Auth::user();
+        $data = $this->data($request);
+        $link = DB::transaction(function () use ($data, $invitations) {
+            $user = User::create($data + ['password' => Str::random(64)]);
 
-        $validated = $request->validate([
-            'name'      => 'required|string|max:100',
-            'email'     => ['required', 'email', 'max:150', Rule::unique('users')->ignore($user->id)],
-            'password'  => 'nullable|string|min:6',
-            'role'      => 'required|in:superadmin,admin',
-            'is_active' => 'nullable|boolean',
-        ], [
-            'name.required'  => 'Nama lengkap wajib diisi.',
-            'email.required' => 'Alamat email wajib diisi.',
-            'email.unique'   => 'Alamat email ini sudah digunakan pengguna lain.',
-            'password.min'   => 'Kata sandi baru minimal 6 karakter.',
-            'role.required'  => 'Peran pengguna wajib dipilih.',
-        ]);
+            return $invitations->issue($user);
+        });
 
-        $isActive = $request->boolean('is_active');
-
-        // Guard 1: Current user cannot demote or deactivate themselves
-        if ($currentUser && $currentUser->id === $user->id) {
-            if ($validated['role'] !== 'superadmin' && $currentUser->isSuperAdmin()) {
-                return back()->withErrors(['role' => 'Anda tidak dapat menurunkan peran (role) akun Anda sendiri.']);
-            }
-            if (!$isActive) {
-                return back()->withErrors(['is_active' => 'Anda tidak dapat menonaktifkan akun Anda sendiri saat sedang login.']);
-            }
-        }
-
-        // Guard 2: Prevent demoting or deactivating the last active superadmin
-        if ($user->isSuperAdmin() && ($validated['role'] !== 'superadmin' || !$isActive)) {
-            $otherSuperAdmins = User::where('role', 'superadmin')
-                ->where('id', '!=', $user->id)
-                ->where('is_active', true)
-                ->count();
-
-            if ($otherSuperAdmins === 0) {
-                return back()->withErrors(['role' => 'Sistem wajib memiliki minimal satu SuperAdmin aktif. Tidak dapat mengubah peran atau menonaktifkan akun ini.']);
-            }
-        }
-
-        $data = [
-            'name'      => $validated['name'],
-            'email'     => $validated['email'],
-            'role'      => $validated['role'],
-            'is_active' => $isActive,
-        ];
-
-        if (!empty($validated['password'])) {
-            $data['password'] = Hash::make($validated['password']);
-        }
-
-        $user->update($data);
-
-        return redirect()->route('admin.users.index')
-            ->with('success', "Informasi akun {$user->name} berhasil diperbarui.");
+        return redirect()->route('admin.users.index')->with('success', 'User berhasil dibuat. Berikan tautan aktivasi untuk mengatur password.')->with('invitation_link', $link);
     }
 
-    /**
-     * Remove the specified user.
-     */
-    public function destroy(User $user): RedirectResponse
+    public function update(Request $request, User $user, UserInvitation $invitations)
     {
-        $currentUser = Auth::user();
-
-        // Guard 1: Cannot delete self
-        if ($currentUser && $currentUser->id === $user->id) {
-            return back()->withErrors(['error' => 'Anda tidak dapat menghapus akun Anda sendiri.']);
-        }
-
-        // Guard 2: Cannot delete the last superadmin
-        if ($user->isSuperAdmin()) {
-            $remainingSuperAdmins = User::where('role', 'superadmin')
-                ->where('id', '!=', $user->id)
-                ->count();
-
-            if ($remainingSuperAdmins === 0) {
-                return back()->withErrors(['error' => 'Tidak dapat menghapus SuperAdmin terakhir di sistem.']);
+        $data = $this->data($request, $user);
+        if ($request->user()->is($user)) {
+            if ($data['role'] !== $user->role) {
+                return back()->withInput()->withErrors(['role' => 'Anda tidak dapat mengubah role akun sendiri.']);
+            }
+            if (! $data['is_active']) {
+                return back()->withInput()->withErrors(['is_active' => 'Anda tidak dapat menonaktifkan akun sendiri.']);
             }
         }
+        $emailChanged = $data['email'] !== $user->email;
+        DB::transaction(function () use ($user, $data) {
+            $roots = User::whereIn('role', ['superadmin', 'superuser'])->where('is_active', true)->lockForUpdate()->get();
+            if ($user->isSuperAdmin() && ($data['role'] !== 'superadmin' || ! $data['is_active']) && $roots->where('id', '!=', $user->id)->isEmpty()) {
+                throw ValidationException::withMessages(['role' => 'Sistem wajib memiliki minimal satu SuperAdmin aktif.']);
+            }
+            $user->update($data);
+        });
+        $response = redirect()->route('admin.users.index')->with('success', 'Informasi user berhasil diperbarui.');
+        if ($emailChanged && $user->awaitingSetup()) {
+            $response->with('invitation_link', $invitations->issue($user));
+        }
 
-        $name = $user->name;
-        $user->delete();
+        return $response;
+    }
 
-        return redirect()->route('admin.users.index')
-            ->with('success', "Akun pengguna {$name} berhasil dihapus dari sistem.");
+    public function invitation(User $user, UserInvitation $invitations)
+    {
+        abort_unless($user->awaitingSetup() && $user->isActive(), 422, 'Tautan hanya tersedia untuk user aktif yang belum menyelesaikan aktivasi.');
+
+        return back()->with('success', 'Tautan baru dibuat; tautan sebelumnya tidak berlaku.')->with('invitation_link', $invitations->issue($user));
+    }
+
+    public function destroy(Request $request, User $user)
+    {
+        if ($request->user()->is($user)) {
+            return back()->withErrors(['error' => 'Anda tidak dapat menghapus akun sendiri.']);
+        }
+        DB::transaction(function () use ($user) {
+            $roots = User::whereIn('role', ['superadmin', 'superuser'])->where('is_active', true)->lockForUpdate()->get();
+            if ($user->isSuperAdmin() && $roots->where('id', '!=', $user->id)->isEmpty()) {
+                throw ValidationException::withMessages(['error' => 'Tidak dapat menghapus SuperAdmin aktif terakhir.']);
+            }
+            $user->delete();
+        });
+
+        return back()->with('success', 'User berhasil dihapus.');
     }
 }

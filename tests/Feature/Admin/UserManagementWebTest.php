@@ -35,15 +35,16 @@ class UserManagementWebTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_superadmin_can_create_new_user(): void
+    public function test_superadmin_can_create_user_with_password_setup_invitation(): void
     {
         $superAdmin = User::factory()->superadmin()->create();
 
         $response = $this->actingAs($superAdmin)->post(route('admin.users.store'), [
-            'name'      => 'Budi Outdoor',
-            'email'     => 'budi@eigeradventure.com',
-            'password'  => 'password123',
-            'role'      => 'admin',
+            'name' => 'Budi Outdoor',
+            'email' => 'budi@eigeradventure.com',
+            'password' => 'password123',
+            'job_title' => 'Store Staff',
+            'role' => 'admin',
             'is_active' => '1',
         ]);
 
@@ -51,14 +52,16 @@ class UserManagementWebTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('users', [
-            'name'      => 'Budi Outdoor',
-            'email'     => 'budi@eigeradventure.com',
-            'role'      => 'admin',
+            'name' => 'Budi Outdoor',
+            'email' => 'budi@eigeradventure.com',
+            'role' => 'admin',
             'is_active' => true,
         ]);
 
         $newUser = User::where('email', 'budi@eigeradventure.com')->first();
-        $this->assertTrue(Hash::check('password123', $newUser->password));
+        $this->assertFalse(Hash::check('password123', $newUser->password));
+        $this->assertTrue($newUser->awaitingSetup());
+        $response->assertSessionHas('invitation_link');
     }
 
     public function test_superadmin_can_update_user(): void
@@ -67,9 +70,10 @@ class UserManagementWebTest extends TestCase
         $user = User::factory()->admin()->create(['name' => 'Old Name']);
 
         $response = $this->actingAs($superAdmin)->put(route('admin.users.update', $user), [
-            'name'      => 'Updated Name',
-            'email'     => $user->email,
-            'role'      => 'superadmin',
+            'name' => 'Updated Name',
+            'job_title' => 'Store Staff',
+            'email' => $user->email,
+            'role' => 'superadmin',
             'is_active' => '1',
         ]);
 
@@ -86,9 +90,10 @@ class UserManagementWebTest extends TestCase
         $superAdmin = User::factory()->superadmin()->create();
 
         $response = $this->actingAs($superAdmin)->put(route('admin.users.update', $superAdmin), [
-            'name'      => $superAdmin->name,
-            'email'     => $superAdmin->email,
-            'role'      => 'admin', // trying to demote self
+            'name' => $superAdmin->name,
+            'email' => $superAdmin->email,
+            'role' => 'admin', // trying to demote self
+            'job_title' => 'Store Staff',
             'is_active' => '1',
         ]);
 
@@ -102,10 +107,11 @@ class UserManagementWebTest extends TestCase
         $superAdmin = User::factory()->superadmin()->create();
 
         $response = $this->actingAs($superAdmin)->put(route('admin.users.update', $superAdmin), [
-            'name'      => $superAdmin->name,
-            'email'     => $superAdmin->email,
-            'role'      => 'superadmin',
+            'name' => $superAdmin->name,
+            'email' => $superAdmin->email,
+            'role' => 'superadmin',
             'is_active' => '0', // trying to deactivate self
+            'job_title' => 'Store Staff',
         ]);
 
         $response->assertSessionHasErrors('is_active');
@@ -140,8 +146,8 @@ class UserManagementWebTest extends TestCase
     public function test_user_can_view_and_update_profile(): void
     {
         $user = User::factory()->create([
-            'name'     => 'Original Name',
-            'email'    => 'orig@eigeradventure.com',
+            'name' => 'Original Name',
+            'email' => 'orig@eigeradventure.com',
             'password' => Hash::make('oldpassword'),
         ]);
 
@@ -151,10 +157,10 @@ class UserManagementWebTest extends TestCase
         $response->assertSee('Original Name');
 
         $updateResponse = $this->actingAs($user)->put(route('admin.profile.update'), [
-            'name'                  => 'New Name',
-            'email'                 => 'new@eigeradventure.com',
-            'current_password'      => 'oldpassword',
-            'new_password'          => 'newpassword123',
+            'name' => 'New Name',
+            'email' => 'new@eigeradventure.com',
+            'current_password' => 'oldpassword',
+            'new_password' => 'newpassword123',
             'new_password_confirmation' => 'newpassword123',
         ]);
 

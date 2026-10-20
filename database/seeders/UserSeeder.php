@@ -11,23 +11,23 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         // 1. Default SuperAdmin (Full access to User Management, Integrations, and all modules)
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'superadmin@eigeradventure.com'],
             [
-                'name'      => 'SuperAdmin EIGER',
-                'password'  => Hash::make('password'),
-                'role'      => 'superadmin',
+                'name' => 'SuperAdmin EIGER',
+                'password' => Hash::make('password'),
+                'role' => 'superadmin',
                 'is_active' => true,
             ]
         );
 
         // 2. Default Store Admin (Access to catalog, RFID mappings, interactive displays)
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'admin@eigeradventure.com'],
             [
-                'name'      => 'Admin Store EIGER',
-                'password'  => Hash::make('password'),
-                'role'      => 'admin',
+                'name' => 'Admin Store EIGER',
+                'password' => Hash::make('password'),
+                'role' => 'admin',
                 'is_active' => true,
             ]
         );

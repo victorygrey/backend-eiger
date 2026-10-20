@@ -1,18 +1,25 @@
 <?php
 
+use App\Http\Controllers\Admin\CareController;
+use App\Http\Controllers\Admin\CmsExportController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\FitAndGoController;
+use App\Http\Controllers\Admin\IntegrationController;
 use App\Http\Controllers\Admin\LedAmbienceController;
-use App\Http\Controllers\Admin\ProfileController;
-use App\Http\Controllers\Admin\TableExpeditionController;
-use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\PimController;
 use App\Http\Controllers\Admin\PrintHistoryController;
+use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\RfidTagController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SyncLogController;
+use App\Http\Controllers\Admin\TableExpeditionController;
+use App\Http\Controllers\Admin\TabletController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ZoneController;
-use App\Http\Controllers\Admin\TabletController;
+use App\Http\Controllers\Auth\AccountSetupController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Middleware\EnsureCmsPermission;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -23,9 +30,11 @@ Route::get('/', function () {
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/account/setup/{token}', [AccountSetupController::class, 'show'])->middleware('throttle:20,1')->name('account.setup');
+Route::post('/account/setup/{token}', [AccountSetupController::class, 'store'])->middleware('throttle:6,1')->name('account.setup.store');
 
 // ====== Admin Console ======
-Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', EnsureCmsPermission::class])->group(function () {
     // User Profile
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -36,32 +45,38 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/', [UserController::class, 'store'])->name('store');
         Route::put('/{user}', [UserController::class, 'update'])->name('update');
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+        Route::post('/{user}/invitation', [UserController::class, 'invitation'])->name('invitation');
     });
+
+    Route::resource('roles', RoleController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('role:superadmin');
+    foreach (['products', 'rfid-tags', 'print-history', 'sync-logs'] as $exportModule) {
+        Route::get('/'.$exportModule.'/export/csv', [CmsExportController::class, 'export'])->defaults('module', $exportModule)->name($exportModule.'.export');
+    }
 
     // Unified PIM & CARE Integration
     Route::prefix('integrations')->name('integrations.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Admin\IntegrationController::class, 'index'])->name('index');
-        Route::get('/connection-status', [\App\Http\Controllers\Admin\IntegrationController::class, 'connectionStatus'])->name('connection-status');
-        Route::post('/sync', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncAll'])->name('sync-all');
-        Route::post('/sync-pim', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncPim'])->name('sync-pim');
-        Route::post('/sync-care', [\App\Http\Controllers\Admin\IntegrationController::class, 'syncCare'])->name('sync-care');
-        Route::post('/scan-folder', [\App\Http\Controllers\Admin\IntegrationController::class, 'scanFolder'])->name('scan-folder');
-        Route::post('/pim-token', [\App\Http\Controllers\Admin\IntegrationController::class, 'issuePimToken'])
+        Route::get('/', [IntegrationController::class, 'index'])->name('index');
+        Route::get('/connection-status', [IntegrationController::class, 'connectionStatus'])->name('connection-status');
+        Route::post('/sync', [IntegrationController::class, 'syncAll'])->name('sync-all');
+        Route::post('/sync-pim', [IntegrationController::class, 'syncPim'])->name('sync-pim');
+        Route::post('/sync-care', [IntegrationController::class, 'syncCare'])->name('sync-care');
+        Route::post('/scan-folder', [IntegrationController::class, 'scanFolder'])->name('scan-folder');
+        Route::post('/pim-token', [IntegrationController::class, 'issuePimToken'])
             ->middleware('role:superadmin')->name('pim-token.issue');
     });
 
     // PIM Legacy / Dedicated Endpoints
-    Route::get('/pim', [\App\Http\Controllers\Admin\PimController::class, 'index'])->name('pim.index');
-    Route::post('/pim/scan', [\App\Http\Controllers\Admin\PimController::class, 'scan'])->name('pim.scan');
-    Route::post('/pim/sync', [\App\Http\Controllers\Admin\PimController::class, 'sync'])->name('pim.sync');
-    Route::get('/pim/qa', [\App\Http\Controllers\Admin\PimController::class, 'qa'])->name('pim.qa');
-    Route::match(['get', 'post'], '/pim/{endpoint}', [\App\Http\Controllers\Admin\PimController::class, 'proxy'])->name('pim.proxy');
+    Route::get('/pim', [PimController::class, 'index'])->name('pim.index');
+    Route::post('/pim/scan', [PimController::class, 'scan'])->name('pim.scan');
+    Route::post('/pim/sync', [PimController::class, 'sync'])->name('pim.sync');
+    Route::get('/pim/qa', [PimController::class, 'qa'])->name('pim.qa');
+    Route::match(['get', 'post'], '/pim/{endpoint}', [PimController::class, 'proxy'])->name('pim.proxy');
 
     // CARE Legacy / Dedicated Endpoints
-    Route::get('/care', [\App\Http\Controllers\Admin\CareController::class, 'index'])->name('care.index');
-    Route::post('/care/sync', [\App\Http\Controllers\Admin\CareController::class, 'sync'])->name('care.sync');
+    Route::get('/care', [CareController::class, 'index'])->name('care.index');
+    Route::post('/care/sync', [CareController::class, 'sync'])->name('care.sync');
 
-    Route::get('/', fn () => redirect()->route('admin.dashboard'));
+    Route::get('/', fn () => redirect()->route(auth()->user()->homeRoute()));
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -70,16 +85,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::get('/products/pim-lookup', [ProductController::class, 'pimLookup'])->name('products.pim-lookup');
     Route::get('/products/catalog-lookup', [ProductController::class, 'catalogLookup'])->name('products.catalog-lookup');
     Route::get('/products/{product}/mapping-preview', [ProductController::class, 'mappingPreview'])->name('products.mapping-preview');
-    Route::get('/products',                [ProductController::class, 'index'])->name('products.index');
+    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     Route::patch('/products/channel-lock', [ProductController::class, 'updateChannelLock'])->name('products.channel-lock.update');
     Route::patch('/products/{product}/channel', [ProductController::class, 'updateChannel'])->name('products.channel.update');
-    Route::delete('/products/{product}',   [ProductController::class, 'destroy'])->name('products.destroy');
-    Route::get('/products/{product}',      [ProductController::class, 'show'])->name('products.show');
+    Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
 
     // Interactive Tablets
-    Route::get('/tablets',                  [TabletController::class, 'index'])->name('tablets.index');
-    Route::get('/tablets/{tablet}/edit',    [TabletController::class, 'edit'])->name('tablets.edit');
-    Route::put('/tablets/{tablet}',         [TabletController::class, 'update'])->name('tablets.update');
+    Route::get('/tablets', [TabletController::class, 'index'])->name('tablets.index');
+    Route::get('/tablets/{tablet}/edit', [TabletController::class, 'edit'])->name('tablets.edit');
+    Route::put('/tablets/{tablet}', [TabletController::class, 'update'])->name('tablets.update');
     Route::post('/tablets/{tablet}/versions/{version}/rollback', [TabletController::class, 'rollback'])->name('tablets.rollback');
 
     // AI Fit & Go
@@ -112,24 +127,24 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     });
 
     // Zones
-    Route::get('/zones',                [ZoneController::class, 'index'])->name('zones.index');
-    Route::get('/zones/create',         [ZoneController::class, 'create'])->name('zones.create');
-    Route::post('/zones',               [ZoneController::class, 'store'])->name('zones.store');
-    Route::get('/zones/{zone}/edit',    [ZoneController::class, 'edit'])->name('zones.edit');
-    Route::put('/zones/{zone}',         [ZoneController::class, 'update'])->name('zones.update');
-    Route::delete('/zones/{zone}',      [ZoneController::class, 'destroy'])->name('zones.destroy');
+    Route::get('/zones', [ZoneController::class, 'index'])->name('zones.index');
+    Route::get('/zones/create', [ZoneController::class, 'create'])->name('zones.create');
+    Route::post('/zones', [ZoneController::class, 'store'])->name('zones.store');
+    Route::get('/zones/{zone}/edit', [ZoneController::class, 'edit'])->name('zones.edit');
+    Route::put('/zones/{zone}', [ZoneController::class, 'update'])->name('zones.update');
+    Route::delete('/zones/{zone}', [ZoneController::class, 'destroy'])->name('zones.destroy');
 
     // RFID Tags
-    Route::get('/rfid-tags',                 [RfidTagController::class, 'index'])->name('rfid-tags.index');
-    Route::patch('/rfid-tags/channel-lock',  [RfidTagController::class, 'updateChannelLock'])->name('rfid-tags.channel-lock.update');
+    Route::get('/rfid-tags', [RfidTagController::class, 'index'])->name('rfid-tags.index');
+    Route::patch('/rfid-tags/channel-lock', [RfidTagController::class, 'updateChannelLock'])->name('rfid-tags.channel-lock.update');
     Route::patch('/rfid-tags/{rfidTag}/channel', [RfidTagController::class, 'updateChannel'])->name('rfid-tags.channel.update');
-    Route::get('/rfid-tags/create',          [RfidTagController::class, 'create'])->name('rfid-tags.create');
-    Route::post('/rfid-tags',                [RfidTagController::class, 'store'])->name('rfid-tags.store');
-    Route::get('/rfid-tags/{rfidTag}/edit',  [RfidTagController::class, 'edit'])->name('rfid-tags.edit');
-    Route::put('/rfid-tags/{rfidTag}',       [RfidTagController::class, 'update'])->name('rfid-tags.update');
-    Route::delete('/rfid-tags/{rfidTag}',    [RfidTagController::class, 'destroy'])->name('rfid-tags.destroy');
+    Route::get('/rfid-tags/create', [RfidTagController::class, 'create'])->name('rfid-tags.create');
+    Route::post('/rfid-tags', [RfidTagController::class, 'store'])->name('rfid-tags.store');
+    Route::get('/rfid-tags/{rfidTag}/edit', [RfidTagController::class, 'edit'])->name('rfid-tags.edit');
+    Route::put('/rfid-tags/{rfidTag}', [RfidTagController::class, 'update'])->name('rfid-tags.update');
+    Route::delete('/rfid-tags/{rfidTag}', [RfidTagController::class, 'destroy'])->name('rfid-tags.destroy');
 
     // Sync Logs (read-only)
-    Route::get('/sync-logs',                 [SyncLogController::class, 'index'])->name('sync-logs.index');
-    Route::get('/sync-logs/{syncLog}',       [SyncLogController::class, 'show'])->name('sync-logs.show');
+    Route::get('/sync-logs', [SyncLogController::class, 'index'])->name('sync-logs.index');
+    Route::get('/sync-logs/{syncLog}', [SyncLogController::class, 'show'])->name('sync-logs.show');
 });

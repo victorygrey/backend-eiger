@@ -334,6 +334,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('fit-product-config-form');
     if (!form) return;
+    const canConfigure = @json(auth()->user()->hasPermission('fit-and-go.edit'));
 
     const modeInputs = [...form.querySelectorAll('input[name="selection_mode"]')];
     const productInputs = [...form.querySelectorAll('.fit-product-select')];
@@ -428,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cards.forEach(card => card.dataset.autoSelected = latestCards.includes(card) ? '1' : '0');
         productInputs.forEach(input => {
             const card = input.closest('.fit-product');
-            input.disabled = latestMode || card.dataset.configured !== '1';
+            input.disabled = !canConfigure || latestMode || card.dataset.configured !== '1';
             if (card.dataset.configured !== '1') input.checked = false;
             card.classList.toggle('is-selected', latestMode ? card.dataset.autoSelected === '1' : input.checked);
         });

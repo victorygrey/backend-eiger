@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsureCmsApiPermission;
+use App\Http\Middleware\EnsureUserRole;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,7 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureUserRole::class,
+            'role' => EnsureUserRole::class,
+            'cms-api' => EnsureCmsApiPermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -42,20 +42,30 @@ Route::get('tablets/{tablet:slug}/display', [TabletDisplayController::class, 'sh
 Route::post('tablets/{tablet:slug}/heartbeat', [TabletDisplayController::class, 'heartbeat']);
 
 // Zones
-Route::apiResource('zones', ZoneController::class);
+Route::apiResource('zones', ZoneController::class)->only(['index', 'show']);
+Route::middleware(['web', 'cms-api:zones.edit'])->group(function () {
+    Route::post('zones', [ZoneController::class, 'store']);
+    Route::match(['put', 'patch'], 'zones/{zone}', [ZoneController::class, 'update']);
+});
+Route::delete('zones/{zone}', [ZoneController::class, 'destroy'])->middleware(['web', 'cms-api:zones.delete']);
 
 // RFID Tags
 Route::post('rfid-tags/resolve', [RfidTagController::class, 'resolve']);
 Route::post('rfid-tags/batch', [RfidTagController::class, 'batchStore']);
-Route::apiResource('rfid-tags', RfidTagController::class);
+Route::apiResource('rfid-tags', RfidTagController::class)->only(['index', 'show']);
+Route::middleware(['web', 'cms-api:rfid-tags.edit'])->group(function () {
+    Route::post('rfid-tags', [RfidTagController::class, 'store']);
+    Route::match(['put', 'patch'], 'rfid-tags/{rfid_tag}', [RfidTagController::class, 'update']);
+});
+Route::delete('rfid-tags/{rfid_tag}', [RfidTagController::class, 'destroy'])->middleware(['web', 'cms-api:rfid-tags.delete']);
 
 // Print Rules (index + update only — no create/delete)
 Route::get('print-rules', [PrintRuleController::class, 'index']);
-Route::put('print-rules/{printRule}', [PrintRuleController::class, 'update']);
+Route::put('print-rules/{printRule}', [PrintRuleController::class, 'update'])->middleware(['web', 'cms-api:print-history.edit']);
 
 // Sync Endpoints (placeholders for future integrations)
 Route::prefix('sync')->group(function () {
-    Route::post('care', [SyncController::class, 'care']);
+    Route::post('care', [SyncController::class, 'care'])->middleware(['web', 'cms-api:integrations.edit']);
 });
 
 // AI Fit & Go Kiosk & GPU Workstation APIs (v1)

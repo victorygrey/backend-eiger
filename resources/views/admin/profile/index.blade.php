@@ -4,7 +4,7 @@
 @section('page-title', 'Profil Saya')
 
 @section('breadcrumb-items')
-    <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}" class="text-decoration-none text-muted">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route(auth()->user()->homeRoute()) }}" class="text-decoration-none text-muted">Beranda</a></li>
     <li class="breadcrumb-item active">Profil Saya</li>
 @endsection
 
@@ -27,7 +27,7 @@
                     </span>
                 @else
                     <span class="badge bg-info-subtle text-primary border border-info-subtle px-3 py-2 fs-6">
-                        <i class="bi bi-person-badge me-1"></i> Store Admin
+                        <i class="bi bi-person-badge me-1"></i> {{ $user->roleName() }}
                     </span>
                 @endif
             </div>

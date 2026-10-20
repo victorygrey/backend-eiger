@@ -22,7 +22,7 @@ class AuthController extends Controller
         $this->ensureDefaultUsersExist();
 
         if (Auth::check()) {
-            return redirect()->route('admin.dashboard');
+            return redirect()->route(Auth::user()->homeRoute());
         }
 
         return view('auth.login');
@@ -47,15 +47,14 @@ class AuthController extends Controller
         $remember = $request->boolean('remember');
         $loginLower = strtolower($loginInput);
 
-        // Find user by exact email (case-insensitive), or username/role, or prefix before @
+        // Keep legacy name/email-prefix login; role names are not account identifiers.
         $user = User::whereRaw('LOWER(email) = ?', [$loginLower])
             ->orWhereRaw('LOWER(name) = ?', [$loginLower])
-            ->orWhereRaw('LOWER(role) = ?', [$loginLower])
             ->orWhere('email', 'like', "{$loginLower}@%")
             ->first();
 
         if ($user && Hash::check($password, $user->password)) {
-            if (!$user->isActive()) {
+            if (! $user->isActive() || $user->awaitingSetup()) {
                 return back()
                     ->withInput($request->only('email', 'remember'))
                     ->withErrors(['email' => 'Akun Anda telah dinonaktifkan. Silakan hubungi SuperAdmin.']);
@@ -65,7 +64,10 @@ class AuthController extends Controller
             $user->update(['last_login_at' => now()]);
             $request->session()->regenerate();
 
-            return redirect()->intended(route('admin.dashboard'));
+            $request->session()->forget('url.intended');
+
+            // Do not redirect to a previously attempted module outside the new role.
+            return redirect()->route($user->homeRoute());
         }
 
         return back()
@@ -100,7 +102,7 @@ class AuthController extends Controller
                 ]);
             }
         } catch (\Throwable $e) {
-            Log::warning('Auto-seed default users skipped: ' . $e->getMessage());
+            Log::warning('Auto-seed default users skipped: '.$e->getMessage());
         }
     }
 }

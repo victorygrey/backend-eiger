@@ -567,7 +567,7 @@
 
     {{-- ===== SIDEBAR ===== --}}
     <nav id="sidebar">
-        <a href="{{ route('admin.dashboard') }}" class="sidebar-brand">
+        <a href="{{ route(auth()->user()->homeRoute()) }}" class="sidebar-brand">
             <div class="brand-logo">
                 <span class="brand-icon"><i class="bi bi-triangle-fill"></i></span>
                 <span>EIGER</span>
@@ -576,58 +576,76 @@
         </a>
 
         <div class="sidebar-nav">
-            <div class="nav-section-title">Overview</div>
-            <a href="{{ route('admin.dashboard') }}"
+            @if(auth()->user()?->hasPermission('dashboard.view'))<div class="nav-section-title">Overview</div>@endif
+            @if(auth()->user()?->hasPermission('dashboard.view'))
+<a href="{{ route('admin.dashboard') }}"
                class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                 <i class="bi bi-grid-1x2-fill"></i>
                 <span>Dashboard</span>
             </a>
+@endif
 
-            <div class="nav-section-title">Manajemen Data</div>
-            <a href="{{ route('admin.products.index') }}"
+            @if(auth()->user()?->hasPermission('products.view') || auth()->user()?->hasPermission('zones.view') || auth()->user()?->hasPermission('rfid-tags.view'))<div class="nav-section-title">Manajemen Data</div>@endif
+            @if(auth()->user()?->hasPermission('products.view'))
+<a href="{{ route('admin.products.index') }}"
                class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
                 <i class="bi bi-box-seam-fill"></i>
                 <span>Products</span>
             </a>
-            <a href="{{ route('admin.zones.index') }}"
+@endif
+            @if(auth()->user()?->hasPermission('zones.view'))
+<a href="{{ route('admin.zones.index') }}"
                class="nav-link {{ request()->routeIs('admin.zones.*') ? 'active' : '' }}">
                 <i class="bi bi-map-fill"></i>
                 <span>Zones</span>
             </a>
-            <a href="{{ route('admin.rfid-tags.index') }}"
+@endif
+            @if(auth()->user()?->hasPermission('rfid-tags.view'))
+<a href="{{ route('admin.rfid-tags.index') }}"
                class="nav-link {{ request()->routeIs('admin.rfid-tags.*') ? 'active' : '' }}">
                 <i class="bi bi-broadcast-pin"></i>
                 <span>RFID Tags</span>
             </a>
+@endif
 
-            <div class="nav-section-title">Konfigurasi</div>
-            <a href="{{ route('admin.fit-and-go.index') }}"
+            @if(auth()->user()?->hasPermission('fit-and-go.view') || auth()->user()?->hasPermission('tablets.view') || auth()->user()?->hasPermission('led-ambience.view') || auth()->user()?->hasPermission('table-expedition.view'))<div class="nav-section-title">Konfigurasi</div>@endif
+            @if(auth()->user()?->hasPermission('fit-and-go.view'))
+<a href="{{ route('admin.fit-and-go.index') }}"
                class="nav-link {{ request()->routeIs('admin.fit-and-go.*') ? 'active' : '' }}">
                 <i class="bi bi-person-bounding-box"></i>
                 <span>AI Fit & Go</span>
             </a>
-            <a href="{{ route('admin.tablets.index') }}"
+@endif
+            @if(auth()->user()?->hasPermission('tablets.view'))
+<a href="{{ route('admin.tablets.index') }}"
                class="nav-link {{ request()->routeIs('admin.tablets.*') ? 'active' : '' }}">
                 <i class="bi bi-tablet-landscape-fill"></i>
                 <span>Interactive Tablet</span>
             </a>
-            <a href="{{ route('admin.led-ambience.index') }}"
+@endif
+            @if(auth()->user()?->hasPermission('led-ambience.view'))
+<a href="{{ route('admin.led-ambience.index') }}"
                class="nav-link {{ request()->routeIs('admin.led-ambience.*') ? 'active' : '' }}">
                 <i class="bi bi-soundwave"></i>
                 <span>LED Ambience</span>
             </a>
-            <a href="{{ route('admin.table-expedition.index') }}"
+@endif
+            @if(auth()->user()?->hasPermission('table-expedition.view'))
+<a href="{{ route('admin.table-expedition.index') }}"
                class="nav-link {{ request()->routeIs('admin.table-expedition.*') ? 'active' : '' }}">
                 <i class="bi bi-compass-fill"></i>
                 <span>Table Expedition</span>
             </a>
+@endif
 
-            <div class="nav-section-title">Operasional</div>
-            <a href="{{ route('admin.print-history.index') }}"
+            @if(auth()->user()?->hasPermission('print-history.view'))<div class="nav-section-title">Operasional</div>@endif
+            @if(auth()->user()?->hasPermission('print-history.view'))
+<a href="{{ route('admin.print-history.index') }}"
                class="nav-link {{ request()->routeIs('admin.print-history.*') ? 'active' : '' }}">
                 <i class="bi bi-printer-fill"></i>
                 <span>Histori Foto &amp; Print</span>
             </a>
+@endif
 
             <div class="nav-section-title">Sistem</div>
             @if(auth()->user()?->isSuperAdmin())
@@ -637,14 +655,21 @@
                     <span>Manajemen User</span>
                 </a>
             @endif
-            <a href="{{ route('admin.integrations.index') }}" class="nav-link {{ request()->routeIs('admin.integrations.*', 'admin.pim.*', 'admin.care.*') ? 'active' : '' }}">
+                        @if(auth()->user()?->isSuperAdmin())
+            <a href="{{ route('admin.roles.index') }}" class="nav-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}"><i class="bi bi-shield-lock-fill"></i><span>Role & Hak Akses</span></a>
+            @endif
+@if(auth()->user()?->hasPermission('integrations.view'))
+<a href="{{ route('admin.integrations.index') }}" class="nav-link {{ request()->routeIs('admin.integrations.*', 'admin.pim.*', 'admin.care.*') ? 'active' : '' }}">
                 <i class="bi bi-diagram-3-fill"></i> Integrasi PIM & CARE
             </a>
-            <a href="{{ route('admin.sync-logs.index') }}"
+@endif
+            @if(auth()->user()?->hasPermission('sync-logs.view'))
+<a href="{{ route('admin.sync-logs.index') }}"
                class="nav-link {{ request()->routeIs('admin.sync-logs.*') ? 'active' : '' }}">
                 <i class="bi bi-arrow-repeat"></i>
                 <span>Sync Logs</span>
             </a>
+@endif
             <a href="{{ route('admin.profile.index') }}"
                class="nav-link {{ request()->routeIs('admin.profile.*') ? 'active' : '' }}">
                 <i class="bi bi-person-gear"></i>
@@ -671,7 +696,7 @@
                 <div class="topbar-title">@yield('page-title', 'Dashboard')</div>
                 <nav aria-label="breadcrumb" class="mt-1">
                     <ol class="breadcrumb mb-0">
-                        <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}" class="text-decoration-none text-muted"><i class="bi bi-house-door"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{{ route(auth()->user()->homeRoute()) }}" class="text-decoration-none text-muted"><i class="bi bi-house-door"></i></a></li>
                         @yield('breadcrumb-items')
                     </ol>
                 </nav>
@@ -694,7 +719,7 @@
                             </div>
                             <div class="text-start d-none d-sm-block" style="line-height: 1.2;">
                                 <div class="fw-semibold text-dark" style="font-size: 0.8rem;">{{ auth()->user()->name }}</div>
-                                <div class="text-muted" style="font-size: 0.7rem;">{{ auth()->user()->isSuperAdmin() ? 'SuperAdmin' : 'Store Admin' }}</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">{{ auth()->user()->roleName() }}</div>
                             </div>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 10px; font-size: 0.85rem;">
@@ -745,6 +770,18 @@
                 </div>
             @endif
 
+            @php
+                $pagePermission = \App\Support\CmsPermissions::forRoute(request()->route()?->getName(), request()->method());
+                $pageModule = $pagePermission ? explode('.', $pagePermission)[0] : null;
+                $pageCanEdit = !$pageModule || !in_array('edit', \App\Support\CmsPermissions::modules()[$pageModule]['actions']) || auth()->user()->hasPermission($pageModule.'.edit');
+                $pageCanDelete = !$pageModule || auth()->user()->hasPermission($pageModule.'.delete');
+            @endphp
+            @if($pageModule && !$pageCanEdit)
+                <div class="alert alert-light border small mb-3" role="status">Mode lihat: role Anda tidak memiliki izin Edit / Tambah pada modul ini.</div>
+            @endif
+            @if($pageModule && auth()->user()->hasPermission($pageModule.'.export'))
+                <div class="text-end mb-3"><a class="btn btn-sm btn-outline-secondary" href="{{ route('admin.'.$pageModule.'.export') }}"><i class="bi bi-download me-1"></i>Export CSV</a></div>
+            @endif
             @yield('content')
         </div>
 
@@ -761,6 +798,29 @@
                 bsAlert.close();
             }, 5000);
         });
+    </script>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const writeAllowed = @json($pageCanEdit);
+        const deleteAllowed = @json($pageCanDelete);
+        const content = document.querySelector('.page-content');
+        @if(!auth()->user()->hasPermission('dashboard.view'))
+        document.querySelectorAll('a[href="{{ route('admin.dashboard') }}"]').forEach(link => link.href = @json(route(auth()->user()->homeRoute())));
+        @endif
+        content.querySelectorAll('form').forEach(form => {
+            const method = (form.querySelector('input[name="_method"]')?.value || form.method).toUpperCase();
+            if (method === 'GET' || (method === 'DELETE' ? deleteAllowed : writeAllowed)) return;
+            form.querySelectorAll('input,select,textarea,button').forEach(input => input.disabled = true);
+            form.querySelectorAll('button[type="submit"],button:not([type])').forEach(button => button.classList.add('d-none'));
+        });
+        if (!writeAllowed) {
+            content.querySelectorAll('a[href]').forEach(link => { if (/\/(edit|create)(?:[?#]|$)/.test(link.getAttribute('href'))) link.classList.add('d-none'); });
+            content.querySelectorAll('.fit-configure-button,.comparison-config-button,[data-bs-target="#standbyConfigModal"]').forEach(button => button.disabled = true);
+        }
+        if (!deleteAllowed) content.querySelectorAll('.btn-danger,.btn-outline-danger').forEach(button => button.classList.add('d-none'));
+    });
     </script>
 
     @stack('scripts')
