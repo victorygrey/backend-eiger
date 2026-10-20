@@ -19,3 +19,6 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Local renders, preview scripts, and copied test/catalog data.
+/tmp/

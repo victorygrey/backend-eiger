@@ -12,7 +12,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
         <h4 class="mb-1 fw-bold">
-            <i class="bi bi-tablet-landscape-fill text-primary me-2"></i>Interactive Table & Display
+            <i class="bi bi-tablet-landscape-fill text-primary me-2"></i>Interactive Tablet & Display
         </h4>
         <p class="text-muted small mb-0">
             Kelola konfigurasi perangkat layar sentuh meja ekspedisi (Table Product Knowledge) dan tablet display katalog produk EIGER.
