@@ -22,7 +22,7 @@
 @endphp
 <div class="mb-3"><a href="{{ route('admin.led-ambience.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Kembali</a></div>
 
-<form action="{{ route('admin.led-ambience.templates.update', $template) }}" method="POST" enctype="multipart/form-data">
+<form action="{{ route('admin.led-ambience.templates.update', $template) }}" method="POST" enctype="multipart/form-data" id="led-template-form">
     @csrf @method('PUT')
     <div class="row g-4">
         <div class="col-12 col-xl-8">
@@ -43,7 +43,8 @@
                         <div class="current-media mb-3"><video controls preload="metadata"><source src="{{ $videoUrl }}"></video><a href="{{ $videoUrl }}" target="_blank" class="small d-block mt-2">Buka file video saat ini</a></div>
                     @endif
                     <label class="form-label fw-semibold">{{ $videoUrl ? 'Ganti Video' : 'Upload Video' }}</label>
-                    <input type="file" name="video_file" class="form-control @error('video_file') is-invalid @enderror" accept="video/mp4,video/webm">
+                    <input type="file" name="video_file" class="form-control @error('video_file') is-invalid @enderror" accept="video/mp4,video/webm" data-max-mb="{{ config('led_ambience.max_video_mb') }}" aria-label="Upload video ambience">
+                    <div class="invalid-feedback" id="video-size-error" role="alert"></div>
                     @error('video_file')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     <div class="form-text">MP4 atau WebM, maksimal {{ config('led_ambience.max_video_mb') }} MB. File disimpan ke folder NAS khusus template ini.</div>
                     @if($videoUrl)<div class="form-check mt-3"><input type="hidden" name="remove_video" value="0"><input class="form-check-input" type="checkbox" name="remove_video" value="1" id="remove-video"><label class="form-check-label text-danger" for="remove-video">Lepaskan video dari template saat disimpan</label></div>@endif
@@ -57,7 +58,8 @@
                         <div class="current-media mb-3"><audio controls preload="metadata"><source src="{{ $audioUrl }}"></audio><a href="{{ $audioUrl }}" target="_blank" class="small d-block mt-2">Buka file audio saat ini</a></div>
                     @endif
                     <label class="form-label fw-semibold">{{ $audioUrl ? 'Ganti Audio' : 'Upload Audio' }}</label>
-                    <input type="file" name="audio_file" class="form-control @error('audio_file') is-invalid @enderror" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac">
+                    <input type="file" name="audio_file" class="form-control @error('audio_file') is-invalid @enderror" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac" data-max-mb="{{ config('led_ambience.max_audio_mb') }}" aria-label="Upload audio ambience">
+                    <div class="invalid-feedback" id="audio-size-error" role="alert"></div>
                     @error('audio_file')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     <div class="form-text">MP3, WAV, OGG, M4A, atau AAC, maksimal {{ config('led_ambience.max_audio_mb') }} MB.</div>
                     @if($audioUrl)<div class="form-check mt-3"><input type="hidden" name="remove_audio" value="0"><input class="form-check-input" type="checkbox" name="remove_audio" value="1" id="remove-audio"><label class="form-check-label text-danger" for="remove-audio">Lepaskan audio dari template saat disimpan</label></div>@endif
@@ -95,6 +97,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const picker = document.getElementById('lighting-color');
     const value = document.getElementById('lighting-value');
     picker?.addEventListener('input', () => { value.textContent = picker.value; });
+    const form = document.getElementById('led-template-form');
+    const fileInputs = [...form.querySelectorAll('input[type="file"]')];
+    function validateFile(input) {
+        const limit = Number(input.dataset.maxMb);
+        const tooLarge = input.files[0]?.size > limit * 1024 * 1024;
+        const message = tooLarge ? `Ukuran file melebihi batas ${limit} MB. Pilih file yang lebih kecil.` : '';
+        input.setCustomValidity(message);
+        input.classList.toggle('is-invalid', tooLarge);
+        document.getElementById(input.name === 'video_file' ? 'video-size-error' : 'audio-size-error').textContent = message;
+        return !tooLarge;
+    }
+    fileInputs.forEach(input => input.addEventListener('change', () => validateFile(input)));
+    form.addEventListener('submit', event => {
+        if (!fileInputs.map(validateFile).every(Boolean)) {
+            event.preventDefault();
+            form.reportValidity();
+        }
+    });
 });
 </script>
 @endpush

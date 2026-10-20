@@ -20,6 +20,7 @@ COPY --from=frontend /app/public/build ./public/build
 RUN mkdir -p bootstrap/cache storage/framework/views storage/framework/cache/data storage/framework/sessions storage/logs \
     && composer dump-autoload --optimize --no-dev --no-interaction
 COPY docker/nginx.conf /etc/nginx/sites-available/default
+COPY docker/uploads.ini /usr/local/etc/php/conf.d/zz-uploads.ini
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh \
