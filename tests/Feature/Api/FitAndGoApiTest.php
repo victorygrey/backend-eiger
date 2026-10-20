@@ -11,12 +11,13 @@ use App\Models\ProductVariant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Tests\Concerns\ConfiguresFitAndGoProducts;
 use Tests\TestCase;
 
 class FitAndGoApiTest extends TestCase
 {
+    use ConfiguresFitAndGoProducts;
     use RefreshDatabase;
-    use \Tests\Concerns\ConfiguresFitAndGoProducts;
 
     protected function setUp(): void
     {
@@ -134,6 +135,12 @@ class FitAndGoApiTest extends TestCase
 
         $this->configureFitProduct($older);
         $this->configureFitProduct($newer);
+        foreach ([$older, $newer] as $product) {
+            FitAndGoItemVisibility::create([
+                'device_id' => $device->id, 'product_id' => $product->id,
+                'category_code' => 'apparel', 'is_visible' => true,
+            ]);
+        }
 
         $response = $this->getJson('/api/v1/fit-and-go/products?device_code=fit-kiosk-01&category=apparel');
 

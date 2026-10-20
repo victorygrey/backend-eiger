@@ -8,7 +8,6 @@ use App\Models\FitAndGoCategory;
 use App\Models\FitAndGoDevice;
 use App\Models\FitAndGoItemVisibility;
 use App\Models\Product;
-use App\Services\FitAndGoProductClassifier;
 use App\Services\FitAndGoProductPresentation;
 use App\Support\DeviceProductPayload;
 use Illuminate\Http\JsonResponse;
@@ -168,7 +167,6 @@ class FitAndGoApiController extends Controller
             ], 404);
         }
 
-
         if (! $this->authorized($request, $device)) {
             return response()->json(['message' => 'Aktivasi perangkat diperlukan.'], 401);
         }
@@ -278,7 +276,7 @@ class FitAndGoApiController extends Controller
         $categoryParam = $request->query('category');
         $activityParam = $request->query('activity');
         $deviceCode = $request->query('device_code');
-        $limit = max(1, min((int) $request->query('limit', 15), 50));
+        $limit = $request->has('limit') ? max(1, min((int) $request->query('limit'), 50)) : null;
 
         $device = null;
         if ($deviceCode) {
@@ -311,12 +309,16 @@ class FitAndGoApiController extends Controller
                     : $activity->recommendedProducts()->pluck('products.id');
             }
             $query->whereIn('id', $activityProductIds);
+            if ($device?->product_selection_mode === 'latest') {
+                $query->whereIn('id', $this->visibleProductIds(null, $device));
+            }
         }
 
-        // Sort latest and limit (default 15 per SRS recommendation)
+        // Return the complete selection unless the caller requests a smaller result.
         $products = $this->presentation->ready($query
             ->with(FitAndGoProductPresentation::relations())
-            ->latest('id')->get())->take($limit)->values();
+            ->latest('created_at')->latest('id')->get());
+        $products = ($limit === null ? $products : $products->take($limit))->values();
         $products->load(DeviceProductPayload::relations());
 
         return response()->json([
@@ -355,7 +357,7 @@ class FitAndGoApiController extends Controller
     {
         $q = trim($request->query('q', ''));
         $deviceCode = $request->query('device_code');
-        $limit = max(1, min((int) $request->query('limit', 15), 50));
+        $limit = $request->has('limit') ? max(1, min((int) $request->query('limit'), 50)) : null;
 
         if (empty($q)) {
             return response()->json([
@@ -399,7 +401,8 @@ class FitAndGoApiController extends Controller
 
         $products = $this->presentation->ready($query
             ->with(FitAndGoProductPresentation::relations())
-            ->latest('id')->get())->take($limit)->values();
+            ->latest('created_at')->latest('id')->get());
+        $products = ($limit === null ? $products : $products->take($limit))->values();
         $products->load(DeviceProductPayload::relations());
 
         return response()->json([
@@ -427,40 +430,32 @@ class FitAndGoApiController extends Controller
 
         $positions = $ids->values()->flip();
 
-        return Product::with([...DeviceProductPayload::relations(), ...FitAndGoProductPresentation::relations()])
+        $products = Product::with([...DeviceProductPayload::relations(), ...FitAndGoProductPresentation::relations()])
             ->aiFitAndGoConfiguredCatalog()
             ->whereIn('id', $ids)
+            ->when($device?->product_selection_mode === 'latest', fn ($query) => $query
+                ->whereIn('id', $this->visibleProductIds(null, $device)))
             ->where('pim_catalog_active', true)
             ->where('is_discontinued', false)
+            ->latest('created_at')->latest('id')
             ->get()
-            ->filter(fn (Product $product): bool => $this->presentation->isConfigured($product))
-            ->sortBy(fn (Product $product) => $positions[$product->id] ?? PHP_INT_MAX)
-            ->values();
+            ->filter(fn (Product $product): bool => $this->presentation->isConfigured($product));
+
+        return ($device?->product_selection_mode === 'latest'
+            ? $products
+            : $products->sortBy(fn (Product $product) => $positions[$product->id] ?? PHP_INT_MAX))->values();
     }
 
     private function visibleProductIds(?string $categoryCode, ?FitAndGoDevice $device): array
     {
-        if ($device?->product_selection_mode === 'latest') {
-            $products = Product::query()
-                ->with(['atomCategory', 'atomSubCategory', ...FitAndGoProductPresentation::relations()])
-                ->aiFitAndGoConfiguredCatalog()
-                ->latest('updated_at')
-                ->get();
-            $products = $this->presentation->ready($products)->take(30);
-
-            if ($categoryCode) {
-                $classifier = app(FitAndGoProductClassifier::class);
-                $products = $products
-                    ->filter(fn (Product $product) => $classifier->groupCode($product) === $categoryCode)
-                    ->values();
-            }
-
-            return $products->pluck('id')->all();
-        }
-
         $rows = FitAndGoItemVisibility::query()
             ->when($categoryCode, fn ($q) => $q->where('category_code', $categoryCode))
             ->where(function ($q) use ($device) {
+                if ($device?->product_selection_mode === 'latest') {
+                    $q->where('device_id', $device->id);
+
+                    return;
+                }
                 $q->whereNull('device_id');
                 if ($device) {
                     $q->orWhere('device_id', $device->id);
@@ -469,8 +464,11 @@ class FitAndGoApiController extends Controller
             ->orderByRaw('CASE WHEN device_id IS NULL THEN 0 ELSE 1 END DESC')
             ->latest('id')->get();
 
-        return $rows->unique(fn ($row) => $row->category_code.':'.$row->product_id)
-            ->where('is_visible', true)->pluck('product_id')->unique()->values()->all();
+        $ids = $rows->unique(fn ($row) => $row->category_code.':'.$row->product_id)
+            ->where('is_visible', true)->pluck('product_id')->unique()->values();
+
+        return Product::query()->whereIn('id', $ids)
+            ->latest('created_at')->latest('id')->pluck('id')->all();
     }
 
     /**

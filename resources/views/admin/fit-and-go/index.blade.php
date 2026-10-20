@@ -11,6 +11,10 @@
 <style>
     .fit-config-shell { --fit-orange: #ff6500; --fit-navy: #171b2d; }
     .fit-config-card { border: 0; border-radius: 16px; box-shadow: 0 10px 32px rgba(24, 30, 48, .07); }
+    #fit-product-config-form { padding-bottom: 110px; }
+    .fit-save-bar { position: fixed; bottom: 16px; left: calc(var(--sidebar-width) + 28px); right: 28px; z-index: 1010; border: 1px solid #e3e6eb; background: #fff; box-shadow: 0 4px 30px rgba(24, 30, 48, .18); }
+    @media (max-width: 768px) { .fit-save-bar { left: 16px; right: 16px; } }
+    @media (max-width: 575.98px) { #fit-product-config-form { padding-bottom: 170px; } .fit-save-bar .btn { width: 100%; } }
     .fit-summary { background: linear-gradient(135deg, #171b2d 0%, #252b44 100%); border-radius: 16px; color: #fff; overflow: hidden; padding: 1.35rem; position: relative; }
     .fit-summary::after { background: var(--fit-orange); border-radius: 50%; content: ''; height: 150px; opacity: .15; position: absolute; right: -55px; top: -70px; width: 150px; }
     .fit-summary .summary-icon { align-items: center; background: rgba(255, 101, 0, .18); border: 1px solid rgba(255, 101, 0, .35); border-radius: 12px; color: #ff8b3d; display: flex; height: 44px; justify-content: center; width: 44px; }
@@ -119,7 +123,7 @@
                             <div class="fit-summary-value mt-1">{{ $configuredProductCount }} produk dikonfigurasi</div>
                             <div class="small mt-2" style="color:#c8cedb">
                                 {{ $selectionMode === 'latest'
-                                    ? 'Mode Terbaru memilih otomatis maksimal 30 produk terbaru yang sudah Config Done.'
+                                    ? 'Mode Terbaru memakai semua pilihan untuk perangkat ini, diurutkan terbaru per jenis produk.'
                                     : 'Mode Terpilih memakai produk yang dicentang khusus untuk perangkat ini.' }}
                             </div>
                         </div>
@@ -154,6 +158,7 @@
         @if($selectedDevice)
             <form method="POST" action="{{ route('admin.fit-and-go.product-config.update', $selectedDevice) }}" id="fit-product-config-form">
                 @csrf @method('PUT')
+                <input type="hidden" name="selection_submitted" value="1">
                 <div class="card fit-config-card mb-4">
                     <div class="card-body p-3 p-lg-4">
                         <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
@@ -172,7 +177,7 @@
                                     <input type="radio" name="selection_mode" value="latest" @checked($selectionMode === 'latest')>
                                     <span class="mode-option-body d-flex gap-3">
                                         <span class="group-title-icon flex-shrink-0"><i class="bi bi-clock-history"></i></span>
-                                    <span class="flex-grow-1"><span class="d-flex justify-content-between"><strong>Terbaru</strong><i class="bi bi-check-circle-fill mode-option-check"></i></span><span class="d-block small text-muted mt-1">Otomatis menampilkan maksimal 30 produk terbaru yang sudah memilih foto dan mengisi deskripsi.</span></span>
+                                    <span class="flex-grow-1"><span class="d-flex justify-content-between"><strong>Terbaru</strong><i class="bi bi-check-circle-fill mode-option-check"></i></span><span class="d-block small text-muted mt-1">Semua produk yang dicentang untuk lantai ini, otomatis diurutkan terbaru ke terlama per jenis produk. Tanpa batas jumlah.</span></span>
                                     </span>
                                 </label>
                             </div>
@@ -181,7 +186,7 @@
                                     <input type="radio" name="selection_mode" value="selected" @checked($selectionMode === 'selected')>
                                     <span class="mode-option-body d-flex gap-3">
                                         <span class="group-title-icon flex-shrink-0"><i class="bi bi-check2-square"></i></span>
-                                        <span class="flex-grow-1"><span class="d-flex justify-content-between"><strong>Terpilih</strong><i class="bi bi-check-circle-fill mode-option-check"></i></span><span class="d-block small text-muted mt-1">Pilih manual produk khusus untuk perangkat/lantai ini, maksimal 30 produk.</span></span>
+                                        <span class="flex-grow-1"><span class="d-flex justify-content-between"><strong>Terpilih</strong><i class="bi bi-check-circle-fill mode-option-check"></i></span><span class="d-block small text-muted mt-1">Pilih manual produk khusus untuk perangkat/lantai ini, tanpa batas jumlah.</span></span>
                                     </span>
                                 </label>
                             </div>
@@ -190,7 +195,7 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div><h6 class="fw-bold mb-1">Produk untuk {{ $selectedDevice->location ?: $selectedDevice->name }}</h6><div class="text-muted small">Pilih foto dan isi deskripsi melalui tombol Konfigurasi sebelum mencentang produk.</div></div>
+                    <div><h6 class="fw-bold mb-1">Produk untuk {{ $selectedDevice->location ?: $selectedDevice->name }}</h6><div class="text-muted small">Urutan terbaru ke terlama pada setiap jenis produk. Lengkapi Konfigurasi sebelum mencentang produk.</div></div>
                     <span class="fit-chip selected" id="fit-selected-count"><i class="bi bi-check-circle-fill me-1"></i>{{ $configuredProductCount }} Dipakai</span>
                 </div>
 
@@ -198,13 +203,12 @@
                     @foreach($productGroups as $group)
                         @php
                             $groupSelectedCount = $group['products']->whereIn('id', $selectedProductIds)->whereIn('id', $configuredProductIds)->count();
-                            $groupLatestCount = $group['products']->whereIn('id', $latestProductIds)->count();
                         @endphp
                         <section class="group-card">
                             <div class="group-header">
                                 <div class="group-title">
                                     <span class="group-title-icon"><i class="bi {{ $group['icon'] }}"></i></span>
-                                    <div><div class="fw-bold">{{ $group['label'] }}</div><div class="text-muted" style="font-size:.7rem"><span class="group-selected-count">{{ $selectionMode === 'latest' ? $groupLatestCount : $groupSelectedCount }}</span> dari {{ $group['products']->count() }} produk dipakai</div></div>
+                                    <div><div class="fw-bold">{{ $group['label'] }}</div><div class="text-muted" style="font-size:.7rem"><span class="group-selected-count">{{ $groupSelectedCount }}</span> dari {{ $group['products']->count() }} produk dipakai</div></div>
                                 </div>
                                 <span class="fit-chip">Mapping PIM</span>
                             </div>
@@ -216,20 +220,19 @@
                                         @php
                                             $isConfigured = in_array($product->id, $configuredProductIds, true);
                                             $isSelected = $isConfigured && in_array($product->id, $selectedProductIds, true);
-                                            $isLatest = in_array($product->id, $latestProductIds, true);
                                             $previewImage = \App\Support\PimMediaUrl::toPublicUrl($isConfigured ? $presentation->primaryImage($product) : $product->image);
                                             $categoryName = $product->atomSubCategory?->name ?? $product->atomCategory?->name ?? $product->category;
                                             $activityNames = collect($product->activities)->map(fn ($activity) => data_get($activity, 'master_activity.name') ?: data_get($activity, 'name'))->filter()->unique()->take(2);
                                         @endphp
                                         <div class="col-12 col-lg-6 col-xxl-4 fit-product-wrapper" data-search="{{ Str::lower($product->name.' '.$product->sku.' '.$categoryName) }}">
-                                            <div class="fit-product d-flex gap-3 {{ ($selectionMode === 'latest' && $isLatest) || ($selectionMode === 'selected' && $isSelected) ? 'is-selected' : '' }}" data-auto-selected="{{ $isLatest ? 1 : 0 }}" data-configured="{{ $isConfigured ? 1 : 0 }}" data-rank="{{ $aiProducts->search(fn ($item) => $item->id === $product->id) }}" data-product-id="{{ $product->id }}">
+                                            <div class="fit-product d-flex gap-3 {{ $isSelected ? 'is-selected' : '' }}" data-configured="{{ $isConfigured ? 1 : 0 }}" data-product-id="{{ $product->id }}">
                                                 <div class="fit-product-image">
                                                     @if($previewImage)<img src="{{ $previewImage }}" alt="{{ $product->name }}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block';"><i class="bi bi-image text-muted" style="display:none"></i>@else<i class="bi bi-image text-muted"></i>@endif
                                                 </div>
                                                 <div class="d-flex flex-column min-width-0 flex-grow-1">
                                                     <div class="d-flex justify-content-between gap-2">
                                                         <div class="min-width-0"><div class="fit-product-name text-truncate" id="fit-product-name-{{ $product->id }}" title="{{ $product->name }}">{{ $product->name }}</div><div class="fit-product-sku font-monospace mt-1">{{ $product->sku }}</div></div>
-                                                        <input class="form-check-input fit-product-select" type="checkbox" name="product_ids[]" value="{{ $product->id }}" aria-labelledby="fit-product-name-{{ $product->id }}" @checked($isSelected) @disabled(!$isConfigured || $selectionMode === 'latest')>
+                                                        <input class="form-check-input fit-product-select" type="checkbox" name="product_ids[]" value="{{ $product->id }}" aria-labelledby="fit-product-name-{{ $product->id }}" @checked($isSelected) @disabled(!$isConfigured)>
                                                     </div>
                                                     <div class="d-flex flex-wrap gap-1 mt-2"><span class="fit-chip">{{ $categoryName ?: 'Tanpa kategori' }}</span>@foreach($activityNames as $activityName)<span class="fit-chip">{{ $activityName }}</span>@endforeach</div>
                                                     <div class="small mt-auto pt-2"><span class="fw-bold">{{ $product->variants_count }}</span> <span class="text-muted">varian</span><span class="text-muted mx-1">•</span><span class="fw-bold">{{ number_format($product->stock) }}</span> <span class="text-muted">stok</span></div>
@@ -247,7 +250,7 @@
                     @endforeach
                 </div>
 
-                <div class="card fit-config-card mt-4"><div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div class="card fit-config-card fit-save-bar" aria-label="Simpan konfigurasi AI Fit & Go"><div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                     <div><div class="fw-bold">Simpan konfigurasi {{ $selectedDevice->name }}</div><div class="small text-muted">Perubahan hanya berlaku untuk perangkat di {{ $selectedDevice->location ?: 'lokasi ini' }}.</div></div>
                     <button class="btn btn-eiger fw-bold px-4"><i class="bi bi-check-lg me-1"></i>Simpan Config Product</button>
                 </div></div>
@@ -340,7 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const productInputs = [...form.querySelectorAll('.fit-product-select')];
     const counter = document.getElementById('fit-selected-count');
     const search = document.getElementById('fit-product-search');
-    const cards = [...form.querySelectorAll('.fit-product')];
     const modalElement = document.getElementById('fit-presentation-modal');
     const modalForm = document.getElementById('fit-presentation-form');
     const modalError = document.getElementById('fit-presentation-error');
@@ -423,38 +425,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function refresh() {
-        const latestMode = form.querySelector('input[name="selection_mode"]:checked')?.value === 'latest';
-        const latestCards = cards.filter(card => card.dataset.configured === '1')
-            .sort((a, b) => Number(a.dataset.rank) - Number(b.dataset.rank)).slice(0, 30);
-        cards.forEach(card => card.dataset.autoSelected = latestCards.includes(card) ? '1' : '0');
         productInputs.forEach(input => {
             const card = input.closest('.fit-product');
-            input.disabled = !canConfigure || latestMode || card.dataset.configured !== '1';
+            input.disabled = !canConfigure || card.dataset.configured !== '1';
             if (card.dataset.configured !== '1') input.checked = false;
-            card.classList.toggle('is-selected', latestMode ? card.dataset.autoSelected === '1' : input.checked);
+            card.classList.toggle('is-selected', input.checked);
         });
 
         form.querySelectorAll('.group-card').forEach(group => {
             const cards = [...group.querySelectorAll('.fit-product')];
-            const used = cards.filter(card => latestMode ? card.dataset.autoSelected === '1' : card.querySelector('.fit-product-select').checked).length;
+            const used = cards.filter(card => card.querySelector('.fit-product-select').checked).length;
             const groupCounter = group.querySelector('.group-selected-count');
             if (groupCounter) groupCounter.textContent = used;
         });
 
-        const count = productInputs.filter(input => latestMode
-            ? input.closest('.fit-product').dataset.autoSelected === '1'
-            : input.checked).length;
+        const count = productInputs.filter(input => input.checked).length;
         counter.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${count} Dipakai`;
     }
 
-    productInputs.forEach(input => input.addEventListener('change', () => {
-        const selectedCount = productInputs.filter(item => item.checked).length;
-        if (selectedCount > 30) {
-            input.checked = false;
-            window.alert('Maksimal 30 produk dapat dipilih untuk satu perangkat.');
-        }
-        refresh();
-    }));
+    productInputs.forEach(input => input.addEventListener('change', refresh));
     modeInputs.forEach(input => input.addEventListener('change', refresh));
     search?.addEventListener('input', event => {
         const keyword = event.target.value.toLowerCase().trim();

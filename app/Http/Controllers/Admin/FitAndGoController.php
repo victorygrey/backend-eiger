@@ -46,7 +46,7 @@ class FitAndGoController extends Controller
                     ->where('name', 'like', "%{$search}%")
                     ->orWhere('sku', 'like', "%{$search}%"));
             })
-            ->latest('updated_at')
+            ->latest('created_at')->latest('id')
             ->get();
 
         $categoryDefinitions = collect($classifier->definitions());
@@ -94,14 +94,11 @@ class FitAndGoController extends Controller
             : [];
         $selectionMode = $selectedDevice?->product_selection_mode ?? 'selected';
         $configuredProductIds = $presentation->ready($aiProducts)->pluck('id')->all();
-        $latestProductIds = array_slice($configuredProductIds, 0, 30);
         $activeSelectedProductIds = array_values(array_intersect(
             $selectedProductIds,
             $configuredProductIds
         ));
-        $configuredProductCount = $selectionMode === 'latest'
-            ? count($latestProductIds)
-            : count($activeSelectedProductIds);
+        $configuredProductCount = count($activeSelectedProductIds);
 
         return view('admin.fit-and-go.index', [
             'currentTab' => $currentTab,
@@ -112,7 +109,6 @@ class FitAndGoController extends Controller
             'selectedDevice' => $selectedDevice,
             'selectedProductIds' => $selectedProductIds,
             'selectionMode' => $selectionMode,
-            'latestProductIds' => $latestProductIds,
             'configuredProductCount' => $configuredProductCount,
             'configuredProductIds' => $configuredProductIds,
             'presentation' => $presentation,
@@ -128,12 +124,14 @@ class FitAndGoController extends Controller
 
         $validated = $request->validate([
             'selection_mode' => 'required|in:latest,selected',
-            'product_ids' => 'nullable|array|max:30',
+            'product_ids' => 'nullable|array',
             'product_ids.*' => 'integer|distinct|exists:products,id',
         ]);
         $productIds = array_values($validated['product_ids'] ?? []);
 
-        if ($validated['selection_mode'] === 'selected') {
+        // Older clients may switch modes without submitting a new selection.
+        // The form sends selection_submitted even when every checkbox is cleared.
+        if ($validated['selection_mode'] === 'selected' || $request->has('product_ids') || $request->boolean('selection_submitted')) {
             $eligibleProducts = Product::query()
                 ->with(['atomCategory', 'atomSubCategory', ...FitAndGoProductPresentation::relations()])
                 ->aiFitAndGoCatalog()
@@ -152,7 +150,7 @@ class FitAndGoController extends Controller
                 ]);
             }
 
-            DB::transaction(function () use ($device, $eligibleProducts, $classifier) {
+            DB::transaction(function () use ($device, $eligibleProducts, $classifier, $validated) {
                 FitAndGoItemVisibility::where('device_id', $device->id)->delete();
                 foreach ($eligibleProducts as $product) {
                     FitAndGoItemVisibility::create([
@@ -162,10 +160,11 @@ class FitAndGoController extends Controller
                         'is_visible' => true,
                     ]);
                 }
+                $device->update(['product_selection_mode' => $validated['selection_mode']]);
             });
+        } else {
+            $device->update(['product_selection_mode' => $validated['selection_mode']]);
         }
-
-        $device->update(['product_selection_mode' => $validated['selection_mode']]);
 
         return redirect()->route('admin.fit-and-go.index', [
             'tab' => 'products',

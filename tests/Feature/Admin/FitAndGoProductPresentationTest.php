@@ -148,12 +148,16 @@ class FitAndGoProductPresentationTest extends TestCase
         $this->getJson('/api/v1/fit-and-go/products/'.$unready->id)->assertNotFound();
     }
 
-    public function test_latest_mode_filters_unconfigured_products_before_applying_the_limit(): void
+    public function test_latest_mode_excludes_unconfigured_selected_products(): void
     {
         $device = FitAndGoDevice::where('device_code', 'fit-and-go-lantai-1')->firstOrFail();
         $device->update(['product_selection_mode' => 'latest']);
         $ready = $this->product();
         $this->configureFitProduct($ready);
+        FitAndGoItemVisibility::create([
+            'device_id' => $device->id, 'product_id' => $ready->id,
+            'category_code' => 'apparel', 'is_visible' => true,
+        ]);
         $ready->update(['updated_at' => now()->subDays(2)]);
         for ($index = 0; $index < 31; $index++) {
             $this->product(['updated_at' => now()]);
