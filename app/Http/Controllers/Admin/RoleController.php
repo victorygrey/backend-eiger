@@ -22,7 +22,9 @@ class RoleController extends Controller
 
     private function data(Request $request, ?Role $role = null): array
     {
-        $request->merge(['name' => trim((string) $request->input('name'))]);
+        if (is_string($request->input('name'))) {
+            $request->merge(['name' => trim($request->input('name'))]);
+        }
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique('roles')->ignore($role?->id)],
             'permissions' => ['nullable', 'array'],

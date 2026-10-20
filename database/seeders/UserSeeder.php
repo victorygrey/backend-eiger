@@ -10,6 +10,10 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
+        // Known demo credentials must never provision an account on a deployed CMS.
+        if (! app()->environment('local', 'testing')) {
+            return;
+        }
         // 1. Default SuperAdmin (Full access to User Management, Integrations, and all modules)
         User::firstOrCreate(
             ['email' => 'superadmin@eigeradventure.com'],

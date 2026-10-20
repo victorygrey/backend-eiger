@@ -229,6 +229,7 @@
         @endif
 
         {{-- Quick Credential Reference Box --}}
+        @if(app()->environment('local', 'testing'))
         <div class="p-3 mb-4" style="background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.14); font-size: 0.8rem;">
             <div class="text-warning fw-semibold mb-2 d-flex align-items-center gap-1">
                 <i class="bi bi-shield-check"></i> Akun Bawaan (Default Login):
@@ -246,6 +247,7 @@
             </div>
         </div>
 
+        @endif
         <form action="{{ route('login') }}" method="POST">
             @csrf
             <div class="mb-3">
@@ -254,7 +256,7 @@
                     <span class="input-group-text bg-dark border-secondary text-secondary" style="border-radius: 10px 0 0 10px; border-color: rgba(255,255,255,0.12) !important;">
                         <i class="bi bi-person"></i>
                     </span>
-                    <input type="text" name="email" id="email" class="form-control" style="border-radius: 0 10px 10px 0;" placeholder="superadmin atau admin" value="{{ old('email') }}" required autofocus autocomplete="username">
+                    <input type="text" name="email" id="email" class="form-control" style="border-radius: 0 10px 10px 0;" placeholder="Masukkan username atau email" value="{{ old('email') }}" required autofocus autocomplete="username">
                 </div>
             </div>
 

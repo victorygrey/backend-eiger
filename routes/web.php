@@ -31,7 +31,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // ====== Admin Console ======
-Route::prefix('admin')->name('admin.')->middleware(['auth', EnsureCmsPermission::class])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'auth.session', EnsureCmsPermission::class])->group(function () {
     // User Profile
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');

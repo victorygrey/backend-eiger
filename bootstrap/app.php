@@ -16,12 +16,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
+        $middleware->trimStrings(except: ['new_password', 'new_password_confirmation']);
         $middleware->alias([
             'role' => EnsureUserRole::class,
             'cms-api' => EnsureCmsApiPermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->dontFlash(['new_password', 'new_password_confirmation', 'activation_code']);
         $exceptions->respond(function (Response $response) {
             if ($response->getStatusCode() === 419
                 && request()->isMethod('post')

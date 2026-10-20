@@ -89,7 +89,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="new_password">Kata Sandi Baru</label>
-                            <input type="password" name="new_password" id="new_password" class="form-control" placeholder="Minimal 6 karakter" minlength="6">
+                            <input type="password" name="new_password" id="new_password" class="form-control" placeholder="Minimal 8 karakter" minlength="8" maxlength="72" autocomplete="new-password">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="new_password_confirmation">Konfirmasi Kata Sandi Baru</label>
