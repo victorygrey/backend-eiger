@@ -1,0 +1,113 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ATOM import regression fixture",
+    "version": "1.0.0",
+    "description": "Local test fixture based on the supplied ATOM guide and public response shapes; not the provider full specification."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:4907"
+    }
+  ],
+  "paths": {
+    "/api/v1/app/products/curtus": {
+      "get": {
+        "summary": "Regression fixture detail",
+        "responses": {
+          "200": {
+            "description": "Public ATOM response shape used by the importer regression fixture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                },
+                "example": {
+                  "data": {
+                    "id": "8108",
+                    "attributes": {
+                      "skuProduct": "910012103",
+                      "slug": "curtus",
+                      "name": "CURTUS",
+                      "category": {
+                        "name": "Footwear"
+                      },
+                      "subCategory": {
+                        "name": "Sepatu"
+                      },
+                      "activity": {
+                        "name": "Day Hike"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/app/products/curtus/variants": {
+      "get": {
+        "summary": "Regression fixture /variants",
+        "responses": {
+          "200": {
+            "description": "Public ATOM response shape used by the importer regression fixture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "48498",
+                      "attributes": {
+                        "sku": "910012103001",
+                        "size": "38",
+                        "stock": 3,
+                        "price": {
+                          "sellingPriceNumber": "1929000"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/app/products/curtus/variant-images": {
+      "get": {
+        "summary": "Regression fixture /variant-images",
+        "responses": {
+          "200": {
+            "description": "Public ATOM response shape used by the importer regression fixture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "256100",
+                      "attributes": {
+                        "color": {
+                          "name": "BLACK"
+                        },
+                        "image": "https://d1yutv2xslo29o.cloudfront.net/black.jpg"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

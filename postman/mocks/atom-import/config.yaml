@@ -1,0 +1,11 @@
+version: 1
+id: baf74290-a51a-42a3-8934-83d866d12038
+name: atom-import
+slug: atom-import
+protocol: http
+interceptRequests: true
+port: 4500
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

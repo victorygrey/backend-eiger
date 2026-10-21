@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\SyncLog;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AtomProductImportService
 {
@@ -17,14 +18,21 @@ class AtomProductImportService
     ) {}
 
     /** @param array<string, mixed> $selection */
-    public function import(array $selection, bool $downloadMedia = true): array
+    public function import(array $selection, bool $downloadMedia = true, bool $onlyMissing = false, ?array $resources = null): array
     {
+        if ($onlyMissing && ($existing = Product::where('sku', $selection['sku'])->first())) {
+            return ['product_id' => $existing->id, 'sku' => $existing->sku, 'status' => 'skipped_existing'];
+        }
         $slug = (string) $selection['slug'];
+        $detail = $resources['detail'] ?? $this->atom->product($slug);
+        if ((string) ($detail['skuProduct'] ?? '') !== (string) $selection['sku']) {
+            throw ValidationException::withMessages(['sku' => 'SKU artikel ATOM berbeda dari SKU yang dipilih; impor dibatalkan.']);
+        }
         $mapped = $this->payloadMapper->map(
             $selection,
-            $this->atom->product($slug),
-            $this->atom->variants($slug),
-            $this->atom->variantImages($slug),
+            $detail,
+            $resources['variants'] ?? $this->atom->variants($slug),
+            $resources['variant_images'] ?? $this->atom->variantImages($slug),
         );
         $data = $this->pimPayload->validate($mapped);
         $genericMedia = ['pim_media' => [], 'image' => $data['product']['mainImage'] ?? null];
@@ -48,8 +56,13 @@ class AtomProductImportService
             ->filter(fn ($row) => is_string($row['source_url'] ?? null) && is_string($row['url'] ?? null))
             ->pluck('url', 'source_url');
 
-        return DB::transaction(function () use ($data, $catalog, $genericMedia, $localizedBySource, $fallbackPrice, $fallbackStock) {
+        return DB::transaction(function () use ($data, $catalog, $genericMedia, $localizedBySource, $fallbackPrice, $fallbackStock, $onlyMissing) {
             $detail = $data['product'];
+            // Recheck after media work: a real PIM delivery may have created the
+            // article while this import was downloading its archive photos.
+            if ($onlyMissing && ($existing = Product::where('sku', $detail['generic'])->first())) {
+                return ['product_id' => $existing->id, 'sku' => $existing->sku, 'status' => 'skipped_existing'];
+            }
             $parent = Product::updateOrCreate(['sku' => $detail['generic']], [
                 'name' => $catalog['name'] ?: $detail['name'],
                 'zone_id' => $catalog['zone_id'],
@@ -114,6 +127,7 @@ class AtomProductImportService
                 'variants' => count($catalog['variants']),
                 'media' => count($genericMedia['pim_media']),
                 'care_enriched' => $catalog['care_found'],
+                'status' => 'imported',
             ];
         });
     }

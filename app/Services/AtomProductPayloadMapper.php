@@ -123,10 +123,14 @@ class AtomProductPayloadMapper
                 $variantCount % $groupCount === 0 => intdiv($index, max(1, intdiv($variantCount, $groupCount))),
                 default => $index % $groupCount,
             };
-            $group = $imageGroups[$groupIndex] ?? $imageGroups[0] ?? ['color' => '', 'images' => []];
+            $explicitColor = data_get($row, 'color.name') ?? (is_string($row['color'] ?? null) ? $row['color'] : null);
+            $group = $explicitColor
+                ? collect($imageGroups)->first(fn ($item) => strcasecmp($item['color'], $explicitColor) === 0)
+                : null;
+            $group ??= $imageGroups[$groupIndex] ?? $imageGroups[0] ?? ['color' => '', 'images' => []];
             $price = $row['price'] ?? [];
             $size = (string) ($row['size'] ?? '');
-            $color = (string) ($group['color'] ?? '');
+            $color = (string) ($explicitColor ?? $group['color'] ?? '');
 
             return [
                 'sku' => (string) ($row['sku'] ?? ''),
