@@ -43,10 +43,15 @@ modul; kredensial Bearer PIM/perangkat bukan pengganti sesi user CMS:
 
 - POST/PUT/PATCH/DELETE `/api/zones` dan `/api/zones/{zone}`.
 - POST/PUT/PATCH/DELETE `/api/rfid-tags` dan `/api/rfid-tags/{rfid_tag}`.
-- POST `/api/rfid-tags/batch`: sesi CMS, CSRF, dan `rfid-tags.edit` (pendaftaran massal
-  menulis database sehingga tidak boleh dipanggil anonim). Endpoint resolve tetap read-only.
 - POST `/api/sync/care`: `integrations.edit`.
 - PUT `/api/print-rules/{printRule}`: SuperAdmin.
+
+Pengecualian integrasi scanner: POST `/api/rfid-tags/batch` menerima UID massal
+tanpa login CMS, cookie sesi, CSRF, atau Bearer token. Endpoint ini hanya mendaftarkan
+UID yang belum ada sebagai tag tanpa produk, tidak mengganti pemetaan yang sudah ada,
+dan tidak mengaktifkan LED Ambience/Table Expedition. Batas 500 UID per request dan
+validasi format UID tetap berlaku. Endpoint resolve tetap read-only.
+Kontrak lengkap: [API scanner RFID](rfid-scanner-api.md).
 
 Export CSV tersedia pada `/admin/{module}/export/csv` untuk products, rfid-tags,
 print-history, dan sync-logs. Export memerlukan izin export tersendiri, tidak
@@ -79,7 +84,7 @@ akun yang telah dikelola admin.
   SuperAdmin secara terpisah melalui prosedur operasional.
 
 Pengujian audit ada di `tests/Feature/Admin/RbacSecurityAuditTest.php`, mencakup
-akses tulis RFID anonim/read-only, bypass alias login, rate limiting, sesi setelah
+akses pengelolaan RFID anonim/read-only, bypass alias login, rate limiting, sesi setelah
 reset, kebocoran old input, duplikasi email, input tidak valid, serta CSRF aktif.
 Audit ini dilakukan pada source dan database pengujian lokal. Konfigurasi NAS,
 Cloudflare, kredensial akun staging, serta seluruh permukaan API runtime tidak

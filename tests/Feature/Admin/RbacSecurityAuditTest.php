@@ -13,16 +13,16 @@ class RbacSecurityAuditTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_anonymous_and_read_only_users_cannot_register_rfid_tags_in_bulk(): void
+    public function test_anonymous_and_read_only_users_cannot_use_single_tag_management_api(): void
     {
         auth()->logout();
-        $this->postJson('/api/rfid-tags/batch', ['uids' => ['ABCDEF01']])->assertUnauthorized();
+        $this->postJson('/api/rfid-tags', ['uid' => 'ABCDEF01'])->assertUnauthorized();
         $role = Role::create(['name' => 'RFID Reader', 'slug' => 'rfid-reader', 'permissions' => ['rfid-tags.view'], 'is_active' => true]);
         $this->actingAs(User::factory()->create(['role' => $role->slug]));
-        $this->postJson('/api/rfid-tags/batch', ['uids' => ['ABCDEF01']])->assertForbidden();
+        $this->postJson('/api/rfid-tags', ['uid' => 'ABCDEF01'])->assertForbidden();
         $this->assertDatabaseCount('rfid_tags', 0);
         $role->update(['permissions' => ['rfid-tags.view', 'rfid-tags.edit']]);
-        $this->postJson('/api/rfid-tags/batch', ['uids' => ['ABCDEF01']])->assertCreated();
+        $this->postJson('/api/rfid-tags', ['uid' => 'ABCDEF01'])->assertCreated();
     }
 
     public function test_login_wildcards_and_ambiguous_aliases_cannot_select_an_account(): void
@@ -118,8 +118,8 @@ class RbacSecurityAuditTest extends TestCase
         $this->actingAs($staff)->withSession(['_token' => str_repeat('a', 40)]);
         // The test framework normally bypasses CSRF; exercise real middleware here.
         $this->app['env'] = 'production';
-        $this->postJson('/api/rfid-tags/batch', ['uids' => ['ABCDEF01']])->assertStatus(419);
-        $this->postJson('/api/rfid-tags/batch', ['uids' => ['ABCDEF01']], ['X-CSRF-TOKEN' => str_repeat('a', 40)])->assertForbidden();
+        $this->postJson('/api/rfid-tags', ['uid' => 'ABCDEF01'])->assertStatus(419);
+        $this->postJson('/api/rfid-tags', ['uid' => 'ABCDEF01'], ['X-CSRF-TOKEN' => str_repeat('a', 40)])->assertForbidden();
         $this->assertDatabaseCount('rfid_tags', 0);
         $this->app['env'] = 'testing';
     }

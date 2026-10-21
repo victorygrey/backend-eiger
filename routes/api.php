@@ -51,7 +51,9 @@ Route::delete('zones/{zone}', [ZoneController::class, 'destroy'])->middleware(['
 
 // RFID Tags
 Route::post('rfid-tags/resolve', [RfidTagController::class, 'resolve']);
-Route::post('rfid-tags/batch', [RfidTagController::class, 'batchStore'])->middleware(['web', 'cms-api:rfid-tags.edit']);
+// External scanners register unassigned UIDs without a CMS session or CSRF token.
+// Product mappings and channel settings remain protected management operations.
+Route::post('rfid-tags/batch', [RfidTagController::class, 'batchStore']);
 Route::apiResource('rfid-tags', RfidTagController::class)->only(['index', 'show']);
 Route::middleware(['web', 'cms-api:rfid-tags.edit'])->group(function () {
     Route::post('rfid-tags', [RfidTagController::class, 'store']);

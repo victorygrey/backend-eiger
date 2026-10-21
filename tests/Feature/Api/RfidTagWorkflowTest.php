@@ -32,6 +32,9 @@ class RfidTagWorkflowTest extends TestCase
 
     public function test_batch_store_only_creates_missing_unassigned_tags_and_is_idempotent(): void
     {
+        auth()->logout();
+        // Exercise the actual external-scanner contract without test-mode CSRF bypass.
+        $this->app['env'] = 'production';
         $product = Product::factory()->create();
         $existing = RfidTag::create([
             'uid' => 'E200-0000:0000 0001',
@@ -60,6 +63,30 @@ class RfidTagWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('created_count', 0)
             ->assertJsonPath('existing_count', 2);
+    }
+
+    public function test_anonymous_batch_does_not_allow_product_assignment_or_channel_activation(): void
+    {
+        auth()->logout();
+        $product = Product::factory()->create();
+        $this->postJson('/api/rfid-tags/batch', [
+            'uids' => ['E200000000000005'],
+            'product_id' => $product->id,
+            'led_ambience_active' => true,
+            'table_expedition_active' => true,
+        ])->assertCreated()->assertJsonPath('created.0.product_id', null);
+        $this->assertDatabaseHas('rfid_tags', ['uid' => 'E200000000000005', 'product_id' => null]);
+        $this->assertDatabaseCount('led_ambience_items', 0);
+        $this->assertDatabaseCount('table_expedition_items', 0);
+    }
+
+    public function test_anonymous_batch_still_rejects_invalid_or_oversized_uid_lists(): void
+    {
+        auth()->logout();
+        foreach ([[], ['not-a-hex-uid'], array_fill(0, 501, 'ABCDEF01')] as $uids) {
+            $this->postJson('/api/rfid-tags/batch', ['uids' => $uids])->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('rfid_tags', 0);
     }
 
     public function test_single_store_accepts_an_unassigned_tag(): void
