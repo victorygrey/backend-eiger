@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\PhotoCaptureDateTime;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,11 +35,11 @@ class PhotoCapture extends Model
     ];
 
     protected $casts = [
-        'captured_at' => 'datetime',
-        'expires_at' => 'datetime',
+        'captured_at' => PhotoCaptureDateTime::class,
+        'expires_at' => PhotoCaptureDateTime::class,
         'products' => 'array',
-        'consented_at' => 'datetime',
-        'purged_at' => 'datetime',
+        'consented_at' => PhotoCaptureDateTime::class,
+        'purged_at' => PhotoCaptureDateTime::class,
     ];
 
     protected $hidden = ['photo_path', 'thumbnail_path', 'request_hash', 'idempotency_key'];

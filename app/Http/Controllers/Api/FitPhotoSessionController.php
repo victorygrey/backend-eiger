@@ -20,7 +20,7 @@ class FitPhotoSessionController extends Controller
 {
     public function capabilities(): JsonResponse
     {
-        return response()->json(['status' => 'success', 'data' => ['preserve_capture_code' => true]]);
+        return response()->json(['status' => 'success', 'data' => ['preserve_capture_code' => true, 'utc_photo_timestamps' => true]]);
     }
 
     public function store(Request $request, FitPhotoStorage $storage): JsonResponse
@@ -80,12 +80,20 @@ class FitPhotoSessionController extends Controller
                 FitAndGoDevice::whereKey($device->id)->update(['updated_at' => now()]);
                 $existing = PhotoCapture::where('fit_and_go_device_id', $device->id)->where('idempotency_key', $data['idempotency_key'])->first();
                 if ($existing) {
-                    abort_if(! $existing->expires_at->isFuture() || $existing->purged_at, 410, 'Session expired; start a new fitting.');
-                    abort_unless(hash_equals($existing->request_hash, $digest), 409, 'Idempotency key belongs to a different result.');
+                    abort_if(! $existing->expires_at->isFuture(), 410, 'Session expired; start a new fitting.');
+                    if (! $existing->purged_at) {
+                        abort_unless(hash_equals($existing->request_hash, $digest), 409, 'Idempotency key belongs to a different result.');
 
-                    return $existing;
+                        return $existing;
+                    }
+                    // Repair an early purge only through an explicit import
+                    // bound to the original kiosk, UUID and emailed code. Never
+                    // extend the original expiry or revive an expired session.
+                    abort_unless(($data['capture_code'] ?? null) === $existing->capture_code, 410, 'Session photo unavailable.');
                 }
-                if (! empty($data['capture_code'])) {
+                if ($existing) {
+                    $code = $existing->capture_code;
+                } elseif (! empty($data['capture_code'])) {
                     $code = $data['capture_code'];
                     abort_if(PhotoCapture::where('capture_code', $code)->exists(), 409, 'Photo code already exists.');
                 } else {
@@ -99,9 +107,9 @@ class FitPhotoSessionController extends Controller
                 Storage::disk('fit-photos')->putFileAs($directory, $file, 'final.'.$extension);
                 $paths[] = $thumbnailPath = $directory.'/preview.jpg';
                 $thumbnailPath = $storage->thumbnail($file, $thumbnailPath);
-                $created = true;
+                $created = ! $existing;
 
-                return PhotoCapture::create([
+                $attributes = [
                     ...$metadata,
                     'capture_code' => $code,
                     'fit_and_go_device_id' => $device->id,
@@ -113,10 +121,18 @@ class FitPhotoSessionController extends Controller
                     'storage_disk' => 'fit-photos',
                     'image_mime' => $file->getMimeType(),
                     'image_size' => $file->getSize(),
-                    'captured_at' => now('UTC'),
-                    'consented_at' => now('UTC'),
-                    'expires_at' => now(config('fit_photos.timezone'))->endOfDay()->utc(),
-                ]);
+                    'captured_at' => $existing?->captured_at ?? now('UTC'),
+                    'consented_at' => $existing?->consented_at ?? now('UTC'),
+                    'expires_at' => $existing?->expires_at ?? now(config('fit_photos.timezone'))->endOfDay()->utc(),
+                    'purged_at' => null,
+                ];
+                if ($existing) {
+                    $existing->update($attributes);
+
+                    return $existing;
+                }
+
+                return PhotoCapture::create($attributes);
             });
         } catch (Throwable $error) {
             foreach ($paths as $path) {

@@ -48,6 +48,8 @@ The new opt-in JSON CMS interface is supported: history list/detail records incl
 
 `FIT_PHOTO_TIMEZONE` defaults to `Asia/Jakarta`. Expiry is 23:59:59 on the store day at upload time, returned in UTC. `php artisan fit-photos:purge` removes expired final images/thumbnails and clears fitting metadata. Minimal code/device/idempotency and print audit records remain so expired codes and replayed requests stay expired. Customer emails are never stored here. Backup retention is separate from live file retention and must be configured at the storage layer.
 
+Private fitting timestamps are stored/read as UTC even when `APP_TIMEZONE=Asia/Jakarta`; the purge query also compares UTC. An older deployment could interpret the UTC expiry as local time and purge photos seven hours early. Explicit code-preserving import can restore such a purged result only with its original kiosk, UUID and code and only while its original UTC expiry is still future. Recovery never extends the expiry or revives a genuinely expired photo. `/sessions/capabilities` advertises `utc_photo_timestamps: true` after this fix is deployed.
+
 Docker Supervisor runs a dedicated purge loop every 60 seconds, independent of `RUN_SCHEDULER`, which may be disabled for unrelated integrations. Laravel's scheduler also registers the idempotent purge command for installations outside Docker. For a non-container installation, keep `schedule:work` running or configure the normal Laravel scheduler cron. Monitor retention-worker errors and available disk space.
 
 ## Release and kiosk configuration

@@ -7,6 +7,7 @@ use App\Models\PhotoCapture;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\FitPhotoStorage;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -221,5 +222,47 @@ class FitPhotoSessionTest extends TestCase
         $this->save(['capture_code' => 'INVALID'])->assertUnprocessable();
         $this->assertDatabaseCount('photo_captures', 1);
         $this->assertCount(2, Storage::disk('fit-photos')->allFiles());
+    }
+
+    public function test_local_cms_timezone_does_not_expire_or_purge_utc_photos_early(): void
+    {
+        $originalTimezone = date_default_timezone_get();
+        config(['app.timezone' => 'Asia/Jakarta']);
+        date_default_timezone_set('Asia/Jakarta');
+        try {
+            $this->travelTo(Carbon::parse('2026-10-22 22:50:00', 'Asia/Jakarta'));
+            $receipt = $this->save()->assertCreated()->json('data');
+            $this->assertSame('2026-10-22T16:59:59.000000Z', $receipt['expires_at']);
+            $capture = PhotoCapture::firstOrFail();
+            $this->assertSame('2026-10-22 16:59:59', $capture->getRawOriginal('expires_at'));
+            $this->assertSame('2026-10-22T15:50:00.000000Z', $capture->captured_at->toISOString());
+            $this->getJson($this->endpoint.'/'.$receipt['code'])->assertOk();
+            $this->artisan('fit-photos:purge')->assertSuccessful();
+            $this->assertNull($capture->fresh()->purged_at);
+            Storage::disk('fit-photos')->assertExists($capture->photo_path);
+
+            $this->travelTo(Carbon::parse('2026-10-23 00:00:00', 'Asia/Jakarta'));
+            $this->getJson($this->endpoint.'/'.$receipt['code'])->assertGone();
+            $this->artisan('fit-photos:purge')->assertSuccessful();
+            Storage::disk('fit-photos')->assertMissing($capture->photo_path);
+        } finally {
+            date_default_timezone_set($originalTimezone);
+        }
+    }
+
+    public function test_explicit_recovery_repairs_an_early_purge_without_changing_the_code_or_extending_retention(): void
+    {
+        $code = '12345ABCDE';
+        $this->save(['capture_code' => $code])->assertCreated();
+        $capture = PhotoCapture::firstOrFail();
+        $expires = $capture->expires_at->toISOString();
+        Storage::disk('fit-photos')->delete([$capture->photo_path, $capture->thumbnail_path]);
+        $capture->update(['photo_path' => null, 'thumbnail_path' => null, 'products' => null, 'request_hash' => null, 'purged_at' => now('UTC')]);
+        $this->save()->assertGone();
+        $this->save(['capture_code' => $code])->assertOk()
+            ->assertJsonPath('data.code', $code)->assertJsonPath('data.expires_at', $expires);
+        $this->assertNull($capture->fresh()->purged_at);
+        Storage::disk('fit-photos')->assertExists($capture->fresh()->photo_path);
+        $this->assertDatabaseCount('photo_captures', 1);
     }
 }

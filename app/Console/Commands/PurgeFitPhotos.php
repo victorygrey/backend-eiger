@@ -16,7 +16,7 @@ class PurgeFitPhotos extends Command
     public function handle(): int
     {
         $count = 0;
-        PhotoCapture::where('storage_disk', 'fit-photos')->whereNull('purged_at')->where('expires_at', '<=', now())
+        PhotoCapture::where('storage_disk', 'fit-photos')->whereNull('purged_at')->where('expires_at', '<=', now('UTC'))
             ->chunkById(100, function ($captures) use (&$count) {
                 foreach ($captures as $capture) {
                     DB::transaction(function () use ($capture, &$count) {
@@ -34,7 +34,7 @@ class PurgeFitPhotos extends Command
                         $capture->update([
                             'photo_path' => null, 'thumbnail_path' => null, 'request_hash' => null,
                             'gender' => null, 'activity' => null, 'background_id' => null, 'products' => null,
-                            'image_mime' => null, 'image_size' => null, 'purged_at' => now(),
+                            'image_mime' => null, 'image_size' => null, 'purged_at' => now('UTC'),
                         ]);
                         $count++;
                     });
