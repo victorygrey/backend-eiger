@@ -27,11 +27,13 @@ class CmsJsonResponse
         }
 
         if ($response instanceof RedirectResponse) {
-            $errors = $request->session()->get('errors')?->getBag('default')->getMessages() ?? [];
-            $error = $request->session()->get('error');
+            $newFlash = $request->session()->get('_flash.new', []);
+            $flash = fn (string $key) => in_array($key, $newFlash, true) ? $request->session()->get($key) : null;
+            $errors = $flash('errors')?->getBag('default')->getMessages() ?? [];
+            $error = $flash('error') ?? $flash('warning');
             return response()->json([
                 'success' => ! $errors && ! $error,
-                'message' => $error ?? ($errors ? 'Periksa kembali isian formulir.' : ($request->session()->get('success') ?? $request->session()->get('status') ?? 'Perubahan berhasil disimpan.')),
+                'message' => $error ?? ($errors ? 'Periksa kembali isian formulir.' : ($flash('success') ?? $flash('status') ?? 'Perubahan berhasil disimpan.')),
                 'errors' => $errors,
                 'redirect' => parse_url($response->getTargetUrl(), PHP_URL_PATH),
             ], $errors || $error ? 422 : 200)->header('Cache-Control', 'private, no-store');
@@ -67,7 +69,8 @@ class CmsJsonResponse
             if ($value instanceof Model) {
                 $row = $value->attributesToArray();
                 foreach ($value->getRelations() as $key => $relation) {
-                    $row[\Illuminate\Support\Str::snake($key)] = $relation;
+                    $jsonKey = \Illuminate\Support\Str::snake($key);
+                    $row[array_key_exists($jsonKey, $row) ? $key : $jsonKey] = $relation;
                 }
                 if (($value instanceof FitAndGoDevice || $value instanceof Tablet) && $request->routeIs('admin.fit-and-go.devices.edit', 'admin.tablets.edit')) {
                     $row['activation_code'] = $value->activation_code_encrypted;

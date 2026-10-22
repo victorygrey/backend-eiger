@@ -6,6 +6,8 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\FitAndGoDevice;
 use App\Models\Tablet;
+use App\Models\RfidTag;
+use App\Models\TableExpeditionItem;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,6 +72,16 @@ class CmsJsonResponseTest extends TestCase
         $this->getJson('/admin/products')->assertOk()->assertJsonPath('data.channelSettingsUnlocked', true);
     }
 
+    public function test_login_reports_invalid_credentials_and_then_allows_a_valid_login(): void
+    {
+        $user = User::factory()->superadmin()->create();
+        $this->postJson('/login', ['email' => $user->email, 'password' => 'invalid-password'])
+            ->assertUnprocessable()->assertJsonValidationErrors('email');
+        $this->postJson('/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertOk()->assertJsonPath('success', true);
+        $this->getJson('/cms-api/session')->assertJsonPath('user.id', $user->id);
+    }
+
     public function test_inactive_account_cannot_read_the_session_api(): void
     {
         $this->actingAs(User::factory()->create(['is_active' => false]))
@@ -93,5 +105,16 @@ class CmsJsonResponseTest extends TestCase
         if ($tablet) {
             $this->getJson('/admin/tablets/'.$tablet->id.'/edit')->assertOk()->assertJsonStructure(['data' => ['tablet' => ['activation_code']]]);
         }
+    }
+
+    public function test_table_rfid_uid_is_not_replaced_by_the_loaded_rfid_relation(): void
+    {
+        $product = Product::factory()->create();
+        $tag = RfidTag::create(['uid' => 'E28000123456', 'product_id' => $product->id]);
+        TableExpeditionItem::create(['rfid_tag' => $tag->uid, 'product_id' => $product->id, 'is_active' => true]);
+        $this->actingAs(User::factory()->superadmin()->create())->getJson('/admin/table-expedition')
+            ->assertOk()->assertJsonPath('data.items.0.rfid_tag', $tag->uid)
+            ->assertJsonPath('data.items.0.rfidTag.uid', $tag->uid)
+            ->assertJsonPath('data.items.0.product.id', $product->id);
     }
 }
