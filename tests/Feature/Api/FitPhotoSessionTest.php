@@ -206,4 +206,20 @@ class FitPhotoSessionTest extends TestCase
         $role->update(['permissions' => ['print-history.view']]);
         $this->getJson(route('admin.print-history.image', $capture))->assertOk()->assertHeader('Content-Type', 'image/png');
     }
+
+    public function test_legacy_import_preserves_the_emailed_code_and_retries_without_overwriting_an_existing_photo(): void
+    {
+        $this->getJson($this->endpoint.'/capabilities')->assertUnauthorized();
+        $this->withToken('test-device-token')->getJson($this->endpoint.'/capabilities')
+            ->assertOk()->assertJsonPath('data.preserve_capture_code', true);
+        $code = 'ABCDEF1234';
+        $this->save(['capture_code' => $code])->assertCreated()->assertJsonPath('data.code', $code);
+        $this->save(['capture_code' => $code])->assertOk()->assertJsonPath('data.code', $code);
+        $this->save(['capture_code' => 'ABCDEF1235'])->assertConflict();
+        $this->key = (string) Str::uuid();
+        $this->save(['capture_code' => $code])->assertConflict();
+        $this->save(['capture_code' => 'INVALID'])->assertUnprocessable();
+        $this->assertDatabaseCount('photo_captures', 1);
+        $this->assertCount(2, Storage::disk('fit-photos')->allFiles());
+    }
 }

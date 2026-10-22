@@ -11,6 +11,7 @@ Use the existing paired device bearer token, over HTTPS. An active kiosk without
 | POST | `/kiosks/{deviceCode}/sessions` | Store a completed fitting |
 | GET | `/kiosks/{deviceCode}/sessions/{code}` | Authenticated receipt lookup |
 | GET | `/kiosks/{deviceCode}/sessions/{code}/image` | Authenticated original final image |
+| GET | `/kiosks/{deviceCode}/sessions/capabilities` | Authenticated upload capabilities |
 
 All requests require `Authorization: Bearer <device token>` and `Accept: application/json`. POST also requires `Idempotency-Key: <UUID>` and multipart fields:
 
@@ -26,6 +27,8 @@ All requests require `Authorization: Bearer <device token>` and `Accept: applica
 ```
 
 The curated kiosk's `catalog_item_id` identifies a color reference, not a CMS database product. Product/SKU references are snapshots; they do not require the current catalog to retain that product or color. IDs and categories are checked against the catalog by the kiosk server before upload.
+
+Recovery of a previously completed local fitting may additionally send `capture_code` (exactly ten uppercase hexadecimal characters) to preserve its already-emailed code. Normal new fittings omit this field and receive a CMS-generated code. A different session cannot overwrite an existing code: collisions return 409, and retries must keep the same image, metadata and code. Check authenticated `/sessions/capabilities` for `data.preserve_capture_code: true` before importing; older deployments may ignore the extra field. Recovery must not resend email or upload expired local photos.
 
 After both file storage and the database transaction succeed, POST returns HTTP 201:
 

@@ -75,6 +75,7 @@ Route::prefix('sync')->group(function () {
 // AI Fit & Go Kiosk & GPU Workstation APIs (v1)
 Route::prefix('v1/fit-and-go')->group(function () {
     Route::prefix('kiosks/{deviceCode}/sessions')->middleware(AuthenticateFitPhotoDevice::class)->group(function () {
+        Route::get('/capabilities', [FitPhotoSessionController::class, 'capabilities']);
         Route::post('/', [FitPhotoSessionController::class, 'store'])->middleware('throttle:30,1');
         Route::get('/{code}', [FitPhotoSessionController::class, 'show'])->where('code', '[A-F0-9]{10}');
         Route::get('/{code}/image', [FitPhotoSessionController::class, 'image'])->where('code', '[A-F0-9]{10}');

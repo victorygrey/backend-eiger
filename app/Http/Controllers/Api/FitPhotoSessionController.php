@@ -18,11 +18,17 @@ use Throwable;
 
 class FitPhotoSessionController extends Controller
 {
+    public function capabilities(): JsonResponse
+    {
+        return response()->json(['status' => 'success', 'data' => ['preserve_capture_code' => true]]);
+    }
+
     public function store(Request $request, FitPhotoStorage $storage): JsonResponse
     {
         $request->merge(['idempotency_key' => $request->header('Idempotency-Key')]);
         $data = $request->validate([
             'idempotency_key' => ['required', 'uuid'],
+            'capture_code' => ['nullable', 'string', 'regex:/^[A-F0-9]{10}$/'],
             'consent' => ['required', Rule::in(['accepted'])],
             'image' => ['required', 'file', 'mimetypes:image/png,image/jpeg,image/webp', 'max:62500', 'dimensions:max_width=16000,max_height=16000'],
             'gender' => ['required', Rule::in(['men', 'women'])],
@@ -58,7 +64,13 @@ class FitPhotoSessionController extends Controller
             'background_id' => $data['background_id'] ?? null,
             'products' => $products,
         ];
-        $digest = hash('sha256', json_encode($metadata, JSON_THROW_ON_ERROR).hash_file('sha256', $file->getRealPath()));
+        // Legacy kiosk results may already have an emailed photo code. Preserve
+        // it on import, without allowing an existing CMS code to be overwritten.
+        $identity = $metadata;
+        if (! empty($data['capture_code'])) {
+            $identity['capture_code'] = $data['capture_code'];
+        }
+        $digest = hash('sha256', json_encode($identity, JSON_THROW_ON_ERROR).hash_file('sha256', $file->getRealPath()));
         $device = $request->attributes->get('photo_device');
         $paths = [];
         $created = false;
@@ -73,9 +85,14 @@ class FitPhotoSessionController extends Controller
 
                     return $existing;
                 }
-                do {
-                    $code = strtoupper(bin2hex(random_bytes(5)));
-                } while (PhotoCapture::where('capture_code', $code)->exists());
+                if (! empty($data['capture_code'])) {
+                    $code = $data['capture_code'];
+                    abort_if(PhotoCapture::where('capture_code', $code)->exists(), 409, 'Photo code already exists.');
+                } else {
+                    do {
+                        $code = strtoupper(bin2hex(random_bytes(5)));
+                    } while (PhotoCapture::where('capture_code', $code)->exists());
+                }
                 $directory = now('UTC')->format('Y/m/d').'/'.Str::uuid();
                 $extension = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'][$file->getMimeType()];
                 $paths[] = $path = $directory.'/final.'.$extension;
