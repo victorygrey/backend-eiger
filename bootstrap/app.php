@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->web(append: [\App\Http\Middleware\CmsJsonResponse::class]);
         $middleware->trustProxies(at: '*');
         $middleware->trimStrings(except: ['new_password', 'new_password_confirmation']);
         $middleware->alias([

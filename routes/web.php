@@ -26,6 +26,22 @@ Route::get('/', function () {
 });
 
 // Authentication Routes
+Route::get('/cms-api/session', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+    if ($user && (! $user->isActive() || $user->awaitingSetup())) {
+        abort(403, 'Akun atau role tidak aktif.');
+    }
+    return response()->json([
+        'api_version' => 1,
+        'csrf_token' => csrf_token(),
+        'user' => $user ? [
+            'id' => $user->id, 'name' => $user->name, 'email' => $user->email,
+            'role' => $user->role, 'role_name' => $user->roleName(),
+            'superadmin' => $user->isSuperAdmin(),
+            'permissions' => array_values(array_filter(\App\Support\CmsPermissions::keys(), fn ($key) => $user->hasPermission($key))),
+        ] : null,
+    ])->header('Cache-Control', 'private, no-store');
+})->middleware('auth.session');
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
