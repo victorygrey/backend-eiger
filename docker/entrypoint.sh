@@ -7,7 +7,7 @@ export DB_DATABASE
 export RUN_QUEUE="${RUN_QUEUE:-true}"
 export RUN_SCHEDULER="${RUN_SCHEDULER:-true}"
 umask 027
-mkdir -p /data/backups storage/app/public storage/app/pim-media storage/app/pim-drop storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+mkdir -p /data/backups storage/app/public storage/app/private/fit-photos storage/app/pim-media storage/app/pim-drop storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 if [ "${DB_CONNECTION:-sqlite}" = sqlite ]; then
     case "$DB_DATABASE" in /data/*) ;; *) echo 'SQLite DB_DATABASE must be under /data' >&2; exit 1 ;; esac
     if [ -s "$DB_DATABASE" ]; then
@@ -23,6 +23,12 @@ fi
 # already has access through the www-data group.
 chown -R www-data:www-data /data bootstrap/cache storage/framework storage/logs storage/app/public storage/app/pim-media storage/app/pim-drop
 chmod -R 775 /data bootstrap/cache storage/framework storage/logs storage/app/public storage/app/pim-media storage/app/pim-drop
+# Private photo files must not inherit the public media permissions.
+chown www-data:www-data storage/app/private
+chmod 750 storage/app/private
+chown -R www-data:www-data storage/app/private/fit-photos
+find storage/app/private/fit-photos -type d -exec chmod 700 {} +
+find storage/app/private/fit-photos -type f -exec chmod 600 {} +
 php artisan config:clear
 runuser -u www-data -- php artisan migrate --force
 runuser -u www-data -- php artisan db:seed --class=UserSeeder --force

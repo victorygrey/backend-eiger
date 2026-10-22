@@ -9,6 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote')->hourly();
 
 Schedule::command('integrations:sync --source=scheduler')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('fit-photos:purge')->everyMinute()->withoutOverlapping();
 Schedule::command('pim:scan')->everyMinute()->withoutOverlapping()->when(fn () => config('pim.scan_enabled'));
 Schedule::command(sprintf(
     'atom:import-products --per-type=50 --completion-marker=%s',

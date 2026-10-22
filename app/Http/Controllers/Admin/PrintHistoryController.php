@@ -6,11 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\FitAndGoDevice;
 use App\Models\PhotoCapture;
 use App\Models\PrintJob;
+use App\Services\FitPhotoStorage;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PrintHistoryController extends Controller
 {
+    public function image(Request $request, PhotoCapture $photoCapture, FitPhotoStorage $storage): StreamedResponse
+    {
+        return $storage->response($photoCapture, $request->boolean('thumbnail'));
+    }
+
     public function index(Request $request): View
     {
         $captures = PhotoCapture::query()

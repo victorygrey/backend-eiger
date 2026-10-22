@@ -21,12 +21,51 @@ class PhotoCapture extends Model
         'storage_disk',
         'captured_at',
         'expires_at',
+        'idempotency_key',
+        'request_hash',
+        'gender',
+        'activity',
+        'background_id',
+        'products',
+        'image_mime',
+        'image_size',
+        'consented_at',
+        'purged_at',
     ];
 
     protected $casts = [
         'captured_at' => 'datetime',
         'expires_at' => 'datetime',
+        'products' => 'array',
+        'consented_at' => 'datetime',
+        'purged_at' => 'datetime',
     ];
+
+    protected $hidden = ['photo_path', 'thumbnail_path', 'request_hash', 'idempotency_key'];
+
+    protected $appends = ['photo_url', 'thumbnail_url', 'photo_available'];
+
+    public function getPhotoAvailableAttribute(): bool
+    {
+        return $this->exists && $this->storage_disk === 'fit-photos' && $this->hasAvailablePhoto();
+    }
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo_available ? route('admin.print-history.image', $this) : null;
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return $this->photo_available && $this->thumbnail_path
+            ? route('admin.print-history.image', ['photoCapture' => $this, 'thumbnail' => 1])
+            : null;
+    }
+
+    public function hasAvailablePhoto(): bool
+    {
+        return $this->photo_path && ! $this->purged_at && (! $this->expires_at || $this->expires_at->isFuture());
+    }
 
     public function device(): BelongsTo
     {

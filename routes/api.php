@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AtomMasterDataController;
 use App\Http\Controllers\Api\FitAndGoApiController;
+use App\Http\Controllers\Api\FitPhotoSessionController;
 use App\Http\Controllers\Api\LedAmbienceApiController;
 use App\Http\Controllers\Api\PimMediaController;
 use App\Http\Controllers\Api\PimProductController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\Api\TableExpeditionApiController;
 use App\Http\Controllers\Api\TabletDisplayController;
 use App\Http\Controllers\Api\ZoneController;
+use App\Http\Middleware\AuthenticateFitPhotoDevice;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -72,6 +74,11 @@ Route::prefix('sync')->group(function () {
 
 // AI Fit & Go Kiosk & GPU Workstation APIs (v1)
 Route::prefix('v1/fit-and-go')->group(function () {
+    Route::prefix('kiosks/{deviceCode}/sessions')->middleware(AuthenticateFitPhotoDevice::class)->group(function () {
+        Route::post('/', [FitPhotoSessionController::class, 'store'])->middleware('throttle:30,1');
+        Route::get('/{code}', [FitPhotoSessionController::class, 'show'])->where('code', '[A-F0-9]{10}');
+        Route::get('/{code}/image', [FitPhotoSessionController::class, 'image'])->where('code', '[A-F0-9]{10}');
+    });
     Route::post('activate', [FitAndGoApiController::class, 'activate']);
     Route::get('kiosks/{deviceCode}', [FitAndGoApiController::class, 'kiosk']);
     Route::get('config', [FitAndGoApiController::class, 'config']);

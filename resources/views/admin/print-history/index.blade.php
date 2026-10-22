@@ -49,7 +49,7 @@
     <div class="position-relative" style="z-index:1; max-width: 760px;">
         <div class="text-uppercase fw-bold small opacity-75 mb-2" style="letter-spacing:.08em">Data operasional terpisah</div>
         <h5 class="fw-bold mb-2">Foto satu kali, riwayat cetak bisa berkali-kali.</h5>
-        <p class="mb-0 text-white-50">Setiap foto tersambung ke perangkat AI Fit &amp; Go dan session. File nantinya disimpan di NAS, sementara status setiap antrian printer dicatat terpisah untuk audit dan penanganan gagal cetak.</p>
+        <p class="mb-0 text-white-50">Setiap foto tersambung ke perangkat AI Fit &amp; Go dan session. Hasil akhir disimpan secara privat hingga batas retensi, sementara status setiap antrian printer dicatat terpisah untuk audit dan penanganan gagal cetak.</p>
     </div>
 </div>
 
@@ -79,9 +79,9 @@
         @forelse($captures as $capture)
             @php($job = $capture->latestPrintJob)
             <tr>
-                <td><div class="d-flex align-items-center gap-2"><div class="capture-thumb">@if($capture->thumbnail_path)<img src="{{ $capture->thumbnail_path }}" alt="{{ $capture->capture_code }}">@else<i class="bi bi-image fs-5"></i>@endif</div><div><code class="fw-bold text-dark">{{ $capture->capture_code }}</code><div class="small text-muted">{{ $capture->photo_path ? 'Foto tersimpan di NAS' : 'Menunggu file dari perangkat' }}</div></div></div></td>
+                <td><div class="d-flex align-items-center gap-2"><div class="capture-thumb">@if($capture->hasAvailablePhoto() && $capture->storage_disk === 'fit-photos' && $capture->thumbnail_path)<img loading="lazy" src="{{ route('admin.print-history.image', ['photoCapture' => $capture, 'thumbnail' => 1]) }}" alt="{{ $capture->capture_code }}">@else<i class="bi bi-image fs-5"></i>@endif</div><div><code class="fw-bold text-dark">{{ $capture->capture_code }}</code><div class="small text-muted">{{ $capture->hasAvailablePhoto() ? 'Foto tersimpan' : 'Foto tidak tersedia / kedaluwarsa' }}</div></div></div></td>
                 <td><div class="fw-semibold">{{ $capture->device?->name ?? 'Perangkat sudah dihapus' }}</div><div class="small text-muted font-monospace">{{ $capture->session_reference ?: 'Session tidak tersedia' }}</div></td>
-                <td><div>{{ $capture->captured_at->format('d M Y') }}</div><div class="small text-muted">{{ $capture->captured_at->format('H:i:s') }} WIB</div></td>
+                <td><div>{{ $capture->captured_at->timezone(config('fit_photos.timezone'))->format('d M Y') }}</div><div class="small text-muted">{{ $capture->captured_at->timezone(config('fit_photos.timezone'))->format('H:i:s') }} WIB</div></td>
                 <td>@if($job)<code>{{ $job->print_code }}</code><div class="small text-muted">{{ $job->printer_name ?: 'Printer belum dipilih' }} · {{ $job->copies }} salinan</div>@else<span class="text-muted">Belum ada permintaan cetak</span>@endif</td>
                 <td>@if($job)<span class="badge {{ $badgeClass[$job->status] ?? 'bg-secondary' }}">{{ $statusLabel[$job->status] ?? ucfirst($job->status) }}</span>@else<span class="badge bg-light text-dark border">Belum dicetak</span>@endif</td>
                 <td class="text-end"><a href="{{ route('admin.print-history.show', $capture) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>Detail</a></td>

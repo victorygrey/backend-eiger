@@ -30,6 +30,13 @@ return [
 
     'disks' => [
 
+        'fit-photos' => [
+            'driver' => 'local',
+            'root' => env('FIT_PHOTO_PATH', storage_path('app/private/fit-photos')),
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app'),

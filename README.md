@@ -7,6 +7,10 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## AI Fit & Go photo sessions
+
+Completed kiosk photos and their CMS-issued codes appear in **Histori Foto & Print**. The API uses paired kiosk credentials, private image storage, retry-safe saves, and end-of-day retention. See [the photo-session API and deployment guide](docs/fit-photo-sessions.md).
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

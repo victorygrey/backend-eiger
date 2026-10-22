@@ -19,6 +19,8 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ZoneController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Middleware\EnsureCmsPermission;
+use App\Support\CmsPermissions;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -26,11 +28,12 @@ Route::get('/', function () {
 });
 
 // Authentication Routes
-Route::get('/cms-api/session', function (\Illuminate\Http\Request $request) {
+Route::get('/cms-api/session', function (Request $request) {
     $user = $request->user();
     if ($user && (! $user->isActive() || $user->awaitingSetup())) {
         abort(403, 'Akun atau role tidak aktif.');
     }
+
     return response()->json([
         'api_version' => 1,
         'csrf_token' => csrf_token(),
@@ -38,7 +41,7 @@ Route::get('/cms-api/session', function (\Illuminate\Http\Request $request) {
             'id' => $user->id, 'name' => $user->name, 'email' => $user->email,
             'role' => $user->role, 'role_name' => $user->roleName(),
             'superadmin' => $user->isSuperAdmin(),
-            'permissions' => array_values(array_filter(\App\Support\CmsPermissions::keys(), fn ($key) => $user->hasPermission($key))),
+            'permissions' => array_values(array_filter(CmsPermissions::keys(), fn ($key) => $user->hasPermission($key))),
         ] : null,
     ])->header('Cache-Control', 'private, no-store');
 })->middleware('auth.session');
@@ -122,6 +125,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'auth.session', Ensu
 
     // Photo Capture & Print History (operational log, separate from Fit & Go configuration)
     Route::get('/print-history', [PrintHistoryController::class, 'index'])->name('print-history.index');
+    Route::get('/print-history/{photoCapture}/image', [PrintHistoryController::class, 'image'])->name('print-history.image');
     Route::get('/print-history/{photoCapture}', [PrintHistoryController::class, 'show'])->name('print-history.show');
 
     // LED Ambience (Immersive Ambience Digital)
