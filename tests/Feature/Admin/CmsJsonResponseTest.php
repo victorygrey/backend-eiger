@@ -16,6 +16,7 @@ use Tests\TestCase;
 class CmsJsonResponseTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ConfiguresFitAndGoProducts;
 
     protected bool $autoAuthenticate = false;
 
@@ -62,6 +63,47 @@ class CmsJsonResponseTest extends TestCase
         $this->actingAs(User::factory()->superadmin()->create())
             ->patchJson('/admin/products/'.$product->id.'/channel', ['channel' => 'ai_fit_and_go_active', 'active' => true])->assertStatus(423);
         $this->assertDatabaseHas('products', ['id' => $product->id]);
+    }
+
+    public function test_fit_product_summary_preserves_catalog_order_floor_selection_and_configuration(): void
+    {
+        $older = Product::factory()->create([
+            'sku' => '910999910', 'category' => 'Jacket', 'ai_fit_and_go_active' => true,
+            'pim_catalog_active' => true, 'is_discontinued' => false, 'created_at' => now()->subDay(),
+        ]);
+        $newer = Product::factory()->create([
+            'sku' => '910999911', 'category' => 'Jacket', 'ai_fit_and_go_active' => true,
+            'pim_catalog_active' => true, 'is_discontinued' => false, 'created_at' => now(),
+        ]);
+        $this->configureFitProduct($older);
+        $floorOne = FitAndGoDevice::where('device_code', FitAndGoDevice::STATIC_SLOTS[1]['device_code'])->firstOrFail();
+        $floorTwo = FitAndGoDevice::where('device_code', FitAndGoDevice::STATIC_SLOTS[2]['device_code'])->firstOrFail();
+        \App\Models\FitAndGoItemVisibility::create([
+            'device_id' => $floorOne->id, 'product_id' => $older->id,
+            'category_code' => 'apparel', 'is_visible' => true,
+        ]);
+        $this->actingAs(User::factory()->superadmin()->create());
+        $response = $this->getJson('/admin/fit-and-go?product_summary=1&device_id='.$floorOne->id)
+            ->assertOk()
+            ->assertJsonPath('data.aiProducts.0.id', $newer->id)
+            ->assertJsonPath('data.aiProducts.1.id', $older->id)
+            ->assertJsonPath('data.aiProducts.1.presentation_configured', true)
+            ->assertJsonPath('data.productGroups.apparel.products.0.id', $newer->id)
+            ->assertJsonPath('data.selectedProductIds', [$older->id])
+            ->assertJsonPath('data.selectedDevice.id', $floorOne->id)
+            ->assertJsonMissingPath('data.aiProducts.0.variants')
+            ->assertJsonMissingPath('data.productGroups.apparel.products.0.pim_media');
+        $this->assertEqualsCanonicalizing(
+            ['id', 'sku', 'name', 'image', 'stock', 'variants_count', 'presentation_configured'],
+            array_keys($response->json('data.aiProducts.0'))
+        );
+        $this->getJson('/admin/fit-and-go?product_summary=1&device_id='.$floorTwo->id)
+            ->assertOk()->assertJsonPath('data.selectedProductIds', []);
+        $this->getJson('/admin/fit-and-go')->assertOk()->assertJsonStructure([
+            'data' => ['aiProducts' => [['variants', 'custom_attributes', 'pim_media']]],
+        ]);
+        $this->getJson('/admin/fit-and-go/products/'.$older->id.'/presentation')
+            ->assertOk()->assertJsonStructure(['colors', 'photos']);
     }
 
     public function test_success_redirects_and_validation_failures_have_json_responses(): void

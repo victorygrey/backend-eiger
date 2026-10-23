@@ -7,6 +7,7 @@ use App\Models\FitAndGoDevice;
 use App\Models\Product;
 use App\Models\Tablet;
 use App\Services\FitAndGoProductClassifier;
+use App\Support\PimMediaUrl;
 use Closure;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
@@ -45,7 +46,8 @@ class CmsJsonResponse
         }
         $data = $view->getData();
         $ready = $data['configuredProductIds'] ?? [];
-        $normalize = function (mixed $value, int $depth = 0) use (&$normalize, $request, $ready): mixed {
+        $productSummary = $view->name() === 'admin.fit-and-go.index' && $request->boolean('product_summary');
+        $normalize = function (mixed $value, int $depth = 0) use (&$normalize, $request, $ready, $productSummary): mixed {
             if ($depth > 12) {
                 return null;
             }
@@ -57,6 +59,17 @@ class CmsJsonResponse
                 ];
             }
             if ($value instanceof Product) {
+                if ($productSummary) {
+                    return [
+                        'id' => $value->id,
+                        'sku' => $value->sku,
+                        'name' => $value->name,
+                        'image' => PimMediaUrl::toPublicUrl($value->image),
+                        'stock' => $value->stock,
+                        'variants_count' => (int) $value->variants_count,
+                        'presentation_configured' => in_array($value->id, $ready),
+                    ];
+                }
                 $row = (new ProductResource($value))->resolve($request);
                 unset($row['pim_payload'], $row['pim_image_payload']);
                 return $normalize($row + [

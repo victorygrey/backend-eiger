@@ -25,6 +25,14 @@ ProductResource, translated master attributes and independent AI/tablet flags.
 Raw PIM payloads and credential fields are omitted. Device activation codes are
 only included on the existing, edit-permission-protected device edit endpoints.
 
+`GET /admin/fit-and-go?product_summary=1` returns compact product cards in both
+`aiProducts` and `productGroups.*.products`: id, sku, name, image, stock,
+variants_count and presentation_configured. Grouping, newest-first order, floor
+selection and configuration status are unchanged. The presentation endpoint
+still returns the complete color/photo/description configuration on demand.
+Without this query parameter, existing JSON product fields remain available.
+The parameter has no effect on other modules or public device APIs.
+
 Successful form redirects become `{success: true, message, errors: [], redirect}`
 with status 200. Form validation remains 422 with `errors`. Authentication,
 permission and lock failures retain their HTTP status. CSV exports retain their
